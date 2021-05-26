@@ -1,21 +1,27 @@
 # Sourceror
 
-**TODO: Add description**
+Utilities to work with Elixir source code.
 
-## Installation
+**IMPORTANT**
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `sourceror` to your list of dependencies in `mix.exs`:
+Sourceror depends on functionality that is only available in the `master` branch
+of Elixir. A hex release will be published once Elixir 1.13 is released, in the
+meantime you can add Sourceror via a git dependency:
 
 ```elixir
-def deps do
-  [
-    {:sourceror, "~> 0.1.0"}
-  ]
-end
+{:sourceror, git: "https://github.com/doorgan/sourceror.git"}
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/sourceror](https://hexdocs.pm/sourceror).
+<!-- MDOC !-->
 
+Sourceror provides various utilities to work with Elixir source code. Elixir now
+lets us extract the comments from the source code and combine them with any
+quoted expression to produce formatted code. However, how the ast is manipulated
+and how changes in line numbers are reconciled between ast and comments is up
+to the user.
+
+The approach used by sourceror is to merge the comments into the ast metadata,
+and use a custom traversal function to correct line numbers when needed, and
+produce a formatted output that respects the placement of comments in the source
+code. You can check the `Sourceror.parse_string/1` and `Sourceror.postwalk/2`
+functions to learn more about this.

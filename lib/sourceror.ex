@@ -1,7 +1,12 @@
 defmodule Sourceror do
-  @moduledoc """
-  Utilities to work with Elixir source code
-  """
+  @moduledoc "README.md"
+    |> File.read!()
+    |> String.split("<!-- MDOC !-->")
+    |> Enum.fetch!(1)
+
+  @type traversal_state :: %{
+    line_correction: integer
+  }
 
   @doc """
   Parses the source code into an extended AST suitable for source manipulation
@@ -14,6 +19,7 @@ defmodule Sourceror do
 
   Comments are the same maps returned by `Code.string_to_quoted_with_comments/2`.
   """
+  @spec parse_string(String.t) :: Macro.t
   def parse_string(source) do
     {quoted, comments} =
       Code.string_to_quoted_with_comments!(source,
@@ -39,6 +45,7 @@ defmodule Sourceror do
     * `:indent_type` - the type of indentation to use. It can be one of `:spaces`,
       `:single_space` or `:tabs`. Defaults to `:spaces`;
   """
+  @spec to_string(Macro.t, keyword) :: String.t
   def to_string(quoted, opts \\ []) do
     indent = Keyword.get(opts, :indent, 0)
     indent_str = case Keyword.get(opts, :indent_type, :spaces) do
@@ -81,6 +88,7 @@ defmodule Sourceror do
       should be shifted. Note that this field is cumulative, setting it to 0 will
       reset it for the whole traversal. Starts at `0`.
   """
+  @spec postwalk(Macro.t, (Macro.t, traversal_state -> {Macro.t, traversal_state})) :: Macro.t
   def postwalk(quoted, fun) do
     {quoted, _} =
       Macro.postwalk(quoted, %{line_correction: 0}, fn
@@ -102,6 +110,7 @@ defmodule Sourceror do
   `:end_of_expression` line numbers of the node metadata if such fields are
   present.
   """
+  @spec correct_lines(keyword, integer) :: keyword
   def correct_lines(meta, line_correction) do
     meta =
       if line = meta[:line] do
@@ -126,4 +135,10 @@ defmodule Sourceror do
       _ -> meta
     end
   end
+
+  @doc delegate_to: {Sourceror.Comments, :merge_comments, 2}
+  defdelegate merge_comments(quoted, comments), to: Sourceror.Comments
+
+  @doc delegate_to: {Sourceror.Comments, :extract_comments, 1}
+  defdelegate extract_comments(quoted), to: Sourceror.Comments
 end
