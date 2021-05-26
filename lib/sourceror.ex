@@ -4,6 +4,13 @@ defmodule Sourceror do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
+  @line_fields [
+    :closing,
+    :do,
+    :end,
+    :end_of_expression
+  ]
+
   @type traversal_state :: %{
           line_correction: integer
         }
@@ -123,7 +130,7 @@ defmodule Sourceror do
       end
 
     corrections =
-      Enum.map(~w[closing do end end_of_expression]a, &correct_line(meta, &1, line_correction))
+      Enum.map(@line_fields, &correct_line(meta, &1, line_correction))
 
     Enum.reduce(corrections, meta, fn correction, meta ->
       Keyword.merge(meta, correction)
@@ -135,7 +142,7 @@ defmodule Sourceror do
       value = put_in(value, [:line], value[:line] + line_correction)
       [{key, value}]
     else
-      _ -> meta
+      _ -> []
     end
   end
 
