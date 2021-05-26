@@ -1,3 +1,5 @@
+Code.require_file("examples/bootstrap.exs")
+
 defmodule Demo do
   def expand_multi_alias(source) do
     source

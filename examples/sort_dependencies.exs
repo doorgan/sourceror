@@ -1,3 +1,5 @@
+Code.require_file("examples/bootstrap.exs")
+
 """
 defmodule MyApp.MixProject do
   use Mix.Project
