@@ -10,7 +10,7 @@ defmodule Sourceror.Comments do
   while comments that are right before an `end` keyword are inserted into the
   `:trailing_comments` field.
   """
-  @spec merge_comments(Macro.t, list(map)) :: Macro.t
+  @spec merge_comments(Macro.t(), list(map)) :: Macro.t()
   def merge_comments(quoted, comments) do
     {quoted, leftovers} = Macro.prewalk(quoted, comments, &do_merge_comments/2)
     {quoted, leftovers} = Macro.postwalk(quoted, leftovers, &merge_leftovers/2)
@@ -73,7 +73,7 @@ defmodule Sourceror.Comments do
   Does the opposite of `merge_comments`, it extracts the comments from the
   quoted expression and returns both as a `{quoted, comments}` tuple.
   """
-  @spec extract_comments(Macro.t) :: {Macro.t, list(map)}
+  @spec extract_comments(Macro.t()) :: {Macro.t(), list(map)}
   def extract_comments(quoted) do
     Macro.postwalk(quoted, [], fn
       {_, meta, _} = quoted, acc ->

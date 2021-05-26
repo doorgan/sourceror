@@ -1,12 +1,12 @@
 defmodule Sourceror do
   @moduledoc "README.md"
-    |> File.read!()
-    |> String.split("<!-- MDOC !-->")
-    |> Enum.fetch!(1)
+             |> File.read!()
+             |> String.split("<!-- MDOC !-->")
+             |> Enum.fetch!(1)
 
   @type traversal_state :: %{
-    line_correction: integer
-  }
+          line_correction: integer
+        }
 
   @doc """
   Parses the source code into an extended AST suitable for source manipulation
@@ -19,7 +19,7 @@ defmodule Sourceror do
 
   Comments are the same maps returned by `Code.string_to_quoted_with_comments/2`.
   """
-  @spec parse_string(String.t) :: Macro.t
+  @spec parse_string(String.t()) :: Macro.t()
   def parse_string(source) do
     {quoted, comments} =
       Code.string_to_quoted_with_comments!(source,
@@ -45,14 +45,16 @@ defmodule Sourceror do
     * `:indent_type` - the type of indentation to use. It can be one of `:spaces`,
       `:single_space` or `:tabs`. Defaults to `:spaces`;
   """
-  @spec to_string(Macro.t, keyword) :: String.t
+  @spec to_string(Macro.t(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
     indent = Keyword.get(opts, :indent, 0)
-    indent_str = case Keyword.get(opts, :indent_type, :spaces) do
-      :spaces -> "\s\s"
-      :single_space -> "\s"
-      :tabs -> "\t"
-    end
+
+    indent_str =
+      case Keyword.get(opts, :indent_type, :spaces) do
+        :spaces -> "\s\s"
+        :single_space -> "\s"
+        :tabs -> "\t"
+      end
 
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
@@ -88,7 +90,8 @@ defmodule Sourceror do
       should be shifted. Note that this field is cumulative, setting it to 0 will
       reset it for the whole traversal. Starts at `0`.
   """
-  @spec postwalk(Macro.t, (Macro.t, traversal_state -> {Macro.t, traversal_state})) :: Macro.t
+  @spec postwalk(Macro.t(), (Macro.t(), traversal_state -> {Macro.t(), traversal_state})) ::
+          Macro.t()
   def postwalk(quoted, fun) do
     {quoted, _} =
       Macro.postwalk(quoted, %{line_correction: 0}, fn
