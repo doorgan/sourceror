@@ -30,14 +30,33 @@ defmodule Sourceror do
 
   The comments line number will be ignored and the line number of the associated
   node will be used when formatting the code.
+
+  ## Options
+    * `:indent` - how many indentations to insert at the start of each line.
+      Note that this only prepends the indents without checking the indentation
+      of nested blocks. Defaults to `0`.
+
+    * `:indent_type` - the type of indentation to use. It can be one of `:spaces`,
+      `:single_space` or `:tabs`. Defaults to `:spaces`;
   """
-  def to_string(quoted) do
+  def to_string(quoted, opts \\ []) do
+    indent = Keyword.get(opts, :indent, 0)
+    indent_str = case Keyword.get(opts, :indent_type, :spaces) do
+      :spaces -> "\s\s"
+      :single_space -> "\s"
+      :tabs -> "\t"
+    end
+
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
     quoted
     |> Code.quoted_to_algebra(comments: comments)
     |> Inspect.Algebra.format(98)
     |> IO.iodata_to_binary()
+    |> String.split("\n")
+    |> Enum.map_join("\n", fn line ->
+      String.duplicate(indent_str, indent) <> line
+    end)
   end
 
   @doc """
