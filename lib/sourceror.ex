@@ -129,8 +129,7 @@ defmodule Sourceror do
         meta ++ [line: 1]
       end
 
-    corrections =
-      Enum.map(@line_fields, &correct_line(meta, &1, line_correction))
+    corrections = Enum.map(@line_fields, &correct_line(meta, &1, line_correction))
 
     Enum.reduce(corrections, meta, fn correction, meta ->
       Keyword.merge(meta, correction)
