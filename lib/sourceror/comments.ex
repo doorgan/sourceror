@@ -43,7 +43,6 @@ defmodule Sourceror.Comments do
   defp merge_leftovers(quoted, comments), do: {quoted, comments}
 
   defp line({_, meta, _}), do: meta[:line] || 0
-  defp line(_), do: 0
 
   defp gather_comments_for_line(comments, line) do
     {comments, rest} =

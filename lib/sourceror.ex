@@ -14,6 +14,7 @@ defmodule Sourceror do
   @type traversal_state :: %{
           line_correction: integer
         }
+  @type postwalk_function :: (Macro.t(), traversal_state -> {Macro.t(), traversal_state})
 
   @doc """
   Parses the source code into an extended AST suitable for source manipulation
@@ -79,6 +80,19 @@ defmodule Sourceror do
   Performs a depth-first post-order traversal of a quoted expression, correcting
   line numbers as it goes.
 
+  See `postwalk/3` for more information.
+  """
+  @spec postwalk(Macro.t(), postwalk_function) ::
+          Macro.t()
+  def postwalk(quoted, fun) do
+    {quoted, _} = postwalk(quoted, nil, fun)
+    quoted
+  end
+
+  @doc """
+  Performs a depth-first post-order traversal of a quoted expression with an accumulator, correcting
+  line numbers as it goes.
+
   `fun` is a function that will receive the current node as a first argument and
   the traversal state as the second one. It must return a `{quoted, state}`,
   in the same way it would return `{quoted, acc}` when using `Macro.postwalk/3`.
@@ -96,12 +110,14 @@ defmodule Sourceror do
       update the `:line_correction` field by adding the amount of lines that
       should be shifted. Note that this field is cumulative, setting it to 0 will
       reset it for the whole traversal. Starts at `0`.
+
+    * `:acc` - The accumulator. Defaults to `nil` if none is given.
   """
-  @spec postwalk(Macro.t(), (Macro.t(), traversal_state -> {Macro.t(), traversal_state})) ::
-          Macro.t()
-  def postwalk(quoted, fun) do
-    {quoted, _} =
-      Macro.postwalk(quoted, %{line_correction: 0}, fn
+  @spec postwalk(Macro.t(), term, postwalk_function) ::
+          {Macro.t(), term}
+  def postwalk(quoted, acc, fun) do
+    {quoted, %{acc: acc}} =
+      Macro.postwalk(quoted, %{acc: acc, line_correction: 0}, fn
         {_, _, _} = quoted, state ->
           quoted = Macro.update_meta(quoted, &correct_lines(&1, state.line_correction))
           fun.(quoted, state)
@@ -110,7 +126,7 @@ defmodule Sourceror do
           fun.(quoted, state)
       end)
 
-    quoted
+    {quoted, acc}
   end
 
   @doc """

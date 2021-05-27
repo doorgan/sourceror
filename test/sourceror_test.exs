@@ -53,11 +53,12 @@ defmodule SourcerorTest do
       end
       """
 
-      expected = String.trim_trailing("""
-        def foo do
-          :bar
-        end
-      """)
+      expected =
+        String.trim_trailing("""
+          def foo do
+            :bar
+          end
+        """)
 
       actual =
         source
@@ -66,11 +67,12 @@ defmodule SourcerorTest do
 
       assert expected == actual
 
-      expected = String.trim_trailing("""
-         def foo do
-           :bar
-         end
-      """)
+      expected =
+        String.trim_trailing("""
+           def foo do
+             :bar
+           end
+        """)
 
       actual =
         source
@@ -79,11 +81,12 @@ defmodule SourcerorTest do
 
       assert expected == actual
 
-      expected = String.trim_trailing("""
-      \tdef foo do
-      \t  :bar
-      \tend
-      """)
+      expected =
+        String.trim_trailing("""
+        \tdef foo do
+        \t  :bar
+        \tend
+        """)
 
       actual =
         source
