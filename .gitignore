@@ -22,6 +22,9 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 sourceror-*.tar
 
-
 # Temporary files for e.g. tests
 /tmp
+
+# Dialyzer plts
+/priv/plts/*
+!/priv/plts/.gitkeep

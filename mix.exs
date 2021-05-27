@@ -12,6 +12,7 @@ defmodule Sourceror.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: [docs: &build_docs/1],
+      dialyzer: dialyzer(),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
@@ -29,13 +30,22 @@ defmodule Sourceror.MixProject do
     ]
   end
 
+  defp dialyzer do
+    [
+      plt_add_apps: [:mix, :erts, :kernel, :stdlib],
+      flags: ["-Wunmatched_returns", "-Werror_handling", "-Wrace_conditions", "-Wno_opaque"],
+      plt_core_path: "priv/plts",
+      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+    ]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:ex_check, "~> 0.14.0", only: [:dev], runtime: false},
-      {:excoveralls, "~> 0.10", only: :test},
+      {:excoveralls, "~> 0.10", only: [:test]},
       {:sobelow, "~> 0.8", only: :dev}
     ]
   end
