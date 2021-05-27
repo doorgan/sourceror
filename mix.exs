@@ -25,7 +25,10 @@ defmodule Sourceror.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false}
+      {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
+      {:ex_check, "~> 0.14.0", only: [:dev], runtime: false},
+      {:sobelow, "~> 0.8", only: :dev}
     ]
   end
 

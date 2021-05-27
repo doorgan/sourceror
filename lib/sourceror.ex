@@ -153,11 +153,13 @@ defmodule Sourceror do
   end
 
   defp correct_line(meta, key, line_correction) do
-    with value when value != [] <- Keyword.get(meta, key, []) do
-      value = put_in(value, [:line], value[:line] + line_correction)
-      [{key, value}]
-    else
-      _ -> []
+    case Keyword.get(meta, key, []) do
+      value when value != [] ->
+        value = put_in(value, [:line], value[:line] + line_correction)
+        [{key, value}]
+
+      _ ->
+        []
     end
   end
 
