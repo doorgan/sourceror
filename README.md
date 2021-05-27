@@ -83,10 +83,10 @@ ending up with misplaced comments. Two fields are required for this:
     ...> # Comment for :a
     ...> :a # Also a comment for :a
     ...> """ |> Sourceror.parse_string()
-    {:__block__, [line: 2, leading_comments: [
-      %{line: 1, previous_eol: 1, next_eol: 1, text: "# Comment for :a"},
-      %{line: 2, previous_eol: 0, next_eol: 1, text: "# Also a comment for :a"},
-    ], trailing_comments: []], [:a]}
+    {:__block__, [trailing_comments: [], leading_comments: [
+      %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
+      %{line: 2, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
+    ], line: 2], [:a]}
     ```
 
   * `:trailing_comments` - holds the comments that are inside of the node, but
@@ -96,16 +96,16 @@ ending up with misplaced comments. Two fields are required for this:
     ...> def foo() do
     ...>   :ok
     ...> # A trailing comment
-    ...> end # Also a trailing for :foo
+    ...> end # Also a trailing comment for :foo
     ...> """ |> Sourceror.parse_string()
-    {:def, [line: 1, do: [line: 1], end: [line: 4], leading_comments: [], trailing_comments: [
-      %{line: 3, previous_eol: 1, next_eol: 1, text: "# A trailing comment for :foo"},
-      %{line: 4, previous_eol: 0, next_eol: 1, text: "# Also a trailing comment for :foo"},
-    ]], [
-      {:foo, [line: 1, leading_comments: [], trailing_comments: []], nil},
+    {:def, [trailing_comments: [
+      %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A trailing comment"},
+      %{line: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a trailing comment for :foo"},
+    ], leading_comments: [], do: [line: 1], end: [line: 4], line: 1], [
+      {:foo, [trailing_comments: [], leading_comments: [], closing: [line: 1], line: 1], []},
       [
-        {{:__block__, [line: 1, leading_comments: [], trailing_comments: []], [:do]},
-        {:__block__, [line: 2, leading_comments: [], trailing_comments: []], [:ok]}}
+        {{:__block__, [trailing_comments: [], leading_comments: [], line: 1], [:do]},
+        {:__block__, [trailing_comments: [], leading_comments: [], line: 2], [:ok]}}
       ]
     ]}
     ```

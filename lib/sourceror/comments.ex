@@ -18,7 +18,7 @@ defmodule Sourceror.Comments do
     if Enum.empty?(leftovers) do
       quoted
     else
-      {:__block__, [trailing_comments: leftovers], [quoted]}
+      {:__block__, [trailing_comments: leftovers, leading_comments: []], [quoted]}
     end
   end
 
