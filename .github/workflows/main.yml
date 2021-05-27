@@ -5,10 +5,10 @@ on: push
 jobs:
   ci:
     name: ci
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     strategy:
       matrix:
-        elixir: [1.10.3, 1.11.0, 1.12.1, 1.13.0-dev]
+        elixir: [master]
         otp: [22.3, 23.1, 24.0]
     steps:
     - uses: actions/checkout@v2
