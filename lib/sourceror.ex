@@ -126,7 +126,7 @@ defmodule Sourceror do
       if line = meta[:line] do
         Keyword.put(meta, :line, line + line_correction)
       else
-        meta ++ [line: 1]
+        meta
       end
 
     corrections = Enum.map(@line_fields, &correct_line(meta, &1, line_correction))

@@ -56,17 +56,14 @@ defmodule Sourceror.Comments do
           end
       end)
 
-    rest = Enum.reverse(rest)
+    rest = Enum.sort_by(rest, & &1.line)
+    comments = Enum.sort_by(comments, & &1.line)
 
     {comments, rest}
   end
 
   defp put_comments(quoted, key, comments) do
-    meta =
-      elem(quoted, 1)
-      |> Keyword.put(key, comments)
-
-    put_elem(quoted, 1, meta)
+    Macro.update_meta(quoted, &Keyword.put(&1, key, comments))
   end
 
   @doc """
@@ -84,7 +81,6 @@ defmodule Sourceror.Comments do
           |> Enum.map(fn comment ->
             %{comment | line: line}
           end)
-          |> Enum.reverse()
 
         acc = acc ++ leading_comments
 
@@ -96,7 +92,6 @@ defmodule Sourceror.Comments do
             end_line = meta[:end][:line] || meta[:closing][:line] || comment.line
             %{comment | line: end_line}
           end)
-          |> Enum.reverse()
 
         acc = acc ++ trailing_comments
 
