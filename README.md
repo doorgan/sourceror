@@ -59,7 +59,7 @@ any change in Elixir would break the code.
 
 Since Elixir 1.13 this functionality from the formatter was finally exposed via
 the `Code.string_to_quoted_with_comments/2` and `Code.quoted_to_algebra/2`
-functions. The latter give us access to the list of comments in a shape the
+functions. The former gives us access to the list of comments in a shape the
 Elixir formatter is able to use, and the latter lets us turn *any arbitrary
 Elixir AST* into an algebra document. If we also give it the list of comments,
 it will merge them together, allowing us to format AST *and* preserve the
@@ -79,10 +79,10 @@ ending up with misplaced comments. Two fields are required for this:
   * `:leading_comments` - holds the comments directly above the node or are in
     the same line as it. For example:
     ```elixir
-    iex> "\""
+    iex> """
     ...> # Comment for :a
     ...> :a # Also a comment for :a
-    ...> "\"" |> Sourceror.parse_string()
+    ...> """ |> Sourceror.parse_string()
     {:__block__, [line: 2, leading_comments: [
       %{line: 1, previous_eol: 1, next_eol: 1, text: "# Comment for :a"},
       %{line: 2, previous_eol: 0, next_eol: 1, text: "# Also a comment for :a"},
@@ -92,12 +92,12 @@ ending up with misplaced comments. Two fields are required for this:
   * `:trailing_comments` - holds the comments that are inside of the node, but
     aren't leading any children, for example:
     ```elixir
-    iex> "\""
+    iex> """
     ...> def foo() do
     ...>   :ok
     ...> # A trailing comment
     ...> end # Also a trailing for :foo
-    ...> "\"" |> Sourceror.parse_string()
+    ...> """ |> Sourceror.parse_string()
     {:def, [line: 1, do: [line: 1], end: [line: 4], leading_comments: [], trailing_comments: [
       %{line: 3, previous_eol: 1, next_eol: 1, text: "# A trailing comment for :foo"},
       %{line: 4, previous_eol: 0, next_eol: 1, text: "# Also a trailing comment for :foo"},
