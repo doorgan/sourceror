@@ -1,8 +1,7 @@
 defmodule Sourceror do
-  @moduledoc "README.md"
-             |> File.read!()
-             |> String.split("<!-- MDOC !-->")
-             |> Enum.fetch!(1)
+  @moduledoc """
+  Utilities to work with Elixir source code.
+  """
 
   @line_fields [
     :closing,
@@ -11,9 +10,7 @@ defmodule Sourceror do
     :end_of_expression
   ]
 
-  @type traversal_state :: %{
-          line_correction: integer
-        }
+  @type traversal_state :: %{line_correction: integer}
   @type postwalk_function :: (Macro.t(), traversal_state -> {Macro.t(), traversal_state})
 
   @doc """

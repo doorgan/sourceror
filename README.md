@@ -78,36 +78,40 @@ you to move nodes around without worrying about leaving a comment behind and
 ending up with misplaced comments. Two fields are required for this:
   * `:leading_comments` - holds the comments directly above the node or are in
     the same line as it. For example:
+
     ```elixir
-    iex> """
-    ...> # Comment for :a
-    ...> :a # Also a comment for :a
-    ...> """ |> Sourceror.parse_string()
-    {:__block__, [trailing_comments: [], leading_comments: [
-      %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
-      %{line: 2, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
-    ], line: 2], [:a]}
+    test "parses leading comments" do
+      quoted = """
+      # Comment for :a
+      :a # Also a comment for :a
+      """ |> Sourceror.parse_string()
+      
+      assert {:__block__, meta, [:a]} = quoted
+      assert meta[:leading_comments] == [
+        %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
+        %{line: 2, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
+      ]
+    end
     ```
 
   * `:trailing_comments` - holds the comments that are inside of the node, but
     aren't leading any children, for example:
+
     ```elixir
-    iex> """
-    ...> def foo() do
-    ...>   :ok
-    ...> # A trailing comment
-    ...> end # Also a trailing comment for :foo
-    ...> """ |> Sourceror.parse_string()
-    {:def, [trailing_comments: [
-      %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A trailing comment"},
-      %{line: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a trailing comment for :foo"},
-    ], leading_comments: [], do: [line: 1], end: [line: 4], line: 1], [
-      {:foo, [trailing_comments: [], leading_comments: [], closing: [line: 1], line: 1], []},
-      [
-        {{:__block__, [trailing_comments: [], leading_comments: [], line: 1], [:do]},
-        {:__block__, [trailing_comments: [], leading_comments: [], line: 2], [:ok]}}
+    test "parses trailing comments" do
+      quoted = """
+      def foo() do
+      :ok
+      # A trailing comment
+      end # Also a trailing comment for :foo
+      """ |> Sourceror.parse_string()
+      
+      assert {:def, meta, _} = quoted
+      assert meta[:trailing_comments] == [
+        %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A trailing comment"},
+        %{line: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a trailing comment for :foo"},
       ]
-    ]}
+    end
     ```
 
 Note Sourceror considers leading comments to the ones that are found in the same
@@ -174,17 +178,37 @@ getting the line numbers before the change, reorder the nodes, zip the old line
 numbers with the nodes, and correct their line numbers by the difference between
 the new and the old one. Translated to code, it would look something like this:
 ```elixir
-lines = Enum.map(deps, fn {:__block__, meta, _} -> meta[:line] end)
+test "sorts atoms with correct comments placement" do
+  {:__block__, meta, atoms} = """
+  :a
+  # Comment for :j
+  :j
+  :c
+  # Comment for :b
+  :b
+  """ |> Sourceror.parse_string()
 
-atoms =
-  Enum.sort_by(deps, fn {:__block__, _, [atom]} ->
-    Atom.to_string(atom)
-  end)
-  |> Enum.zip(lines)
-  |> Enum.map(fn {{_, meta, _} = atom, old_line} ->
-    line_correction = old_line - meta[:line]
-    Macro.update_meta(atom, &Sourceror.correct_lines(&1, line_correction))
-  end)
+  lines = Enum.map(atoms, fn {:__block__, meta, _} -> meta[:line] end)
+
+  atoms =
+    Enum.sort_by(atoms, fn {:__block__, _, [atom]} ->
+      Atom.to_string(atom)
+    end)
+    |> Enum.zip(lines)
+    |> Enum.map(fn {{_, meta, _} = atom, old_line} ->
+      line_correction = old_line - meta[:line]
+      Macro.update_meta(atom, &Sourceror.correct_lines(&1, line_correction))
+    end)
+
+  assert Sourceror.to_string({:__block__, meta, atoms}) == """
+  :a
+  # Comment for :b
+  :b
+  :c
+  # Comment for :j
+  :j
+  """ |> String.trim()
+end
 ```
 Which will produce the code we expect:
 ```elixir

@@ -1,5 +1,5 @@
-defmodule Sourceror.CommentsTest do
-  use ExUnit.Case
+defmodule SourcerorTest.CommentsTest do
+  use ExUnit.Case, async: true
   doctest Sourceror
 
   defp parse_and_merge(string) do

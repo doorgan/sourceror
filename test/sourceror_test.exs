@@ -1,5 +1,5 @@
 defmodule SourcerorTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest Sourceror
 
   describe "postwalk/2" do

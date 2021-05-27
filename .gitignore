@@ -25,6 +25,9 @@ sourceror-*.tar
 # Temporary files for e.g. tests
 /tmp
 
+# Elixir LS files
+/.elixir_ls
+
 # Dialyzer plts
 /priv/plts/*
 !/priv/plts/.gitkeep
