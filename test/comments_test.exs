@@ -1,6 +1,6 @@
 defmodule Sourceror.CommentsTest do
   use ExUnit.Case
-  doctest Sourceror.Comments
+  doctest Sourceror
 
   defp parse_and_merge(string) do
     {quoted, comments} =
@@ -10,7 +10,7 @@ defmodule Sourceror.CommentsTest do
         unescape: false
       )
 
-    Sourceror.Comments.merge_comments(quoted, comments)
+    Sourceror.merge_comments(quoted, comments)
   end
 
   describe "merge_comments/2" do
@@ -61,7 +61,7 @@ defmodule Sourceror.CommentsTest do
         :ok # B
         """)
 
-      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
+      {_quoted, comments} = Sourceror.extract_comments(quoted)
 
       assert [
                %{line: 2, text: "# A"},
@@ -76,7 +76,7 @@ defmodule Sourceror.CommentsTest do
         end # B
         """)
 
-      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
+      {_quoted, comments} = Sourceror.extract_comments(quoted)
 
       assert [
                %{line: 4, text: "# A"},
@@ -96,7 +96,7 @@ defmodule Sourceror.CommentsTest do
         # G
         """)
 
-      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
+      {_quoted, comments} = Sourceror.extract_comments(quoted)
 
       assert [
                %{line: 2, text: "# A"},

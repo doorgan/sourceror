@@ -10,6 +10,8 @@ jobs:
       matrix:
         elixir: [master]
         otp: [22.3, 23.1, 24.0]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Elixir
@@ -21,3 +23,5 @@ jobs:
       run: mix deps.get
     - name: mix check
       run: mix check
+    - name: mix coveralls
+      run: mix coveralls.github

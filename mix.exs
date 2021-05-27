@@ -11,7 +11,14 @@ defmodule Sourceror.MixProject do
       elixir: "~> 1.13.0-dev",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      aliases: [docs: &build_docs/1]
+      aliases: [docs: &build_docs/1],
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -28,6 +35,7 @@ defmodule Sourceror.MixProject do
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:ex_check, "~> 0.14.0", only: [:dev], runtime: false},
+      {:excoveralls, "~> 0.10", only: :test},
       {:sobelow, "~> 0.8", only: :dev}
     ]
   end
