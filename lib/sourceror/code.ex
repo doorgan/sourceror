@@ -1,6 +1,9 @@
 defmodule Sourceror.Code do
   @moduledoc false
 
+  alias Sourceror.Code.Formatter
+  alias Sourceror.Code.Normalizer
+
   @spec string_to_quoted_with_comments(List.Chars.t(), keyword) ::
           {:ok, Macro.t(), list(map())} | {:error, {location :: keyword, term, term}}
   def string_to_quoted_with_comments(string, opts \\ [])
@@ -63,7 +66,7 @@ defmodule Sourceror.Code do
   @spec quoted_to_algebra(Macro.t(), keyword) :: Inspect.Algebra.t()
   def quoted_to_algebra(quoted, opts \\ []) do
     quoted
-    |> Sourceror.Code.Normalizer.normalize(opts)
-    |> Sourceror.Code.Formatter.to_algebra(opts)
+    |> Normalizer.normalize(opts)
+    |> Formatter.to_algebra(opts)
   end
 end

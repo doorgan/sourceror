@@ -9,14 +9,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - elixir: 1.10.x
-            otp: 21.3.8.20
-          - elixir: 1.11.x
-            otp: 23.2.x
-          - elixir: 1.12.x
-            otp: 23.2.x
+          - elixir: 1.10.4
+            otp: 21.3
+          - elixir: 1.11.4
+            otp: 23.2
+          - elixir: 1.12.0
+            otp: 23.2
+          - elixir: 1.12.0
+            otp: 24.0
           - elixir: master
-            otp: 23.2.x
+            otp: 23.2
+            check_formatted: true
+            run_dialyzer: true
+            run_credo: true
+          - elixir: master
+            otp: 24.0
     steps:
     - uses: actions/checkout@v2
     - name: Set up Elixir
@@ -24,6 +31,7 @@ jobs:
       with:
         elixir-version: ${{ matrix.elixir }}
         otp-version: ${{ matrix.otp }}
+
     - name: Restore dependencies cache
       uses: actions/cache@v2
       with:
@@ -32,6 +40,7 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('**/mix.lock') }}
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix
+
     - name: Restore Dialyzer PLT cache
       uses: actions/cache@v2
       with:
@@ -40,11 +49,26 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
           ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt
+
     - name: Install dependencies
       run: mix deps.get
-    - name: mix check
-      run: mix check
-    - name: mix coveralls
+
+    - name: Check formatting
+      run: mix format --check-formatted
+      if: matrix.check_formatted
+
+    - name: Run dialyzer
+      run: mix dialyzer
+      if: matrix.run_dialyzer
+
+    - name: Run credo
+      run: mix credo
+      if: matrix.run_credo
+    
+    - name: Run tests
+      run: mix test
+
+    - name: Coveralls
       run: mix coveralls.github
       env:
         MIX_ENV: test

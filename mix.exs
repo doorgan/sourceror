@@ -1,7 +1,7 @@
 defmodule Sourceror.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.2.1"
   @url "https://github.com/doorgan/sourceror"
 
   def project do
@@ -50,7 +50,7 @@ defmodule Sourceror.MixProject do
   defp deps do
     [
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
+      {:dialyxir, "~> 1.1", only: [:dev], runtime: false},
       {:ex_check, "~> 0.14.0", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.24.2", only: :dev, runtime: false},
       {:excoveralls, "~> 0.10", only: [:test]},

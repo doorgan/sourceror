@@ -23,13 +23,15 @@ defmodule Sourceror do
 
   @code_module code_module
 
-  defmacrop do_parse_string(string, opts) do
+  @doc false
+  defmacro do_parse_string(string, opts) do
     quote bind_quoted: [code_module: @code_module, string: string, opts: opts], location: :keep do
       code_module.string_to_quoted_with_comments!(string, opts)
     end
   end
 
-  defmacrop quoted_to_algebra(quoted, opts) do
+  @doc false
+  defmacro quoted_to_algebra(quoted, opts) do
     quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts], location: :keep do
       code_module.quoted_to_algebra(quoted, opts)
     end
