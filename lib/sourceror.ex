@@ -1,7 +1,8 @@
 defmodule Sourceror do
-  @moduledoc """
-  Utilities to work with Elixir source code.
-  """
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- MDOC !-->")
+             |> Enum.fetch!(1)
 
   @line_fields [
     :closing,
