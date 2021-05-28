@@ -60,7 +60,7 @@ defmodule Sourceror.Code.Formatter do
   ]
 
   required_parens_on_binary_operands =
-    if Version.match?(System.version(), "~> 1.13") do
+    if Version.match?(System.version(), "~> 1.12") do
       base_operators ++ (newer_operators |> Enum.map(&String.to_existing_atom/1))
     else
       base_operators

@@ -22,14 +22,13 @@ defmodule Sourceror do
 
   @code_module code_module
 
-  @spec do_parse_string(any, any) :: {:__block__, [], [{:= | {any, any, any}, list, [...]}, ...]}
-  defmacro do_parse_string(string, opts \\ []) do
+  defmacrop do_parse_string(string, opts) do
     quote bind_quoted: [code_module: @code_module, string: string, opts: opts], location: :keep do
       code_module.string_to_quoted_with_comments!(string, opts)
     end
   end
 
-  defmacro quoted_to_algebra(quoted, opts \\ []) do
+  defmacrop quoted_to_algebra(quoted, opts) do
     quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts], location: :keep do
       code_module.quoted_to_algebra(quoted, opts)
     end
