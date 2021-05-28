@@ -15,12 +15,8 @@ jobs:
             otp: 23.2.x
           - elixir: 1.12.x
             otp: 23.2.x
-          - elixir: 1.12.x
-            otp: 24.0.x
           - elixir: master
             otp: 23.2.x
-          - elixir: master
-            otp: 24.0.x
     steps:
     - uses: actions/checkout@v2
     - name: Set up Elixir

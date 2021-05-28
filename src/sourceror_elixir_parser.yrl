@@ -1113,7 +1113,7 @@ error_no_parens_container_strict(Node) ->
     "Elixir cannot compile otherwise. Syntax error before: ", "','").
 
 error_invalid_kw_identifier({_, _, do} = Token) ->
-  return_error(meta_from_token(Token), elixir_tokenizer:invalid_do_error("unexpected keyword: "), "do:");
+  return_error(meta_from_token(Token), sourceror_elixir_tokenizer:invalid_do_error("unexpected keyword: "), "do:");
 error_invalid_kw_identifier({_, _, KW} = Token) ->
   return_error(meta_from_token(Token), "syntax error before: ", "'" ++ atom_to_list(KW) ++ ":'").
 
