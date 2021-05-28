@@ -1,13 +1,14 @@
 defmodule Sourceror.MixProject do
   use Mix.Project
 
-  @version "0.2.1"
+  @version "0.2.2"
   @repo_url "https://github.com/doorgan/sourceror"
 
   def project do
     [
       app: :sourceror,
       name: "Sourceror",
+      description: description(),
       version: @version,
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
@@ -57,6 +58,10 @@ defmodule Sourceror.MixProject do
       {:excoveralls, "~> 0.10", only: [:test]},
       {:sobelow, "~> 0.8", only: :dev}
     ]
+  end
+
+  defp description do
+    "Utilities to work with Elixir source code."
   end
 
   defp package do
