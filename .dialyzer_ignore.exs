@@ -1,5 +1,5 @@
 [
-  # regex
-  ~r"/lib/code",
-  ~r"/test/code"
+  {"src/sourceror_elixir.erl"},
+  {"src/sourceror_elixir_parser.yrl"},
+  {"src/sourceror_elixir_parser.erl"}
 ]
