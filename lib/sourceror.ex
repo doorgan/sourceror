@@ -55,7 +55,7 @@ defmodule Sourceror do
         unescape: false
       )
 
-    Sourceror.Comments.merge_comments(quoted, comments)
+    merge_comments(quoted, comments)
   end
 
   @doc """
