@@ -43,8 +43,8 @@ defmodule Sourceror do
 
   Two additional fields are added to nodes metadata:
     * `:leading_comments` - a list holding the comments found *before* the node.
-    * `:trailing_comments` - a list holding the comments found before the end
-      of the node. For example, comments right before the `end` keyword.
+    * `:trailing_comments` - a list holding the comments found before the end of
+      the node. For example, comments right before the `end` keyword.
 
   Comments are the same maps returned by `Code.string_to_quoted_with_comments/2`.
   """
@@ -67,6 +67,8 @@ defmodule Sourceror do
   node will be used when formatting the code.
 
   ## Options
+    * `:line_length` - The max line length for the formatted code.
+
     * `:indent` - how many indentations to insert at the start of each line.
       Note that this only prepends the indents without checking the indentation
       of nested blocks. Defaults to `0`.
@@ -77,6 +79,7 @@ defmodule Sourceror do
   @spec to_string(Macro.t(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
     indent = Keyword.get(opts, :indent, 0)
+    line_length = Keyword.get(opts, :line_length, 98)
 
     indent_str =
       case Keyword.get(opts, :indent_type, :spaces) do
@@ -89,7 +92,7 @@ defmodule Sourceror do
 
     quoted
     |> quoted_to_algebra(comments: comments)
-    |> Inspect.Algebra.format(98)
+    |> Inspect.Algebra.format(line_length)
     |> IO.iodata_to_binary()
     |> String.split("\n")
     |> Enum.map_join("\n", fn line ->
