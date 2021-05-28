@@ -13,6 +13,28 @@ defmodule Sourceror do
   @type traversal_state :: %{line_correction: integer}
   @type postwalk_function :: (Macro.t(), traversal_state -> {Macro.t(), traversal_state})
 
+  code_module =
+    if Version.match?(System.version(), "~> 1.13.0-dev") do
+      Code
+    else
+      Sourceror.Code
+    end
+
+  @code_module code_module
+
+  @spec do_parse_string(any, any) :: {:__block__, [], [{:= | {any, any, any}, list, [...]}, ...]}
+  defmacro do_parse_string(string, opts \\ []) do
+    quote bind_quoted: [code_module: @code_module, string: string, opts: opts], location: :keep do
+      code_module.string_to_quoted_with_comments!(string, opts)
+    end
+  end
+
+  defmacro quoted_to_algebra(quoted, opts \\ []) do
+    quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts], location: :keep do
+      code_module.quoted_to_algebra(quoted, opts)
+    end
+  end
+
   @doc """
   Parses the source code into an extended AST suitable for source manipulation
   as described in `Code.quoted_to_algebra/2`.
@@ -27,7 +49,7 @@ defmodule Sourceror do
   @spec parse_string(String.t()) :: Macro.t()
   def parse_string(source) do
     {quoted, comments} =
-      Code.string_to_quoted_with_comments!(source,
+      do_parse_string(source,
         literal_encoder: &{:ok, {:__block__, &2, [&1]}},
         token_metadata: true,
         unescape: false
@@ -64,7 +86,7 @@ defmodule Sourceror do
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
     quoted
-    |> Code.quoted_to_algebra(comments: comments)
+    |> quoted_to_algebra(comments: comments)
     |> Inspect.Algebra.format(98)
     |> IO.iodata_to_binary()
     |> String.split("\n")

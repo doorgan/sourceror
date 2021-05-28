@@ -8,8 +8,19 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        elixir: [master]
-        otp: [22.3, 23.1, 24.0]
+        include:
+          - elixir: 1.10.x
+            otp: 21.3.8.20
+          - elixir: 1.11.x
+            otp: 23.2.x
+          - elixir: 1.12.x
+            otp: 23.2.x
+          - elixir: 1.12.x
+            otp: 24.0.x
+          - elixir: master
+            otp: 23.2.x
+          - elixir: master
+            otp: 24.0.x
     steps:
     - uses: actions/checkout@v2
     - name: Set up Elixir

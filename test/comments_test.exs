@@ -2,21 +2,10 @@ defmodule SourcerorTest.CommentsTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
-  defp parse_and_merge(string) do
-    {quoted, comments} =
-      Code.string_to_quoted_with_comments!(string,
-        literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-        token_metadata: true,
-        unescape: false
-      )
-
-    Sourceror.merge_comments(quoted, comments)
-  end
-
   describe "merge_comments/2" do
     test "merges leading comments" do
       quoted =
-        parse_and_merge("""
+        Sourceror.parse_string("""
         # A
         :a # B
         """)
@@ -31,7 +20,7 @@ defmodule SourcerorTest.CommentsTest do
 
     test "merges trailing comments" do
       quoted =
-        parse_and_merge("""
+        Sourceror.parse_string("""
         def a do
           :ok
           # A
@@ -56,7 +45,7 @@ defmodule SourcerorTest.CommentsTest do
   describe "extract_comments/1" do
     test "collapses line numbers of attached node" do
       quoted =
-        parse_and_merge("""
+        Sourceror.parse_string("""
         # A
         :ok # B
         """)
@@ -69,7 +58,7 @@ defmodule SourcerorTest.CommentsTest do
              ] = comments
 
       quoted =
-        parse_and_merge("""
+        Sourceror.parse_string("""
         def a do
           :ok
           # A
@@ -86,7 +75,7 @@ defmodule SourcerorTest.CommentsTest do
 
     test "extracts comments in the correct order" do
       quoted =
-        parse_and_merge("""
+        Sourceror.parse_string("""
         # A
         def a do # B
           # C

@@ -1,15 +1,15 @@
 defmodule Sourceror.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
-  @url "https://github.com/dashbitco/nimble_parsec"
+  @version "0.2.0"
+  @url "https://github.com/doorgan/sourceror"
 
   def project do
     [
       app: :sourceror,
       name: "Sourceror",
       version: @version,
-      elixir: "~> 1.13.0-dev",
+      elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
