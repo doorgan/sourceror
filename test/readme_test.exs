@@ -4,16 +4,16 @@ defmodule SourcerorTest.ReadmeTest do
   alias SourcerorTest.Support.Parser
   require Parser
 
-  # @project Sourceror.MixProject.project()
+  @project Sourceror.MixProject.project()
 
   readme_path = Parser.resource("README.md")
   readme = Parser.code_blocks(readme_path)
 
-  # @readme readme
+  @readme readme
 
-  # test "the version numbers match" do
-  #   assert @readme |> hd |> elem(0) =~ @project[:version]
-  # end
+  test "the version numbers match" do
+    assert @readme |> hd |> elem(0) =~ @project[:version]
+  end
 
   env = __ENV__
 

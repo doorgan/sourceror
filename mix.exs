@@ -2,7 +2,7 @@ defmodule Sourceror.MixProject do
   use Mix.Project
 
   @version "0.2.1"
-  @url "https://github.com/doorgan/sourceror"
+  @repo_url "https://github.com/doorgan/sourceror"
 
   def project do
     [
@@ -14,6 +14,7 @@ defmodule Sourceror.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       docs: docs(),
+      package: package(),
       dialyzer: dialyzer(),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
@@ -58,11 +59,21 @@ defmodule Sourceror.MixProject do
     ]
   end
 
+  defp package do
+    [
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => @repo_url
+      }
+    ]
+  end
+
   defp docs do
     [
       main: "Sourceror",
-      source_ref: "v#{@version}",
-      source_url: @url,
+      source_ref: @version,
+      source_url: @repo_url,
+      homepage_url: @repo_url,
       extras: ["README.md"]
     ]
   end

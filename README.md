@@ -9,13 +9,25 @@ Utilities to work with Elixir source code.
 
 ## Installation
 
-Sourceror depends on functionality that is only available in the `master` branch
-of Elixir. A hex release will be published once Elixir 1.13 is released, in the
-meantime you can add Sourceror via a git dependency:
+Add `:sourceror` as a dependency to your project's `mix.exs`:
 
 ```elixir
-{:sourceror, git: "https://github.com/doorgan/sourceror.git"}
+defp deps do
+  [
+    {:sourceror, "~> 0.2.1"}
+  ]
+end
 ```
+
+### A note on compatibility
+
+Sourceror is compatible with Elixir versions down to 1.10 and OTP 21. For Elixir
+versions prior to 1.13 it uses a vendored version of the Elixir parser and
+formatter modules.
+
+## Documentation
+
+[Hex Docs](https://hexdocs.pm/erlex/readme.html).
 
 ## Background
 
