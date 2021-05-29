@@ -246,6 +246,9 @@ calling your function on each node. You can see this in action in the
 You can find usage examples in the `examples` folder. You can run them with
 `elixir examples/<example_file>.exs`.
 
+You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
+in the `notebooks` folder.
+
 ## License
 
 Copyright (c) 2021 dorgandash@gmail.com
