@@ -29,6 +29,14 @@ formatter modules.
 
 [Hex Docs](https://hexdocs.pm/erlex/readme.html).
 
+## Examples
+
+You can find usage examples in the `examples` folder. You can run them with
+`elixir examples/<example_file>.exs`.
+
+You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
+in the `notebooks` folder.
+
 ## Background
 
 There have been several attempts at source code manipulation in the Elixir
@@ -240,14 +248,6 @@ provides the `Sourceror.postwalk/3` function. It's a wrapper over
 to subsequent nodes, and it will automatically correct them for you before
 calling your function on each node. You can see this in action in the
 `examples/expand_multi_alias.exs` example.
-
-## Examples
-
-You can find usage examples in the `examples` folder. You can run them with
-`elixir examples/<example_file>.exs`.
-
-You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
-in the `notebooks` folder.
 
 ## License
 
