@@ -13,13 +13,15 @@ to an `:alias` call. Then for each module inside of the curly brackets, we need 
 the module segments from the left hand side with the ones in the right hand side, and
 finally put them in a call to `:alias`.
 
-Let's first start by installing Sourceror and parsing an example:
+Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
   {:sourceror, "~> 0.2.2"}
 ])
 ```
+
+And not lets parse an example:
 
 ```elixir
 source = ~S"""
