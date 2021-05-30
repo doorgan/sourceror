@@ -4,6 +4,8 @@ defmodule Sourceror do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
+  alias Sourceror.PostwalkState
+
   @line_fields [
     :closing,
     :do,
@@ -11,8 +13,7 @@ defmodule Sourceror do
     :end_of_expression
   ]
 
-  @type traversal_state :: %{line_correction: integer}
-  @type postwalk_function :: (Macro.t(), traversal_state -> {Macro.t(), traversal_state})
+  @type postwalk_function :: (Macro.t(), PostwalkState.t() -> {Macro.t(), PostwalkState.t()})
 
   code_module =
     if Version.match?(System.version(), "~> 1.13.0-dev") do
@@ -147,7 +148,7 @@ defmodule Sourceror do
           {Macro.t(), term}
   def postwalk(quoted, acc, fun) do
     {quoted, %{acc: acc}} =
-      Macro.postwalk(quoted, %{acc: acc, line_correction: 0}, fn
+      Macro.postwalk(quoted, %PostwalkState{acc: acc}, fn
         {_, _, _} = quoted, state ->
           quoted = Macro.update_meta(quoted, &correct_lines(&1, state.line_correction))
           fun.(quoted, state)
