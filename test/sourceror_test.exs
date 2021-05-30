@@ -16,14 +16,16 @@ defmodule SourcerorTest do
 
   describe "parse_expression/2" do
     test "parses only the first valid expression" do
-      assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} =
-               Sourceror.parse_expression(~S"""
-               foo do
-                 :ok
-               end
+      parsed =
+        Sourceror.parse_expression(~S"""
+        foo do
+          :ok
+        end
 
-               42
-               """)
+        42
+        """)
+
+      assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} = parsed
     end
 
     test "does not success on empty strings" do

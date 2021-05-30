@@ -14,7 +14,7 @@ Add `:sourceror` as a dependency to your project's `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:sourceror, "~> 0.2.2"}
+    {:sourceror, "~> 0.3.0"}
   ]
 end
 ```
@@ -105,7 +105,7 @@ ending up with misplaced comments. Two fields are required for this:
       # Comment for :a
       :a # Also a comment for :a
       """ |> Sourceror.parse_string!()
-      
+
       assert {:__block__, meta, [:a]} = quoted
       assert meta[:leading_comments] == [
         %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
@@ -125,7 +125,7 @@ ending up with misplaced comments. Two fields are required for this:
       # A trailing comment
       end # Also a trailing comment for :foo
       """ |> Sourceror.parse_string!()
-      
+
       assert {:def, meta, _} = quoted
       assert meta[:trailing_comments] == [
         %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A trailing comment"},
