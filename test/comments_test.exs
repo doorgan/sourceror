@@ -5,7 +5,7 @@ defmodule SourcerorTest.CommentsTest do
   describe "merge_comments/2" do
     test "merges leading comments" do
       quoted =
-        Sourceror.parse_string("""
+        Sourceror.parse_string!("""
         # A
         :a # B
         """)
@@ -20,7 +20,7 @@ defmodule SourcerorTest.CommentsTest do
 
     test "merges trailing comments" do
       quoted =
-        Sourceror.parse_string("""
+        Sourceror.parse_string!("""
         def a do
           :ok
           # A
@@ -45,7 +45,7 @@ defmodule SourcerorTest.CommentsTest do
   describe "extract_comments/1" do
     test "collapses line numbers of attached node" do
       quoted =
-        Sourceror.parse_string("""
+        Sourceror.parse_string!("""
         # A
         :ok # B
         """)
@@ -58,7 +58,7 @@ defmodule SourcerorTest.CommentsTest do
              ] = comments
 
       quoted =
-        Sourceror.parse_string("""
+        Sourceror.parse_string!("""
         def a do
           :ok
           # A
@@ -75,7 +75,7 @@ defmodule SourcerorTest.CommentsTest do
 
     test "extracts comments in the correct order" do
       quoted =
-        Sourceror.parse_string("""
+        Sourceror.parse_string!("""
         # A
         def a do # B
           # C

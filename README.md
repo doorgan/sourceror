@@ -104,7 +104,7 @@ ending up with misplaced comments. Two fields are required for this:
       quoted = """
       # Comment for :a
       :a # Also a comment for :a
-      """ |> Sourceror.parse_string()
+      """ |> Sourceror.parse_string!()
       
       assert {:__block__, meta, [:a]} = quoted
       assert meta[:leading_comments] == [
@@ -124,7 +124,7 @@ ending up with misplaced comments. Two fields are required for this:
       :ok
       # A trailing comment
       end # Also a trailing comment for :foo
-      """ |> Sourceror.parse_string()
+      """ |> Sourceror.parse_string!()
       
       assert {:def, meta, _} = quoted
       assert meta[:trailing_comments] == [
@@ -206,7 +206,7 @@ test "sorts atoms with correct comments placement" do
   :c
   # Comment for :b
   :b
-  """ |> Sourceror.parse_string()
+  """ |> Sourceror.parse_string!()
 
   lines = Enum.map(atoms, fn {:__block__, meta, _} -> meta[:line] end)
 

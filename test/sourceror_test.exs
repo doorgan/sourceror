@@ -5,7 +5,7 @@ defmodule SourcerorTest do
   describe "postwalk/2" do
     test "corrects line numbers" do
       quoted =
-        Sourceror.parse_string("""
+        Sourceror.parse_string!("""
         :a
         :b
         :c
@@ -41,7 +41,7 @@ defmodule SourcerorTest do
       """
 
       expected = Code.format_string!(source) |> IO.iodata_to_binary()
-      actual = Sourceror.parse_string(source) |> Sourceror.to_string()
+      actual = Sourceror.parse_string!(source) |> Sourceror.to_string()
 
       assert expected == actual
     end
@@ -62,7 +62,7 @@ defmodule SourcerorTest do
 
       actual =
         source
-        |> Sourceror.parse_string()
+        |> Sourceror.parse_string!()
         |> Sourceror.to_string(indent: 1)
 
       assert expected == actual
@@ -76,7 +76,7 @@ defmodule SourcerorTest do
 
       actual =
         source
-        |> Sourceror.parse_string()
+        |> Sourceror.parse_string!()
         |> Sourceror.to_string(indent: 3, indent_type: :single_space)
 
       assert expected == actual
@@ -90,7 +90,7 @@ defmodule SourcerorTest do
 
       actual =
         source
-        |> Sourceror.parse_string()
+        |> Sourceror.parse_string!()
         |> Sourceror.to_string(indent: 1, indent_type: :tabs)
 
       assert expected == actual

@@ -30,7 +30,7 @@ defmodule Foo do
 end
 """
 
-quoted = Sourceror.parse_string(source)
+quoted = Sourceror.parse_string!(source)
 ```
 
 For the traversal part, we can use `Sourceror.postwalk/2`. Postwalk functions will go down
@@ -89,7 +89,7 @@ defmodule Foo do
 end
 """
 
-Sourceror.parse_string(source)
+Sourceror.parse_string!(source)
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -102,14 +102,14 @@ is putting a block inside another block, so the formatter will interpret that as
 expression and will wrap it accordingly:
 
 ```elixir
-Sourceror.parse_string(~S"""
+Sourceror.parse_string!(~S"""
 def foo do
   :ok
 end
 """)
 |> IO.inspect(label: "Single expression")
 
-Sourceror.parse_string(~S"""
+Sourceror.parse_string!(~S"""
 def foo do
   42
   :ok
@@ -158,7 +158,7 @@ postwalk_aliases = fn
     {quoted, state}
 end
 
-Sourceror.parse_string(source)
+Sourceror.parse_string!(source)
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -181,7 +181,7 @@ This is easier to see with an example:
 # Some comment
 alias Foo.{Bar, Baz}
 """
-|> Sourceror.parse_string()
+|> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -252,7 +252,7 @@ end
 # Some comment
 alias Foo.{Bar, Baz}
 """
-|> Sourceror.parse_string()
+|> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -274,7 +274,7 @@ alias Foo.{ # Opening the multi alias
 }
 # End of the file :)
 """
-|> Sourceror.parse_string()
+|> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -292,7 +292,7 @@ alias Foo.{A, B, C, D, E, F}
 """
 
 source
-|> Sourceror.parse_string()
+|> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -387,7 +387,7 @@ postwalk_aliases = fn
 end
 
 source
-|> Sourceror.parse_string()
+|> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()
@@ -419,7 +419,7 @@ defmodule Sample do
   :hello
 end
 """
-|> Sourceror.parse_string()
+|> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
 |> IO.puts()

@@ -26,7 +26,7 @@ defmodule Demo do
       end
 
     source
-    |> Sourceror.parse_string()
+    |> Sourceror.parse_string!()
     |> Sourceror.postwalk(fn
       {:defp, meta, [{:deps, _, _} = fun, body]}, state ->
         [{{_, _, [:do]}, block_ast}] = body
