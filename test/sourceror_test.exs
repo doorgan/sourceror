@@ -2,6 +2,46 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
+  describe "parse_expression/2" do
+    test "parses only the first valid expression" do
+      assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} =
+               Sourceror.parse_expression(~S"""
+               foo do
+                 :ok
+               end
+
+               42
+               """)
+    end
+
+    test "does not success on empty strings" do
+      assert {:error, _} = Sourceror.parse_expression("")
+
+      assert {:ok, {:__block__, _, [:ok]}, ""} =
+               Sourceror.parse_expression(~S"""
+
+               :ok
+               """)
+    end
+
+    test "parses starting from line" do
+      source = ~S"""
+      :a
+      foo do
+        :ok
+      end
+      :c
+      """
+
+      assert {:ok, {_, _, [:a]}, _} = Sourceror.parse_expression(source, from_line: 1)
+
+      assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} =
+               Sourceror.parse_expression(source, from_line: 2)
+
+      assert {:ok, {_, _, [:c]}, _} = Sourceror.parse_expression(source, from_line: 5)
+    end
+  end
+
   describe "postwalk/2" do
     test "corrects line numbers" do
       quoted =

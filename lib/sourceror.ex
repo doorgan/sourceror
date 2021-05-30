@@ -93,6 +93,50 @@ defmodule Sourceror do
   end
 
   @doc """
+  Parses a single expression from the given string. It returns the parsed
+  expression and the rest of the string on success.
+
+  ## Examples
+      iex> ~S"\""
+      ...> 42
+      ...>
+      ...> :ok
+      ...> "\"" |> Sourceror.parse_expression()
+      {:ok, {:__block__, [trailing_comments: [], leading_comments: [],
+                          token: "42", line: 2], [42]}, "\\n:ok"}
+
+  ## Options
+    * `:from_line` - The line at where the parsing should start. Defaults to `1`.
+  """
+  def parse_expression(string, opts \\ []) do
+    from_line = Keyword.get(opts, :from_line, 1)
+
+    lines =
+      Regex.split(~r/\r\n|\r|\n/, String.trim(string))
+      |> Enum.drop(from_line - 1)
+
+    do_parse_expression(lines, "")
+  end
+
+  def do_parse_expression([], acc), do: {:error, acc}
+
+  def do_parse_expression([line | rest], acc) do
+    string = Enum.join([acc, line], "\n")
+
+    case parse_string(string) do
+      # Skip empty lines
+      {:ok, {:__block__, _, []}} ->
+        do_parse_expression(rest, string)
+
+      {:ok, quoted} ->
+        {:ok, quoted, Enum.join(rest, "\n")}
+
+      {:error, _reason} ->
+        do_parse_expression(rest, string)
+    end
+  end
+
+  @doc """
   Converts a quoted expression to a string.
 
   The comments line number will be ignored and the line number of the associated
