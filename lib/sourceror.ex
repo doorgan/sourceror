@@ -63,7 +63,7 @@ defmodule Sourceror do
         unescape: false
       )
 
-    merge_comments(quoted, comments)
+    Sourceror.Comments.merge_comments(quoted, comments)
   end
 
   @doc """
@@ -192,10 +192,4 @@ defmodule Sourceror do
         []
     end
   end
-
-  @doc delegate_to: {Sourceror.Comments, :merge_comments, 2}
-  defdelegate merge_comments(quoted, comments), to: Sourceror.Comments
-
-  @doc delegate_to: {Sourceror.Comments, :extract_comments, 1}
-  defdelegate extract_comments(quoted), to: Sourceror.Comments
 end

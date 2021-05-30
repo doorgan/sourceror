@@ -50,7 +50,7 @@ defmodule SourcerorTest.CommentsTest do
         :ok # B
         """)
 
-      {_quoted, comments} = Sourceror.extract_comments(quoted)
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
       assert [
                %{line: 2, text: "# A"},
@@ -65,7 +65,7 @@ defmodule SourcerorTest.CommentsTest do
         end # B
         """)
 
-      {_quoted, comments} = Sourceror.extract_comments(quoted)
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
       assert [
                %{line: 4, text: "# A"},
@@ -85,7 +85,7 @@ defmodule SourcerorTest.CommentsTest do
         # G
         """)
 
-      {_quoted, comments} = Sourceror.extract_comments(quoted)
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
       assert [
                %{line: 2, text: "# A"},
