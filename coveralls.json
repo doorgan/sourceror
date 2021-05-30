@@ -1,5 +1,6 @@
 {
   "skip_files": [
-    "src"
+    "src",
+    "lib/sourceror/code"
   ]
 }

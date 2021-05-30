@@ -2,6 +2,18 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
+  describe "parse_string!/2" do
+    test "raises on invalid string" do
+      assert_raise SyntaxError, fn ->
+        Sourceror.parse_string!(":ok end")
+      end
+
+      assert_raise TokenMissingError, fn ->
+        Sourceror.parse_string!("do :ok")
+      end
+    end
+  end
+
   describe "parse_expression/2" do
     test "parses only the first valid expression" do
       assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} =

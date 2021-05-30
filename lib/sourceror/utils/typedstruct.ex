@@ -4,7 +4,7 @@ defmodule Sourceror.Utils.TypedStruct do
   defmacro typedstruct(do: ast) do
     fields_ast =
       case ast do
-        {:__block__, [], fields} -> fields
+        {:__block__, _, fields} -> fields
         field -> [field]
       end
 

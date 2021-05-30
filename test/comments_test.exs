@@ -1,6 +1,6 @@
 defmodule SourcerorTest.CommentsTest do
   use ExUnit.Case, async: true
-  doctest Sourceror
+  doctest Sourceror.Comments
 
   describe "merge_comments/2" do
     test "merges leading comments" do

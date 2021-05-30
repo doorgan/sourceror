@@ -6,6 +6,6 @@ defmodule Sourceror.PostwalkState do
 
   typedstruct do
     field :acc, term()
-    field :line_correction, integer(), required?: true, default: 0
+    field :line_correction, integer(), default: 0
   end
 end
