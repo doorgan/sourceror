@@ -32,7 +32,7 @@ defmodule Sourceror.Code do
         {forms, comments}
 
       {:error, {location, error, token}} ->
-        :elixir_errors.parse_error(location, Keyword.get(opts, :file, "nofile"), error, token)
+        :sourceror_errors.parse_error(location, Keyword.get(opts, :file, "nofile"), error, token)
     end
   end
 

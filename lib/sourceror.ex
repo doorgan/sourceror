@@ -88,7 +88,7 @@ defmodule Sourceror do
         quoted
 
       {:error, {location, error, token}} ->
-        :elixir_errors.parse_error(location, "nofile", error, token)
+        :sourceror_errors.parse_error(location, "nofile", error, token)
     end
   end
 
@@ -118,9 +118,9 @@ defmodule Sourceror do
     do_parse_expression(lines, "")
   end
 
-  def do_parse_expression([], acc), do: {:error, acc}
+  defp do_parse_expression([], acc), do: {:error, acc}
 
-  def do_parse_expression([line | rest], acc) do
+  defp do_parse_expression([line | rest], acc) do
     string = Enum.join([acc, line], "\n")
 
     case parse_string(string) do
