@@ -189,8 +189,8 @@ defmodule Sourceror do
   end
 
   @doc """
-  Performs a depth-first post-order traversal of a quoted expression with an accumulator, correcting
-  line numbers as it goes.
+  Performs a depth-first post-order traversal of a quoted expression with an
+  accumulator, correcting line numbers as it goes.
 
   `fun` is a function that will receive the current node as a first argument and
   the traversal state as the second one. It must return a `{quoted, state}`,
@@ -207,8 +207,8 @@ defmodule Sourceror do
       need to be updated in order for comments to be correctly placed during the
       formatting process. If the function does this kind of change, it must
       update the `:line_correction` field by adding the amount of lines that
-      should be shifted. Note that this field is cumulative, setting it to 0 will
-      reset it for the whole traversal. Starts at `0`.
+      should be shifted. Note that this field is cumulative, setting it to 0
+      will reset it for the whole traversal. Starts at `0`.
 
     * `:acc` - The accumulator. Defaults to `nil` if none is given.
   """
@@ -351,11 +351,11 @@ defmodule Sourceror do
   def get_end_line(quoted, default \\ 1) do
     {_, line} =
       Macro.postwalk(quoted, default, fn
-        {_, _, _} = quoted, acc ->
-          {quoted, max(acc, get_node_end_line(quoted, default))}
+        {_, _, _} = quoted, end_line ->
+          {quoted, max(end_line, get_node_end_line(quoted, default))}
 
-        terminal, acc ->
-          {terminal, acc}
+        terminal, end_line ->
+          {terminal, end_line}
       end)
 
     line
