@@ -233,14 +233,14 @@ defmodule Sourceror do
   end
 
   @doc """
-  Shifts the line numbers of the node by the given `line_correction`.
+  Shifts the line numbers of the node or metadata by the given `line_correction`.
 
   This function will update the `:line`, `:closing`, `:do`, `:end` and
   `:end_of_expression` line numbers of the node metadata if such fields are
   present.
   """
-  @spec correct_lines(keyword, integer) :: keyword
-  def correct_lines(meta, line_correction) do
+  @spec correct_lines(Macro.t() | keyword, integer) :: keyword
+  def correct_lines(meta, line_correction) when is_list(meta) do
     meta =
       if line = meta[:line] do
         Keyword.put(meta, :line, line + line_correction)
@@ -255,6 +255,10 @@ defmodule Sourceror do
     end)
   end
 
+  def correct_lines(quoted, line_correction) do
+    Macro.update_meta(quoted, &correct_lines(&1, line_correction))
+  end
+
   defp correct_line(meta, key, line_correction) do
     case Keyword.get(meta, key, []) do
       value when value != [] ->
@@ -264,5 +268,63 @@ defmodule Sourceror do
       _ ->
         []
     end
+  end
+
+  @doc """
+  Returns the metadata of the given node.
+
+      iex> Sourceror.get_meta({:foo, [line: 5], []})
+      [line: 5]
+  """
+  @spec get_meta(Macro.t()) :: keyword
+  def get_meta({_, meta, _}) when is_list(meta) do
+    meta
+  end
+
+  @doc """
+  Returns the arguments of the node.
+
+      iex> Sourceror.get_args({:foo, [], [{:__block__, [], [:ok]}]})
+      [{:__block__, [], [:ok]}]
+  """
+  @spec get_args(Macro.t()) :: [Macro.t()]
+  def get_args({_, _, args}) do
+    args
+  end
+
+  @doc """
+  Updates the arguments for the given node.
+
+      iex> node = {:foo, [line: 1], [{:__block__, [line: 1], [2]}]}
+      iex> updater = fn args -> Enum.map(args, &Sourceror.correct_lines(&1, 2)) end
+      iex> Sourceror.update_args(node, updater)
+      {:foo, [line: 1], [{:__block__, [line: 3], [2]}]}
+  """
+  @spec update_args(Macro.t(), ([Macro.t()] -> [Macro.t()])) :: Macro.t()
+  def update_args({form, meta, args}, fun) when is_function(fun, 1) and is_list(args) do
+    {form, meta, fun.(args)}
+  end
+
+  @doc """
+  Returns the line of a node.
+
+      iex> Sourceror.get_line({:foo, [line: 5], []})
+      5
+
+      iex> Sourceror.get_line({:foo, [], []}, 3)
+      3
+
+      iex> Sourceror.get_line(:ok)
+      1
+  """
+  @spec get_line(Macro.t(), default :: integer) :: integer
+  def get_line(quoted, default \\ 1)
+
+  def get_line({_, meta, _}, default) when is_list(meta) do
+    Keyword.get(meta, :line, default)
+  end
+
+  def get_line(_, default) do
+    default
   end
 end

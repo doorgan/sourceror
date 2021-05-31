@@ -215,15 +215,15 @@ test "sorts atoms with correct comments placement" do
   :b
   """ |> Sourceror.parse_string!()
 
-  lines = Enum.map(atoms, fn {:__block__, meta, _} -> meta[:line] end)
+  lines = Enum.map(atoms, &Sourceror.get_line/1)
 
   atoms =
     Enum.sort_by(atoms, fn {:__block__, _, [atom]} ->
       Atom.to_string(atom)
     end)
     |> Enum.zip(lines)
-    |> Enum.map(fn {{_, meta, _} = atom, old_line} ->
-      line_correction = old_line - meta[:line]
+    |> Enum.map(fn {atom, old_line} ->
+      line_correction = old_line - Sourceror.get_line(atom)
       Macro.update_meta(atom, &Sourceror.correct_lines(&1, line_correction))
     end)
 
