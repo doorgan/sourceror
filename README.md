@@ -29,7 +29,7 @@ successfully parse the new syntax for stepped ranges instead of raising a
 
 ## Documentation
 
-[Hex Docs](https://hexdocs.pm/erlex/readme.html).
+You can find Sourceror documentation on [Hex Docs](https://hexdocs.pm/sourceror/readme.html).
 
 ## Examples
 
@@ -38,6 +38,18 @@ You can find usage examples in the `examples` folder. You can run them with
 
 You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
 in the `notebooks` folder.
+
+## Contributing
+
+If you want to contribute to Sourceror, please check our
+[Contributing](https://github.com/doorgan/sourceror/blob/master/CONTRIBUTING.md)
+section for pointers.
+
+## Getting assistance
+
+If you have any questions about Sourceror or need assistance, please open a
+thread in the [Discussions](https://github.com/doorgan/sourceror/discussions)
+section.
 
 ## Background
 
