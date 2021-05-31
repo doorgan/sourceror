@@ -5,6 +5,7 @@ defmodule Sourceror.Comments do
 
   @doc """
   Merges the comments into the given quoted expression.
+
   The comments are inserted into the metadata of their closest node. Comments in
   the same line of before a node are inserted into the `:leading_comments` field
   while comments that are right before an `end` keyword are inserted into the
@@ -66,7 +67,7 @@ defmodule Sourceror.Comments do
   end
 
   @doc """
-  Does the opposite of `merge_comments`, it extracts the comments from the
+  Does the opposite of `merge_comments/2`, it extracts the comments from the
   quoted expression and returns both as a `{quoted, comments}` tuple.
   """
   @spec extract_comments(Macro.t()) :: {Macro.t(), list(map)}
