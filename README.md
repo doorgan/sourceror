@@ -23,7 +23,9 @@ end
 
 Sourceror is compatible with Elixir versions down to 1.10 and OTP 21. For Elixir
 versions prior to 1.13 it uses a vendored version of the Elixir parser and
-formatter modules.
+formatter modules. This means that for Elixir versions prior to 1.12 it will
+successfully parse the new syntax for stepped ranges instead of raising a
+`SyntaxError`, but everything else should work as expected.
 
 ## Documentation
 
@@ -94,8 +96,11 @@ delegates the task of figuring out what's the most appropiate way to work with
 them to us.
 
 Sourceror's take is to use the node metadata to store the comments. This allows
-you to move nodes around without worrying about leaving a comment behind and
-ending up with misplaced comments. Two fields are required for this:
+us to work with an AST that is as close to regular elixir AST as possible. It
+also allows you to move nodes around without worrying about leaving a comment
+behind and ending up with misplaced comments.
+
+Two metadata fields are added to the regular Elixir AST:
   * `:leading_comments` - holds the comments directly above the node or are in
     the same line as it. For example:
 
@@ -134,10 +139,12 @@ ending up with misplaced comments. Two fields are required for this:
     end
     ```
 
-Note Sourceror considers leading comments to the ones that are found in the same
-line as a node, and trailing coments to the ones that are found in the same line
-or before the ending line of a node, based on the `end`, `closing` or
-`end_of_expression` line.
+Note that Sourceror considers leading comments to the ones that are found in the
+same line as a node, and trailing coments to the ones that are found in the same
+line or before the ending line of a node, based on the `end`, `closing` or
+`end_of_expression` line. This also makes the Sourceror AST consistent with
+the way the Elixir formatter works, making it easier to reason about how a given
+AST would be formatted.
 
 ## Working with line numbers
 
