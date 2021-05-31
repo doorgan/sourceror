@@ -93,8 +93,9 @@ defmodule Sourceror do
   end
 
   @doc """
-  Parses a single expression from the given string. It returns the parsed
-  expression and the rest of the string on success.
+  Parses a single expression from the given string.
+
+  Returns `{:ok, quoted, rest}` on success or `{:error, source}` on error.
 
   ## Examples
       iex> ~S"\""
@@ -108,6 +109,8 @@ defmodule Sourceror do
   ## Options
     * `:from_line` - The line at where the parsing should start. Defaults to `1`.
   """
+  @spec parse_expression(String.t(), keyword) ::
+          {:ok, Macro.t(), String.t()} | {:error, String.t()}
   def parse_expression(string, opts \\ []) do
     from_line = Keyword.get(opts, :from_line, 1)
 
