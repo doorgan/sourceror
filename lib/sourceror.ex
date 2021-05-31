@@ -6,12 +6,8 @@ defmodule Sourceror do
 
   alias Sourceror.PostwalkState
 
-  @line_fields [
-    :closing,
-    :do,
-    :end,
-    :end_of_expression
-  ]
+  @line_fields ~w[closing do end end_of_expression]a
+  @end_fields ~w[end closing end_of_expression]a
 
   @type postwalk_function :: (Macro.t(), PostwalkState.t() -> {Macro.t(), PostwalkState.t()})
 
@@ -326,5 +322,71 @@ defmodule Sourceror do
 
   def get_line(_, default) do
     default
+  end
+
+  @doc """
+  Returns the line where the given node ends. It recursively checks for `end`,
+  `closing` and `end_of_expression` line numbers.
+
+      iex> Sourceror.get_end_line({:foo, [end: [line: 4]], []})
+      4
+
+      iex> Sourceror.get_end_line({:foo, [closing: [line: 2]], []})
+      2
+
+      iex> Sourceror.get_end_line({:foo, [end_of_expression: [line: 5]], []})
+      5
+
+      iex> Sourceror.get_end_line({:foo, [closing: [line: 2], end: [line: 4]], []})
+      4
+
+      iex> "\""
+      ...> alias Foo.{
+      ...>   Bar
+      ...> }
+      ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_end_line()
+      3
+  """
+  @spec get_end_line(Macro.t(), integer()) :: integer()
+  def get_end_line(quoted, default \\ 1) do
+    {_, line} =
+      Macro.postwalk(quoted, default, fn
+        {_, _, _} = quoted, acc ->
+          {quoted, max(acc, get_node_end_line(quoted, default))}
+
+        terminal, acc ->
+          {terminal, acc}
+      end)
+
+    line
+  end
+
+  defp get_node_end_line(quoted, default) do
+    get_meta(quoted)
+    |> Keyword.take(@end_fields)
+    |> Keyword.values()
+    |> Enum.map(&Keyword.get(&1, :line))
+    |> Enum.max(fn -> default end)
+  end
+
+  @doc """
+  Returns how many lines a quoted expression used in the original source code.
+
+      iex> "foo do :ok end" |> Sourceror.parse_string!() |> Sourceror.get_line_span()
+      1
+
+      iex> "\""
+      ...> foo do
+      ...>   :ok
+      ...> end
+      ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_line_span()
+      3
+  """
+  @spec get_line_span(Macro.t()) :: integer()
+  def get_line_span(quoted) do
+    start_line = get_line(quoted)
+    end_line = get_end_line(quoted)
+
+    1 + end_line - start_line
   end
 end

@@ -180,4 +180,58 @@ defmodule SourcerorTest do
                )
     end
   end
+
+  describe "get_line_span/1" do
+    defp line_span_from_source(source) do
+      source |> Sourceror.parse_string!() |> Sourceror.get_line_span()
+    end
+
+    test "returns the correct lien span" do
+      source = """
+      def foo do
+        :ok
+      end
+      """
+
+      assert line_span_from_source(source) == 3
+
+      source = """
+      def foo do
+        :ok end
+      """
+
+      assert line_span_from_source(source) == 2
+
+      source = """
+      def foo do :ok end
+      """
+
+      assert line_span_from_source(source) == 1
+
+      source = """
+      alias Foo.{
+        Bar
+      }
+      """
+
+      assert line_span_from_source(source) == 3
+
+      source = """
+      def get_end_line(quoted, default \\\\ 1) do
+        {_, line} =
+          Macro.postwalk(quoted, default, fn
+            {_, _, _} = quoted, acc ->
+              {quoted, max(acc, get_node_end_line(quoted, default))}
+
+            terminal, acc ->
+              {terminal, acc}
+          end)
+
+        line
+      end
+      """
+
+      assert line_span_from_source(source) == 12
+    end
+  end
 end
