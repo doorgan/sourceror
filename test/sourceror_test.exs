@@ -234,4 +234,105 @@ defmodule SourcerorTest do
       assert line_span_from_source(source) == 12
     end
   end
+
+  describe "get_start_position/2" do
+    test "returns the start position" do
+      quoted = Sourceror.parse_string!(" :foo")
+      assert Sourceror.get_start_position(quoted) == [line: 1, column: 2]
+
+      quoted = Sourceror.parse_string!("\n\nfoo()")
+      assert Sourceror.get_start_position(quoted) == [line: 3, column: 1]
+
+      quoted = Sourceror.parse_string!("Foo.{Bar}")
+      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+
+      quoted = Sourceror.parse_string!("foo[:bar]")
+      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+
+      quoted = Sourceror.parse_string!("foo(:bar)")
+      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+    end
+  end
+
+  describe "get_end_position/2" do
+    test "returns the correct positions" do
+      quoted =
+        ~S"""
+        A.{
+          B
+        }
+        """
+        |> Sourceror.parse_string!()
+
+      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+
+      quoted =
+        ~S"""
+        foo do
+          :ok
+        end
+        """
+        |> Sourceror.parse_string!()
+
+      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+
+      quoted =
+        ~S"""
+           foo(
+             :a,
+             :b
+           )
+        """
+        |> Sourceror.parse_string!()
+
+      assert Sourceror.get_end_position(quoted) == [line: 4, column: 4]
+    end
+  end
+
+  describe "compare_positions/2" do
+    test "correctly compares positions" do
+      assert Sourceror.compare_positions([line: 1, column: 1], line: 1, column: 1) == :eq
+      assert Sourceror.compare_positions([line: nil, column: nil], line: nil, column: nil) == :eq
+      assert Sourceror.compare_positions([line: 2, column: 1], line: 1, column: 1) == :gt
+      assert Sourceror.compare_positions([line: 1, column: 5], line: 1, column: 1) == :gt
+      assert Sourceror.compare_positions([line: 1, column: 1], line: 2, column: 1) == :lt
+      assert Sourceror.compare_positions([line: 1, column: 1], line: 1, column: 5) == :lt
+      assert Sourceror.compare_positions([line: 1, column: 1], line: 2, column: 2) == :lt
+    end
+
+    test "nil is strictly less than integers" do
+      assert Sourceror.compare_positions([line: nil, column: nil], line: 1, column: 1) == :lt
+      assert Sourceror.compare_positions([line: 1, column: 1], line: nil, column: nil) == :gt
+    end
+  end
+
+  describe "get_range/1" do
+    test "returns the correct range" do
+      quoted =
+        ~S"""
+        def foo do
+          :ok
+        end
+        """
+        |> Sourceror.parse_string!()
+
+      assert Sourceror.get_range(quoted) == %{
+               start: [line: 1, column: 1],
+               end: [line: 3, column: 3]
+             }
+
+      quoted =
+        ~S"""
+        Foo.{
+          Bar
+        }
+        """
+        |> Sourceror.parse_string!()
+
+      assert Sourceror.get_range(quoted) == %{
+               start: [line: 1, column: 1],
+               end: [line: 3, column: 1]
+             }
+    end
+  end
 end

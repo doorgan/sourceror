@@ -285,12 +285,6 @@ defmodule Sourceror do
     end)
   end
 
-  defp correct_comments_line(comments, line_correction) do
-    Enum.map(comments, fn comment ->
-      %{comment | line: comment.line + line_correction}
-    end)
-  end
-
   defp maybe_correct_line(meta, line_correction, skip) do
     if Keyword.has_key?(meta, :line) and :line not in skip do
       Keyword.put(meta, :line, meta[:line] + line_correction)
@@ -305,6 +299,12 @@ defmodule Sourceror do
     else
       meta
     end
+  end
+
+  defp correct_comments_line(comments, line_correction) do
+    Enum.map(comments, fn comment ->
+      %{comment | line: comment.line + line_correction}
+    end)
   end
 
   @doc """
@@ -471,7 +471,9 @@ defmodule Sourceror do
   end
 
   @doc """
-  Returns the end position of the quoted expression
+  Returns the end position of the quoted expression. It recursively checks for
+  `end`, `closing` and `end_of_expression` positions. If none is found, the
+  default value is returned(defaults to `[line: 1, column: 1]`).
 
       iex> quoted = ~S"\""
       ...> A.{
