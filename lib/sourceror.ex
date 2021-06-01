@@ -12,6 +12,12 @@ defmodule Sourceror do
 
   @type postwalk_function :: (Macro.t(), PostwalkState.t() -> {Macro.t(), PostwalkState.t()})
 
+  @type position :: keyword
+  @type range :: %{
+          start: position,
+          end: position
+        }
+
   code_module =
     if Version.match?(System.version(), "~> 1.13.0-dev") do
       Code
@@ -67,7 +73,8 @@ defmodule Sourceror do
     to_quoted_opts = [
       literal_encoder: &{:ok, {:__block__, &2, [&1]}},
       token_metadata: true,
-      unescape: false
+      unescape: false,
+      columns: true
     ]
 
     with {:ok, quoted, comments} <- string_to_quoted(source, to_quoted_opts) do
@@ -101,7 +108,7 @@ defmodule Sourceror do
       ...> :ok
       ...> "\"" |> Sourceror.parse_expression()
       {:ok, {:__block__, [trailing_comments: [], leading_comments: [],
-                          token: "42", line: 2], [42]}, "\\n:ok"}
+                          token: "42", line: 2, column: 1], [42]}, "\\n:ok"}
 
   ## Options
     * `:from_line` - The line at where the parsing should start. Defaults to `1`.
@@ -251,7 +258,8 @@ defmodule Sourceror do
   `:end_of_expression` line numbers of the node metadata if such fields are
   present.
   """
-  @spec correct_lines(Macro.t() | keyword, integer, keyword) :: keyword
+  @spec correct_lines(Macro.t() | Macro.metadata(), integer, Macro.metadata()) ::
+          Macro.t() | Macro.metadata()
   def correct_lines(meta, line_correction, opts \\ [])
 
   def correct_lines(meta, line_correction, opts) when is_list(meta) do
@@ -317,7 +325,7 @@ defmodule Sourceror do
       iex> Sourceror.get_meta({:foo, [line: 5], []})
       [line: 5]
   """
-  @spec get_meta(Macro.t()) :: keyword
+  @spec get_meta(Macro.t()) :: Macro.metadata()
   def get_meta({_, meta, _}) when is_list(meta) do
     meta
   end
@@ -366,6 +374,25 @@ defmodule Sourceror do
   end
 
   @doc """
+  Returns the column of a node. If none is found, the default value is
+  returned(defaults to 1).
+
+  A default of `nil` may also be provided if the column number is meant to be
+  coalesced with a value that is not known upfront.
+
+      iex> Sourceror.get_column({:foo, [column: 5], []})
+      5
+
+      iex> Sourceror.get_column({:foo, [], []}, 3)
+      3
+  """
+  @spec get_column(Macro.t(), default :: integer | nil) :: integer | nil
+  def get_column({_, meta, _}, default \\ 1)
+      when is_list(meta) and (is_integer(default) or is_nil(default)) do
+    Keyword.get(meta, :column, default)
+  end
+
+  @doc """
   Returns the line where the given node ends. It recursively checks for `end`,
   `closing` and `end_of_expression` line numbers. If none is found, the default
   value is returned(defaults to 1).
@@ -391,36 +418,7 @@ defmodule Sourceror do
   """
   @spec get_end_line(Macro.t(), integer) :: integer
   def get_end_line(quoted, default \\ 1) when is_integer(default) do
-    {_, line} =
-      Macro.postwalk(quoted, default, fn
-        {_, _, _} = quoted, end_line ->
-          current_end_line = get_node_end_line(quoted, default)
-
-          {quoted, max(end_line, current_end_line)}
-
-        terminal, end_line ->
-          {terminal, end_line}
-      end)
-
-    line
-  end
-
-  defp get_node_end_line(quoted, default) do
-    get_meta(quoted)
-    |> Keyword.take(@end_fields)
-    |> Keyword.values()
-    |> Enum.map(&Keyword.get(&1, :line))
-    |> Enum.max_by(
-      & &1,
-      fn prev, next ->
-        if is_nil(next) do
-          false
-        else
-          prev >= next
-        end
-      end,
-      fn -> default end
-    )
+    get_end_position(quoted, line: default, column: 1)[:line]
   end
 
   @doc """
@@ -442,5 +440,181 @@ defmodule Sourceror do
     end_line = get_end_line(quoted)
 
     1 + end_line - start_line
+  end
+
+  @doc """
+  Returns the start position of a node.
+
+      iex> quoted = Sourceror.parse_string!(" :foo")
+      iex> Sourceror.get_start_position(quoted)
+      [line: 1, column: 2]
+
+      iex> quoted = Sourceror.parse_string!("\\n\\nfoo()")
+      iex> Sourceror.get_start_position(quoted)
+      [line: 3, column: 1]
+
+      iex> quoted = Sourceror.parse_string!("Foo.{Bar}")
+      iex> Sourceror.get_start_position(quoted)
+      [line: 1, column: 1]
+
+      iex> quoted = Sourceror.parse_string!("foo[:bar]")
+      iex> Sourceror.get_start_position(quoted)
+      [line: 1, column: 1]
+
+      iex> quoted = Sourceror.parse_string!("foo(:bar)")
+      iex> Sourceror.get_start_position(quoted)
+      [line: 1, column: 1]
+  """
+  @spec get_start_position(Macro.t(), position) :: position
+  def get_start_position(quoted, default \\ [line: 1, column: 1])
+
+  def get_start_position({{:., _, [Access, :get]}, _, [left | _]}, default) do
+    get_start_position(left, default)
+  end
+
+  def get_start_position({{:., _, [left | _]}, _, _}, default) do
+    get_start_position(left, default)
+  end
+
+  def get_start_position({_, meta, _}, default) do
+    position = Keyword.take(meta, [:line, :column])
+
+    Keyword.merge(default, position)
+  end
+
+  @doc """
+  Returns the end position of the quoted expression
+
+      iex> quoted = ~S"\""
+      ...> A.{
+      ...>   B
+      ...> }
+      ...> "\"" |>  Sourceror.parse_string!()
+      iex> Sourceror.get_end_position(quoted)
+      [line: 3, column: 1]
+
+      iex> quoted = ~S"\""
+      ...> foo do
+      ...>   :ok
+      ...> end
+      ...> "\"" |>  Sourceror.parse_string!()
+      iex> Sourceror.get_end_position(quoted)
+      [line: 3, column: 1]
+
+      iex> quoted = ~S"\""
+      ...> foo(
+      ...>   :a,
+      ...>   :b
+      ...>    )
+      ...> "\"" |>  Sourceror.parse_string!()
+      iex> Sourceror.get_end_position(quoted)
+      [line: 4, column: 4]
+  """
+  @spec get_end_position(Macro.t(), position) :: position
+  def get_end_position(quoted, default \\ [line: 1, column: 1]) do
+    {_, position} =
+      Macro.postwalk(quoted, default, fn
+        {_, _, _} = quoted, end_position ->
+          current_end_position = get_node_end_position(quoted, default)
+
+          end_position =
+            if compare_positions(end_position, current_end_position) == :gt do
+              end_position
+            else
+              current_end_position
+            end
+
+          {quoted, end_position}
+
+        terminal, end_position ->
+          {terminal, end_position}
+      end)
+
+    position
+  end
+
+  defp get_node_end_position(quoted, default) do
+    get_meta(quoted)
+    |> Keyword.take(@end_fields)
+    |> Keyword.values()
+    |> Enum.map(&Keyword.take(&1, [:line, :column]))
+    |> Enum.max_by(
+      & &1,
+      fn prev, next ->
+        compare_positions(prev, next) == :gt
+      end,
+      fn -> default end
+    )
+  end
+
+  @doc """
+  Compares two positions.
+
+  Returns `:gt` if the first position comes after the second one, and `:lt` for
+  vice versa. If the two positions are equal, `:eq` is returned.
+
+  `nil` values for line or columns are strictly lesser than integer values.
+  """
+  @spec compare_positions(position, position) :: :gt | :eq | :lt
+  def compare_positions(left, right) do
+    cond do
+      left == right ->
+        :eq
+
+      is_nil(left[:line]) ->
+        :lt
+
+      is_nil(right[:line]) ->
+        :gt
+
+      left[:line] > right[:line] ->
+        :gt
+
+      left[:line] == right[:line] and left[:column] > right[:column] ->
+        :gt
+
+      true ->
+        :lt
+    end
+  end
+
+  @doc """
+  Gets the range used byt the given quoted expression in the source code.
+
+  The range is a map with `:start` and `:end` positions. Since the end position
+  is normally the start of the closing token, the end position column is
+  adjusted to reflect the real position of the end token.
+
+      iex> quoted = ~S"\""
+      ...> def foo do
+      ...>   :ok
+      ...> end
+      ...> "\"" |> Sourceror.parse_string!()
+      iex> Sourceror.get_range(quoted)
+      %{start: [line: 1, column: 1], end: [line: 3, column: 3]}
+
+      iex> quoted = ~S"\""
+      ...> Foo.{
+      ...>   Bar
+      ...> }
+      ...> "\"" |> Sourceror.parse_string!()
+      iex> Sourceror.get_range(quoted)
+      %{start: [line: 1, column: 1], end: [line: 3, column: 1]}
+  """
+  @spec get_range(Macro.t()) :: range
+  def get_range({_, meta, _} = quoted) do
+    end_position = get_end_position(quoted)
+
+    end_position =
+      if Keyword.has_key?(meta, :end) do
+        Keyword.update!(end_position, :column, &(&1 + 2))
+      else
+        end_position
+      end
+
+    %{
+      start: get_start_position(quoted),
+      end: end_position
+    }
   end
 end
