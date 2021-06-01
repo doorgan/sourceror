@@ -7,6 +7,7 @@ defmodule Sourceror do
   alias Sourceror.PostwalkState
 
   @line_fields ~w[closing do end end_of_expression]a
+  @start_fields ~w[line do]a
   @end_fields ~w[end closing end_of_expression]a
 
   @type postwalk_function :: (Macro.t(), PostwalkState.t() -> {Macro.t(), PostwalkState.t()})
@@ -216,7 +217,20 @@ defmodule Sourceror do
           {Macro.t(), term}
   def postwalk(quoted, acc, fun) do
     {quoted, %{acc: acc}} =
-      Macro.traverse(quoted, %PostwalkState{acc: acc}, &postwalk_correct_lines/2, fun)
+      Macro.traverse(quoted, %PostwalkState{acc: acc}, &postwalk_correct_lines/2, fn
+        {form, meta, args}, state ->
+          updated_ends =
+            correct_lines(meta, state.line_correction, skip: [:leading_comments | @start_fields])
+
+          meta = Keyword.merge(meta, updated_ends)
+
+          {quoted, state} = fun.({form, meta, args}, state)
+          {quoted, state}
+
+        quoted, state ->
+          {quoted, state} = fun.(quoted, state)
+          {quoted, state}
+      end)
 
     {quoted, acc}
   end
@@ -237,23 +251,20 @@ defmodule Sourceror do
   `:end_of_expression` line numbers of the node metadata if such fields are
   present.
   """
-  @spec correct_lines(Macro.t() | keyword, integer) :: keyword
-  def correct_lines(meta, line_correction) when is_list(meta) do
-    meta =
-      if line = meta[:line] do
-        Keyword.put(meta, :line, line + line_correction)
-      else
-        meta
-      end
+  @spec correct_lines(Macro.t() | keyword, integer, keyword) :: keyword
+  def correct_lines(meta, line_correction, opts \\ [])
 
-    corrections = Enum.map(@line_fields, &correct_line(meta, &1, line_correction))
+  def correct_lines(meta, line_correction, opts) when is_list(meta) do
+    skip = Keyword.get(opts, :skip, [])
 
-    Enum.reduce(corrections, meta, fn correction, meta ->
-      Keyword.merge(meta, correction)
-    end)
+    meta
+    |> apply_line_corrections(line_correction, skip)
+    |> maybe_correct_line(line_correction, skip)
+    |> maybe_correct_comments(:leading_comments, line_correction, skip)
+    |> maybe_correct_comments(:trailing_comments, line_correction, skip)
   end
 
-  def correct_lines(quoted, line_correction) do
+  def correct_lines(quoted, line_correction, _opts) do
     Macro.update_meta(quoted, &correct_lines(&1, line_correction))
   end
 
@@ -265,6 +276,38 @@ defmodule Sourceror do
 
       _ ->
         []
+    end
+  end
+
+  defp apply_line_corrections(meta, line_correction, skip) do
+    to_correct = @line_fields -- skip
+
+    corrections = Enum.map(to_correct, &correct_line(meta, &1, line_correction))
+
+    Enum.reduce(corrections, meta, fn correction, meta ->
+      Keyword.merge(meta, correction)
+    end)
+  end
+
+  defp correct_comments_line(comments, line_correction) do
+    Enum.map(comments, fn comment ->
+      %{comment | line: comment.line + line_correction}
+    end)
+  end
+
+  defp maybe_correct_line(meta, line_correction, skip) do
+    if Keyword.has_key?(meta, :line) and :line not in skip do
+      Keyword.put(meta, :line, meta[:line] + line_correction)
+    else
+      meta
+    end
+  end
+
+  defp maybe_correct_comments(meta, key, line_correction, skip) do
+    if Keyword.has_key?(meta, key) and key not in skip do
+      Keyword.update!(meta, key, &correct_comments_line(&1, line_correction))
+    else
+      meta
     end
   end
 
@@ -327,9 +370,6 @@ defmodule Sourceror do
   `closing` and `end_of_expression` line numbers. If none is found, the default
   value is returned(defaults to 1).
 
-  A default of `nil` may also be provided if the line number is meant to be
-  coalesced with a value that is not known upfront.
-
       iex> Sourceror.get_end_line({:foo, [end: [line: 4]], []})
       4
 
@@ -349,12 +389,14 @@ defmodule Sourceror do
       ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_end_line()
       3
   """
-  @spec get_end_line(Macro.t(), integer | nil) :: integer | nil
-  def get_end_line(quoted, default \\ 1) when is_integer(default) or is_nil(default) do
+  @spec get_end_line(Macro.t(), integer) :: integer
+  def get_end_line(quoted, default \\ 1) when is_integer(default) do
     {_, line} =
       Macro.postwalk(quoted, default, fn
         {_, _, _} = quoted, end_line ->
-          {quoted, max(end_line, get_node_end_line(quoted, default))}
+          current_end_line = get_node_end_line(quoted, default)
+
+          {quoted, max(end_line, current_end_line)}
 
         terminal, end_line ->
           {terminal, end_line}
@@ -368,7 +410,17 @@ defmodule Sourceror do
     |> Keyword.take(@end_fields)
     |> Keyword.values()
     |> Enum.map(&Keyword.get(&1, :line))
-    |> Enum.max(fn -> default end)
+    |> Enum.max_by(
+      & &1,
+      fn prev, next ->
+        if is_nil(next) do
+          false
+        else
+          prev >= next
+        end
+      end,
+      fn -> default end
+    )
   end
 
   @doc """

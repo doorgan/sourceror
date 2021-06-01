@@ -82,28 +82,8 @@ defmodule Sourceror.Comments do
   end
 
   defp do_extract_comments({_, meta, _} = quoted, acc) do
-    line = Sourceror.get_line(quoted)
-
-    # This function recurses the quoted expression, so we get the end_line
-    # before mapping over the trailing comments to avoid repeating work. The
-    # nil default is used to coalesce it with the comment's original line.
-    end_line = Sourceror.get_end_line(quoted, nil)
-
-    leading_comments =
-      Keyword.get(meta, :leading_comments, [])
-      |> Enum.map(fn comment ->
-        %{comment | line: line}
-      end)
-
-    trailing_comments =
-      Keyword.get(meta, :trailing_comments, [])
-      |> Enum.map(fn comment ->
-        # Preserve original comment line if the parent node does not have
-        # ending line information. This usually happens when the comment
-        # is at the end of the file, outside of any other node.
-        end_line = if is_nil(end_line), do: comment.line, else: end_line
-        %{comment | line: end_line}
-      end)
+    leading_comments = Keyword.get(meta, :leading_comments, [])
+    trailing_comments = Keyword.get(meta, :trailing_comments, [])
 
     acc =
       Enum.concat([acc, leading_comments, trailing_comments])

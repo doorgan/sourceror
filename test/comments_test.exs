@@ -43,7 +43,7 @@ defmodule SourcerorTest.CommentsTest do
   end
 
   describe "extract_comments/1" do
-    test "collapses line numbers of attached node" do
+    test "preserves comment line numbers" do
       quoted =
         Sourceror.parse_string!("""
         # A
@@ -53,7 +53,7 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
       assert [
-               %{line: 2, text: "# A"},
+               %{line: 1, text: "# A"},
                %{line: 2, text: "# B"}
              ] = comments
 
@@ -103,9 +103,9 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
       assert [
-               %{line: 2, text: "# A"},
+               %{line: 1, text: "# A"},
                %{line: 2, text: "# B"},
-               %{line: 4, text: "# C"},
+               %{line: 3, text: "# C"},
                %{line: 4, text: "# D"},
                %{line: 5, text: "# E"},
                %{line: 6, text: "# F"},
