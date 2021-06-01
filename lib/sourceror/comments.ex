@@ -13,18 +13,22 @@ defmodule Sourceror.Comments do
   """
   @spec merge_comments(Macro.t(), list(map)) :: Macro.t()
   def merge_comments(quoted, comments) do
-    {quoted, leftovers} = Macro.prewalk(quoted, comments, &do_merge_comments/2)
-    {quoted, leftovers} = Macro.postwalk(quoted, leftovers, &merge_leftovers/2)
+    {quoted, leftovers} =
+      Macro.traverse(quoted, comments, &do_merge_comments/2, &merge_leftovers/2)
 
-    if Enum.empty?(leftovers) do
-      quoted
-    else
-      {:__block__, [trailing_comments: leftovers, leading_comments: []], [quoted]}
+    case leftovers do
+      [] ->
+        quoted
+
+      _ ->
+        line = Sourceror.get_line(quoted)
+        {:__block__, [trailing_comments: leftovers, leading_comments: [], line: line], [quoted]}
     end
   end
 
-  defp do_merge_comments({_, _meta, _} = quoted, comments) do
-    {comments, rest} = gather_comments_for_line(comments, line(quoted))
+  defp do_merge_comments({_, _, _} = quoted, comments) do
+    line = Sourceror.get_line(quoted, 0)
+    {comments, rest} = gather_comments_for_line(comments, line)
 
     quoted = put_comments(quoted, :leading_comments, comments)
     {quoted, rest}
@@ -32,18 +36,14 @@ defmodule Sourceror.Comments do
 
   defp do_merge_comments(quoted, comments), do: {quoted, comments}
 
-  defp merge_leftovers({_, meta, _} = quoted, comments) do
-    end_line = Keyword.get(meta, :end, line: 0)[:line]
+  defp merge_leftovers(quoted, comments) do
+    end_line = Sourceror.get_end_line(quoted, 0)
 
     {comments, rest} = gather_comments_for_line(comments, end_line)
     quoted = put_comments(quoted, :trailing_comments, comments)
 
     {quoted, rest}
   end
-
-  defp merge_leftovers(quoted, comments), do: {quoted, comments}
-
-  defp line({_, meta, _}), do: meta[:line] || 0
 
   defp gather_comments_for_line(comments, line) do
     {comments, rest} =
@@ -73,41 +73,49 @@ defmodule Sourceror.Comments do
   @spec extract_comments(Macro.t()) :: {Macro.t(), list(map)}
   def extract_comments(quoted) do
     Macro.postwalk(quoted, [], fn
-      {_, meta, _} = quoted, acc ->
-        line = meta[:line] || 1
-
-        leading_comments =
-          Keyword.get(meta, :leading_comments, [])
-          |> Enum.map(fn comment ->
-            %{comment | line: line}
-          end)
-
-        acc = acc ++ leading_comments
-
-        trailing_comments =
-          Keyword.get(meta, :trailing_comments, [])
-          |> Enum.map(fn comment ->
-            # Preserve original commet line if parent node does not have
-            # ending line information
-            end_line = meta[:end][:line] || meta[:closing][:line] || comment.line
-            %{comment | line: end_line}
-          end)
-
-        acc = acc ++ trailing_comments
-
-        acc = Enum.sort_by(acc, & &1.line)
-
-        quoted =
-          Macro.update_meta(quoted, fn meta ->
-            meta
-            |> Keyword.delete(:leading_comments)
-            |> Keyword.delete(:trailing_comments)
-          end)
-
-        {quoted, acc}
+      {_, _, _} = quoted, acc ->
+        do_extract_comments(quoted, acc)
 
       other, acc ->
         {other, acc}
     end)
+  end
+
+  defp do_extract_comments({_, meta, _} = quoted, acc) do
+    line = Sourceror.get_line(quoted)
+
+    # This function recurses the quoted expression, so we get the end_line
+    # before mapping over the trailing comments to avoid repeating work. The
+    # nil default is used to coalesce it with the comment's original line.
+    end_line = Sourceror.get_end_line(quoted, nil)
+
+    leading_comments =
+      Keyword.get(meta, :leading_comments, [])
+      |> Enum.map(fn comment ->
+        %{comment | line: line}
+      end)
+
+    trailing_comments =
+      Keyword.get(meta, :trailing_comments, [])
+      |> Enum.map(fn comment ->
+        # Preserve original comment line if the parent node does not have
+        # ending line information. This usually happens when the comment
+        # is at the end of the file, outside of any other node.
+        end_line = if is_nil(end_line), do: comment.line, else: end_line
+        %{comment | line: end_line}
+      end)
+
+    acc =
+      Enum.concat([acc, leading_comments, trailing_comments])
+      |> Enum.sort_by(& &1.line)
+
+    quoted =
+      Macro.update_meta(quoted, fn meta ->
+        meta
+        |> Keyword.delete(:leading_comments)
+        |> Keyword.delete(:trailing_comments)
+      end)
+
+    {quoted, acc}
   end
 end

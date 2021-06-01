@@ -302,31 +302,31 @@ defmodule Sourceror do
   end
 
   @doc """
-  Returns the line of a node.
+  Returns the line of a node. If none is found, the default value is
+  returned(defaults to 1).
+
+  A default of `nil` may also be provided if the line number is meant to be
+  coalesced with a value that is not known upfront.
 
       iex> Sourceror.get_line({:foo, [line: 5], []})
       5
 
       iex> Sourceror.get_line({:foo, [], []}, 3)
       3
-
-      iex> Sourceror.get_line(:ok)
-      1
   """
-  @spec get_line(Macro.t(), default :: integer) :: integer
-  def get_line(quoted, default \\ 1)
-
-  def get_line({_, meta, _}, default) when is_list(meta) do
+  @spec get_line(Macro.t(), default :: integer | nil) :: integer | nil
+  def get_line({_, meta, _}, default \\ 1)
+      when is_list(meta) and (is_integer(default) or is_nil(default)) do
     Keyword.get(meta, :line, default)
-  end
-
-  def get_line(_, default) do
-    default
   end
 
   @doc """
   Returns the line where the given node ends. It recursively checks for `end`,
-  `closing` and `end_of_expression` line numbers.
+  `closing` and `end_of_expression` line numbers. If none is found, the default
+  value is returned(defaults to 1).
+
+  A default of `nil` may also be provided if the line number is meant to be
+  coalesced with a value that is not known upfront.
 
       iex> Sourceror.get_end_line({:foo, [end: [line: 4]], []})
       4
@@ -347,8 +347,8 @@ defmodule Sourceror do
       ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_end_line()
       3
   """
-  @spec get_end_line(Macro.t(), integer()) :: integer()
-  def get_end_line(quoted, default \\ 1) do
+  @spec get_end_line(Macro.t(), integer | nil) :: integer | nil
+  def get_end_line(quoted, default \\ 1) when is_integer(default) or is_nil(default) do
     {_, line} =
       Macro.postwalk(quoted, default, fn
         {_, _, _} = quoted, end_line ->
@@ -382,7 +382,7 @@ defmodule Sourceror do
       ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_line_span()
       3
   """
-  @spec get_line_span(Macro.t()) :: integer()
+  @spec get_line_span(Macro.t()) :: integer
   def get_line_span(quoted) do
     start_line = get_line(quoted)
     end_line = get_end_line(quoted)

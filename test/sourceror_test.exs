@@ -59,7 +59,7 @@ defmodule SourcerorTest do
   describe "postwalk/2" do
     test "corrects line numbers" do
       quoted =
-        Sourceror.parse_string!("""
+        Sourceror.parse_string!(~S"""
         :a
         :b
         :c
@@ -101,14 +101,14 @@ defmodule SourcerorTest do
     end
 
     test "indents code" do
-      source = """
+      source = ~S"""
       def foo do
         :bar
       end
       """
 
       expected =
-        String.trim_trailing("""
+        String.trim_trailing(~S"""
           def foo do
             :bar
           end
@@ -122,7 +122,7 @@ defmodule SourcerorTest do
       assert expected == actual
 
       expected =
-        String.trim_trailing("""
+        String.trim_trailing(~S"""
            def foo do
              :bar
            end
@@ -187,7 +187,7 @@ defmodule SourcerorTest do
     end
 
     test "returns the correct lien span" do
-      source = """
+      source = ~S"""
       def foo do
         :ok
       end
@@ -195,20 +195,20 @@ defmodule SourcerorTest do
 
       assert line_span_from_source(source) == 3
 
-      source = """
+      source = ~S"""
       def foo do
         :ok end
       """
 
       assert line_span_from_source(source) == 2
 
-      source = """
+      source = ~S"""
       def foo do :ok end
       """
 
       assert line_span_from_source(source) == 1
 
-      source = """
+      source = ~S"""
       alias Foo.{
         Bar
       }
@@ -216,8 +216,8 @@ defmodule SourcerorTest do
 
       assert line_span_from_source(source) == 3
 
-      source = """
-      def get_end_line(quoted, default \\\\ 1) do
+      source = ~S"""
+      def get_end_line(quoted, default \\ 1) do
         {_, line} =
           Macro.postwalk(quoted, default, fn
             {_, _, _} = quoted, acc ->

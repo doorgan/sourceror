@@ -68,7 +68,22 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
 
       assert [
-               %{line: 4, text: "# A"},
+               %{line: 3, text: "# A"},
+               %{line: 4, text: "# B"}
+             ] = comments
+
+      quoted =
+        Sourceror.parse_string!("""
+        Foo.{
+          A
+          # A
+        } # B
+        """)
+
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted)
+
+      assert [
+               %{line: 3, text: "# A"},
                %{line: 4, text: "# B"}
              ] = comments
     end
@@ -92,7 +107,7 @@ defmodule SourcerorTest.CommentsTest do
                %{line: 2, text: "# B"},
                %{line: 4, text: "# C"},
                %{line: 4, text: "# D"},
-               %{line: 6, text: "# E"},
+               %{line: 5, text: "# E"},
                %{line: 6, text: "# F"},
                %{line: 7, text: "# G"}
              ] = comments
