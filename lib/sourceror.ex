@@ -18,43 +18,34 @@ defmodule Sourceror do
           end: position
         }
 
-  code_module =
-    if Version.match?(System.version(), "~> 1.13.0-dev") do
-      Code
-    else
-      Sourceror.Code
-    end
-
-  @code_module code_module
+  @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
+                  Code
+                else
+                  Sourceror.Code
+                end)
 
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments!/2` for compatibility
   with pre 1.13 Elixir versions.
   """
-  defmacro string_to_quoted!(string, opts) do
-    quote bind_quoted: [code_module: @code_module, string: string, opts: opts], location: :keep do
-      code_module.string_to_quoted_with_comments!(string, opts)
-    end
+  def string_to_quoted!(string, opts) do
+    @code_module.string_to_quoted_with_comments!(string, opts)
   end
 
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments/2` for compatibility
   with pre 1.13 Elixir versions.
   """
-  defmacro string_to_quoted(string, opts) do
-    quote bind_quoted: [code_module: @code_module, string: string, opts: opts], location: :keep do
-      code_module.string_to_quoted_with_comments(string, opts)
-    end
+  def string_to_quoted(string, opts) do
+    @code_module.string_to_quoted_with_comments(string, opts)
   end
 
   @doc """
   A wrapper around `Code.quoted_to_algebra/2` for compatibility with pre 1.13
   Elixir versions.
   """
-  defmacro quoted_to_algebra(quoted, opts) do
-    quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts], location: :keep do
-      code_module.quoted_to_algebra(quoted, opts)
-    end
+  def quoted_to_algebra(quoted, opts) do
+    @code_module.quoted_to_algebra(quoted, opts)
   end
 
   @doc """
@@ -70,14 +61,7 @@ defmodule Sourceror do
   """
   @spec parse_string(String.t()) :: {:ok, Macro.t()} | {:error, term()}
   def parse_string(source) do
-    to_quoted_opts = [
-      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-      token_metadata: true,
-      unescape: false,
-      columns: true
-    ]
-
-    with {:ok, quoted, comments} <- string_to_quoted(source, to_quoted_opts) do
+    with {:ok, quoted, comments} <- string_to_quoted(source, to_quoted_opts()) do
       {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
     end
   end
@@ -87,13 +71,17 @@ defmodule Sourceror do
   """
   @spec parse_string!(String.t()) :: Macro.t()
   def parse_string!(source) do
-    case parse_string(source) do
-      {:ok, quoted} ->
-        quoted
+    {quoted, comments} = string_to_quoted!(source, to_quoted_opts())
+    Sourceror.Comments.merge_comments(quoted, comments)
+  end
 
-      {:error, {location, error, token}} ->
-        :sourceror_errors.parse_error(location, "nofile", error, token)
-    end
+  defp to_quoted_opts() do
+    [
+      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
+      token_metadata: true,
+      unescape: false,
+      columns: true
+    ]
   end
 
   @doc """
