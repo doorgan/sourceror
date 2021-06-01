@@ -5,28 +5,6 @@
 
 Utilities to work with Elixir source code.
 
-<!-- MDOC !-->
-
-## Installation
-
-Add `:sourceror` as a dependency to your project's `mix.exs`:
-
-```elixir
-defp deps do
-  [
-    {:sourceror, "~> 0.3.0"}
-  ]
-end
-```
-
-### A note on compatibility
-
-Sourceror is compatible with Elixir versions down to 1.10 and OTP 21. For Elixir
-versions prior to 1.13 it uses a vendored version of the Elixir parser and
-formatter modules. This means that for Elixir versions prior to 1.12 it will
-successfully parse the new syntax for stepped ranges instead of raising a
-`SyntaxError`, but everything else should work as expected.
-
 ## Documentation
 
 You can find Sourceror documentation on [Hex Docs](https://hexdocs.pm/sourceror/readme.html).
@@ -50,6 +28,28 @@ section for pointers.
 If you have any questions about Sourceror or need assistance, please open a
 thread in the [Discussions](https://github.com/doorgan/sourceror/discussions)
 section.
+
+<!-- MDOC !-->
+
+## Installation
+
+Add `:sourceror` as a dependency to your project's `mix.exs`:
+
+```elixir
+defp deps do
+  [
+    {:sourceror, "~> 0.3.0"}
+  ]
+end
+```
+
+### A note on compatibility
+
+Sourceror is compatible with Elixir versions down to 1.10 and OTP 21. For Elixir
+versions prior to 1.13 it uses a vendored version of the Elixir parser and
+formatter modules. This means that for Elixir versions prior to 1.12 it will
+successfully parse the new syntax for stepped ranges instead of raising a
+`SyntaxError`, but everything else should work as expected.
 
 ## Background
 
