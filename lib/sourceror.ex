@@ -216,16 +216,18 @@ defmodule Sourceror do
           {Macro.t(), term}
   def postwalk(quoted, acc, fun) do
     {quoted, %{acc: acc}} =
-      Macro.postwalk(quoted, %PostwalkState{acc: acc}, fn
-        {_, _, _} = quoted, state ->
-          quoted = Macro.update_meta(quoted, &correct_lines(&1, state.line_correction))
-          fun.(quoted, state)
-
-        quoted, state ->
-          fun.(quoted, state)
-      end)
+      Macro.traverse(quoted, %PostwalkState{acc: acc}, &postwalk_correct_lines/2, fun)
 
     {quoted, acc}
+  end
+
+  defp postwalk_correct_lines({_, _, _} = quoted, state) do
+    quoted = Macro.update_meta(quoted, &correct_lines(&1, state.line_correction))
+    {quoted, state}
+  end
+
+  defp postwalk_correct_lines(quoted, state) do
+    {quoted, state}
   end
 
   @doc """
