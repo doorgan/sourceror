@@ -140,23 +140,21 @@ Two metadata fields are added to the regular Elixir AST:
       def foo() do
       :ok
       # A trailing comment
-      end # Also a trailing comment for :foo
+      end # Not a trailing comment for :foo
       """ |> Sourceror.parse_string!()
 
-      assert {:def, meta, _} = quoted
-      assert meta[:trailing_comments] == [
-        %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A trailing comment"},
-        %{line: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a trailing comment for :foo"},
-      ]
+      assert {:__block__, block_meta, [{:def, meta, _}]} = quoted
+      assert [%{line: 3, text: "# A trailing comment"}] = meta[:trailing_comments]
+      assert [%{line: 4, text: "# Not a trailing comment for :foo"}] = block_meta[:trailing_comments]
     end
     ```
 
 Note that Sourceror considers leading comments to the ones that are found in the
-same line as a node, and trailing coments to the ones that are found in the same
-line or before the ending line of a node, based on the `end`, `closing` or
-`end_of_expression` line. This also makes the Sourceror AST consistent with
-the way the Elixir formatter works, making it easier to reason about how a given
-AST would be formatted.
+same line as a node, and trailing coments to the ones that are found before the
+ending line of a node, based on the `end`, `closing` or `end_of_expression`
+line. This also makes the Sourceror AST consistent with the way the Elixir
+formatter works, making it easier to reason about how a given AST would be
+formatted.
 
 ## Working with line numbers
 

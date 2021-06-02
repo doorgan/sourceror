@@ -2,6 +2,9 @@
 
 ## Introduction
 
+**Note:** this document is a work in progress and uses the latest Sourceror version in the
+main branch.
+
 The multi-alias syntax `alias Foo.{Bar, Baz}`, while handy to alias multiple modules at once,
 makes module uses harder to search for in large code bases, as mentioned by [credo](https://github.com/rrrene/credo)
 warnings. We can use Sourceror to fix this issue by expanding this syntax into multiple
@@ -17,7 +20,10 @@ Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.5"}
+  # For latest published release:
+  # {:sourceror, "~> 0.5"}
+
+  {:sourceror, github: "doorgan/sourceror"}
 ])
 ```
 
@@ -349,14 +355,17 @@ expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}
       {_, meta, segments} = segments
       line = alias_meta[:line] + index
 
+      {leading_comments, meta} = Keyword.pop(meta, :leading_comments, [])
+
+      leading_comments = Enum.map(leading_comments, &%{&1 | line: line})
+
       meta =
         meta
+        |> Keyword.put(:column, alias_meta[:column])
         |> Keyword.put(:line, line)
-        |> Keyword.update(:leading_comments, [], fn comments ->
-          Enum.map(comments, &%{&1 | line: line})
-        end)
+        |> Keyword.put(:leading_comments, leading_comments)
 
-      aliased = {:__aliases__, [line: line], base ++ segments}
+      aliased = {:__aliases__, [], base ++ segments}
 
       quoted = {:alias, meta, [aliased]}
 
@@ -365,11 +374,21 @@ expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}
           Sourceror.prepend_comments(quoted, alias_meta[:leading_comments])
 
         index == segments_length ->
-          # By setting the line number to 2 we can make sure there is always an empty
-          # line after the group expanded aliases
-          quoted
-          |> Macro.update_meta(&Keyword.put(&1, :end_of_expression, line: line, newlines: 2))
-          |> Sourceror.append_comments(call_meta[:trailing_comments], :trailing)
+          # Wrap the last one in a block so we can use the trailing comment
+          trailing_comments = call_meta[:trailing_comments]
+
+          quoted =
+            {:__block__,
+             [
+               line: line,
+               end_of_expression: [
+                 line: line,
+                 column: alias_meta[:column],
+                 newlines: 2
+               ]
+             ], [quoted]}
+
+          Sourceror.prepend_comments(quoted, trailing_comments, :trailing)
 
         true ->
           quoted
@@ -404,23 +423,32 @@ source
 ```
 
 And with this we now have a fully working function to expand occurrences of multi aliases, while
-preserving comments in the correct order!
+preserving comments associated to the correct nodes.
 
-You can also see that the line correction propagates further if we expand many ocurrences:
+However, there are a lot of nuances when it comes to the way the Elixir formatter places comments,
+and many of them will still end up misplaced, due to the fact that adding and removing comments to
+a node requires propagating even more line corrections:
 
 ```elixir
-~S"""
+source = ~S"""
 defmodule Sample do
   # Some aliases
   alias Foo.{A, B, C, D, E, F}
 
   # Hello!
   alias Bar.{G, H, I,
-    # Inner comment!
-    J, K
-    # Inner last comment!
 
-  }
+    # Inner comment!
+    # Inner comment 2!
+    # Inner comment 3!
+    J,
+
+    # Comment for K!
+    K # Comment for K 2!
+
+    # Inner last comment!
+    # Inner last comment 2!
+  } # Not an inner comment
 
   def foo() do
     # Some scoped alias
@@ -437,8 +465,29 @@ defmodule Sample do
 end
 # End of file!
 """
+
+source
 |> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)
 |> Sourceror.to_string()
+|> IO.puts()
+```
+
+While Sourceror does it's best to correct
+line numbers for you, taking comments into account makes the code much more convoluted, forcing you
+to do tricks with `Enum.reduce` instead of just using `Enum.map`, aggregating the total line
+corrections that happened while enumerating child nodes, and so on.
+
+To simplify this, you can pass the `collapse_comments: true` option to `Sourceror.to_string/2`. With
+this option enabled, Sourceror will try to squash all comments line numbers into a single one, making
+the line number of comments during transformation largely irrelevant. This relies on the fact that
+the Elixir formatter goes through comments in order and only uses their line number and eol counts
+to decide if
+
+```elixir
+source
+|> Sourceror.parse_string!()
+|> Sourceror.postwalk(postwalk_aliases)
+|> Sourceror.to_string(collapse_comments: true)
 |> IO.puts()
 ```

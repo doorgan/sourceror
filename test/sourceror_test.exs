@@ -5,6 +5,15 @@ defmodule SourcerorTest do
   test "parse_string!/2 and to_string/2 idempotency" do
     source =
       ~S"""
+      foo()
+      # Bar
+      """
+      |> String.trim()
+
+    assert source == Sourceror.parse_string!(source) |> Sourceror.to_string()
+
+    source =
+      ~S"""
       # A
       foo do
         # B
@@ -373,6 +382,33 @@ defmodule SourcerorTest do
                %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# A"}
              ]
 
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               # B
+               # A
+               :ok
+               """
+               |> String.trim()
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        :ok
+        """)
+
+      quoted = Sourceror.prepend_comments(quoted, comments)
+      leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
+
+      assert leading_comments == [
+               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+             ]
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               # B
+               :ok
+               """
+               |> String.trim()
+
       quoted =
         Sourceror.parse_string!(~S"""
         foo do
@@ -388,6 +424,57 @@ defmodule SourcerorTest do
                %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"},
                %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A"}
              ]
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               foo do
+                 :ok
+                 # B
+                 # A
+               end
+               """
+               |> String.trim()
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        foo do
+          :ok
+        end
+        """)
+
+      quoted = Sourceror.prepend_comments(quoted, comments, :trailing)
+      trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
+
+      assert trailing_comments == [
+               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+             ]
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               foo do
+                 :ok
+                 # B
+               end
+               """
+               |> String.trim()
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        Foo.{
+          Bar
+        }
+        """)
+
+      quoted = Sourceror.prepend_comments(quoted, comments, :trailing)
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               Foo.{
+                 Bar
+                 # B
+               }
+               """
+               |> String.trim()
     end
   end
 
@@ -411,6 +498,33 @@ defmodule SourcerorTest do
                %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
              ]
 
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               # A
+               # B
+               :ok
+               """
+               |> String.trim()
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        :ok
+        """)
+
+      quoted = Sourceror.append_comments(quoted, comments)
+      leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
+
+      assert leading_comments == [
+               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+             ]
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               # B
+               :ok
+               """
+               |> String.trim()
+
       quoted =
         Sourceror.parse_string!(~S"""
         foo do
@@ -427,6 +541,16 @@ defmodule SourcerorTest do
                %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
              ]
 
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               foo do
+                 :ok
+                 # A
+                 # B
+               end
+               """
+               |> String.trim()
+
       quoted =
         Sourceror.parse_string!(~S"""
         foo do
@@ -438,8 +562,35 @@ defmodule SourcerorTest do
       trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
 
       assert trailing_comments == [
-               %{line: 4, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
              ]
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               foo do
+                 :ok
+                 # B
+               end
+               """
+               |> String.trim()
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        Foo.{
+          Bar
+        }
+        """)
+
+      quoted = Sourceror.append_comments(quoted, comments, :trailing)
+
+      assert Sourceror.to_string(quoted) ==
+               ~S"""
+               Foo.{
+                 Bar
+                 # B
+               }
+               """
+               |> String.trim()
     end
   end
 end

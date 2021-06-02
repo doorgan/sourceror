@@ -27,8 +27,7 @@ defmodule Sourceror.Comments do
   end
 
   defp do_merge_comments({_, _, _} = quoted, comments) do
-    line = Sourceror.get_line(quoted, 0)
-    {comments, rest} = gather_comments_for_line(comments, line)
+    {comments, rest} = gather_leading_comments_for_node(quoted, comments)
 
     quoted = put_comments(quoted, :leading_comments, comments)
     {quoted, rest}
@@ -36,16 +35,18 @@ defmodule Sourceror.Comments do
 
   defp do_merge_comments(quoted, comments), do: {quoted, comments}
 
-  defp merge_leftovers(quoted, comments) do
-    end_line = Sourceror.get_end_line(quoted, 0)
-
-    {comments, rest} = gather_comments_for_line(comments, end_line)
+  defp merge_leftovers({_, _, _} = quoted, comments) do
+    {comments, rest} = gather_trailing_comments_for_node(quoted, comments)
     quoted = put_comments(quoted, :trailing_comments, comments)
 
     {quoted, rest}
   end
 
-  defp gather_comments_for_line(comments, line) do
+  defp merge_leftovers(quoted, comments), do: {quoted, comments}
+
+  defp gather_leading_comments_for_node(quoted, comments) do
+    line = Sourceror.get_line(quoted, 0)
+
     {comments, rest} =
       Enum.reduce(comments, {[], []}, fn
         comment, {comments, rest} ->
@@ -53,6 +54,31 @@ defmodule Sourceror.Comments do
             {[comment | comments], rest}
           else
             {comments, [comment | rest]}
+          end
+      end)
+
+    rest = Enum.sort_by(rest, & &1.line)
+    comments = Enum.sort_by(comments, & &1.line)
+
+    {comments, rest}
+  end
+
+  defp gather_trailing_comments_for_node(quoted, comments) do
+    line = Sourceror.get_end_line(quoted, 0)
+    has_closing_line? = Sourceror.has_closing_line?(quoted)
+
+    {comments, rest} =
+      Enum.reduce(comments, {[], []}, fn
+        comment, {comments, rest} ->
+          cond do
+            has_closing_line? and comment.line < line ->
+              {[comment | comments], rest}
+
+            not has_closing_line? and comment.line <= line ->
+              {[comment | comments], rest}
+
+            true ->
+              {comments, [comment | rest]}
           end
       end)
 
@@ -71,19 +97,36 @@ defmodule Sourceror.Comments do
   quoted expression and returns both as a `{quoted, comments}` tuple.
   """
   @spec extract_comments(Macro.t()) :: {Macro.t(), list(map)}
-  def extract_comments(quoted) do
+  def extract_comments(quoted, opts \\ []) do
+    collapse_comments = Keyword.get(opts, :collapse_comments, false)
+
     Macro.postwalk(quoted, [], fn
       {_, _, _} = quoted, acc ->
-        do_extract_comments(quoted, acc)
+        do_extract_comments(quoted, acc, collapse_comments)
 
       other, acc ->
         {other, acc}
     end)
   end
 
-  defp do_extract_comments({_, meta, _} = quoted, acc) do
+  defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments) do
     leading_comments = Keyword.get(meta, :leading_comments, [])
+
+    leading_comments =
+      if collapse_comments do
+        Enum.map(leading_comments, &%{&1 | line: meta[:line], previous_eol_count: 0})
+      else
+        leading_comments
+      end
+
     trailing_comments = Keyword.get(meta, :trailing_comments, [])
+
+    trailing_comments =
+      if collapse_comments do
+        collapse_trailing_comments(quoted, trailing_comments)
+      else
+        trailing_comments
+      end
 
     acc =
       Enum.concat([acc, leading_comments, trailing_comments])
@@ -97,5 +140,28 @@ defmodule Sourceror.Comments do
       end)
 
     {quoted, acc}
+  end
+
+  defp collapse_trailing_comments(quoted, trailing_comments) do
+    meta = Sourceror.get_meta(quoted)
+
+    comments =
+      Enum.map(trailing_comments, fn comment ->
+        line = Sourceror.get_end_line(quoted, meta[:line])
+
+        if Sourceror.has_closing_line?(quoted) do
+          %{comment | line: line - 1, previous_eol_count: 0}
+        else
+          %{comment | line: line + 1, previous_eol_count: 1}
+        end
+      end)
+
+    case List.pop_at(comments, -1) do
+      {last, rest} when is_map(last) ->
+        rest ++ [%{last | previous_eol_count: 0, next_eol_count: 2}]
+
+      _ ->
+        comments
+    end
   end
 end

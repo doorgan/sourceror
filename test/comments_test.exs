@@ -27,18 +27,20 @@ defmodule SourcerorTest.CommentsTest do
         end # B
         """)
 
-      assert {:def, meta,
+      assert {:__block__, block_meta,
               [
-                {:a, _, _},
-                [
-                  {{:__block__, _, [:do]}, {:__block__, _, [:ok]}}
-                ]
+                {:def, meta,
+                 [
+                   {:a, _, _},
+                   [
+                     {{:__block__, _, [:do]}, {:__block__, _, [:ok]}}
+                   ]
+                 ]}
               ]} = quoted
 
-      assert [
-               %{line: 3, text: "# A"},
-               %{line: 4, text: "# B"}
-             ] = meta[:trailing_comments]
+      assert [%{line: 3, text: "# A"}] = meta[:trailing_comments]
+
+      assert [%{line: 4, text: "# B"}] = block_meta[:trailing_comments]
     end
   end
 
@@ -111,6 +113,63 @@ defmodule SourcerorTest.CommentsTest do
                %{line: 6, text: "# F"},
                %{line: 7, text: "# G"}
              ] = comments
+    end
+
+    test "collapses comments" do
+      quoted =
+        Sourceror.parse_string!("""
+        # A
+        :ok # B
+        """)
+
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted, collapse_comments: true)
+
+      assert [
+               %{line: 2, text: "# A"},
+               %{line: 2, text: "# B"}
+             ] = comments
+
+      quoted =
+        Sourceror.parse_string!("""
+        def a do
+          :ok
+          # A
+        end # B
+        """)
+
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted, collapse_comments: true)
+
+      assert [
+               %{line: 3, text: "# A"},
+               %{line: 5, text: "# B"}
+             ] = comments
+
+      quoted =
+        Sourceror.parse_string!("""
+        Foo.{
+          A
+          # A
+        } # B
+        """)
+
+      {_quoted, comments} = Sourceror.Comments.extract_comments(quoted, collapse_comments: true)
+
+      assert [
+               %{line: 3, text: "# A"},
+               %{line: 5, text: "# B"}
+             ] = comments
+
+      assert Sourceror.to_string(quoted, collapse_comments: true) ==
+               """
+               Foo.{
+                 A
+
+                 # A
+               }
+
+               # B
+               """
+               |> String.trim()
     end
   end
 end

@@ -165,7 +165,7 @@ defmodule Sourceror do
         :tabs -> "\t"
       end
 
-    {quoted, comments} = Sourceror.Comments.extract_comments(quoted)
+    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, opts)
 
     quoted
     |> quoted_to_algebra(comments: comments)
@@ -554,19 +554,17 @@ defmodule Sourceror do
   Returns `:gt` if the first position comes after the second one, and `:lt` for
   vice versa. If the two positions are equal, `:eq` is returned.
 
-  `nil` values for line or columns are strictly lesser than integer values.
+  `nil` values for lines or columns are coalesced to `0` for integer
+  comparisons.
   """
   @spec compare_positions(position, position) :: :gt | :eq | :lt
   def compare_positions(left, right) do
+    left = coalesce_position(left)
+    right = coalesce_position(right)
+
     cond do
       left == right ->
         :eq
-
-      is_nil(left[:line]) ->
-        :lt
-
-      is_nil(right[:line]) ->
-        :gt
 
       left[:line] > right[:line] ->
         :gt
@@ -577,6 +575,13 @@ defmodule Sourceror do
       true ->
         :lt
     end
+  end
+
+  defp coalesce_position(position) do
+    line = position[:line] || 0
+    column = position[:column] || 0
+
+    [line: line, column: column]
   end
 
   @doc """
@@ -625,26 +630,7 @@ defmodule Sourceror do
   @spec prepend_comments(Macro.t(), [map], :leading | :trailing) :: Macro.t()
   def prepend_comments(quoted, comments, position \\ :leading)
       when position in [:leading, :trailing] do
-    key =
-      case position do
-        :leading -> :leading_comments
-        :trailing -> :trailing_comments
-      end
-
-    current_comments = get_meta(quoted)[key] || []
-
-    line =
-      if comment = List.first(current_comments) do
-        comment.line
-      else
-        get_start_position(quoted)[:line]
-      end
-
-    comments = Enum.map(comments, &%{&1 | line: line})
-
-    current_comments = comments ++ current_comments
-
-    Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
+    do_add_comments(quoted, comments, :prepend, position)
   end
 
   @doc """
@@ -653,25 +639,73 @@ defmodule Sourceror do
   @spec append_comments(Macro.t(), [map], :leading | :trailing) :: Macro.t()
   def append_comments(quoted, comments, position \\ :leading)
       when position in [:leading, :trailing] do
+    do_add_comments(quoted, comments, :append, position)
+  end
+
+  defp do_add_comments({_, meta, _} = quoted, comments, mode, position) do
     key =
       case position do
         :leading -> :leading_comments
         :trailing -> :trailing_comments
       end
 
-    current_comments = get_meta(quoted)[key] || []
+    current_comments = Keyword.get(meta, key, [])
 
-    line =
-      if comment = List.last(current_comments) do
-        comment.line
-      else
-        get_end_line(quoted) + 1
+    comments = adjust_comment_lines(comments, current_comments, quoted, mode, position)
+
+    current_comments =
+      case mode do
+        :append -> current_comments ++ comments
+        :prepend -> comments ++ current_comments
       end
 
-    comments = Enum.map(comments, &%{&1 | line: line})
+    quoted = Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
 
-    current_comments = current_comments ++ comments
+    maybe_correct_closing_line(quoted, position, length(comments))
+  end
 
-    Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
+  defp adjust_comment_lines(comments, current_comments, quoted, mode, position) do
+    reference_comment =
+      case mode do
+        :append -> List.last(current_comments)
+        :prepend -> List.first(current_comments)
+      end
+
+    line =
+      cond do
+        reference_comment ->
+          reference_comment.line
+
+        position == :leading ->
+          get_start_position(quoted)[:line]
+
+        position == :trailing ->
+          get_end_line(quoted)
+      end
+
+    Enum.map(comments, &%{&1 | line: line})
+  end
+
+  defp maybe_correct_closing_line({_, meta, _} = quoted, :trailing, line_correction) do
+    corrections = Enum.map(@end_fields, &correct_line(meta, &1, line_correction))
+
+    Macro.update_meta(quoted, fn meta ->
+      Enum.reduce(corrections, meta, fn correction, meta ->
+        Keyword.merge(meta, correction)
+      end)
+    end)
+  end
+
+  defp maybe_correct_closing_line(quoted, _, _) do
+    quoted
+  end
+
+  @doc false
+  @spec has_closing_line?(Macro.t()) :: boolean
+  def has_closing_line?({_, meta, _}) do
+    for field <- @end_fields do
+      Keyword.has_key?(meta, field)
+    end
+    |> Enum.any?()
   end
 end
