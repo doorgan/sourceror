@@ -17,7 +17,7 @@ Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.4"}
+  {:sourceror, "~> 0.5"}
 ])
 ```
 
@@ -331,10 +331,13 @@ it is a map with information that tells Sourceror what should be done while walk
 these fields is the `line_correction` field, which is used to tell Sourceror that line numbers
 should be updated. Before visiting a node Sourceror will apply `Sourceror.correct_lines/2`
 to it with the line correction in the state. We can use this feature to update the line numbers
-of the subsequent nodes after we expand the multi alias:
+of the subsequent nodes after we expand the multi alias.
+
+One last thing we have to keep in mind is that the qualified tuple call will hold the trailing
+comments of the curly brackets, so we need to get those and attach them to the last alias.
 
 ```elixir
-expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, _, right}]}, state ->
+expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}]}, state ->
   {_, _, base} = left
 
   segments_length = length(right)
@@ -345,25 +348,32 @@ expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, _, right}]}, stat
     |> Enum.map(fn {segments, index} ->
       {_, meta, segments} = segments
       line = alias_meta[:line] + index
-      meta = Keyword.put(meta, :line, line)
 
       meta =
-        cond do
-          index == 1 ->
-            Keyword.update!(meta, :leading_comments, &(alias_meta[:leading_comments] ++ &1))
+        meta
+        |> Keyword.put(:line, line)
+        |> Keyword.update(:leading_comments, [], fn comments ->
+          Enum.map(comments, &%{&1 | line: line})
+        end)
 
-          index == segments_length ->
-            # By setting the line number to 2 we can make sure there is always an empty
-            # line after the group expanded aliases
-            Keyword.put(meta, :end_of_expression, line: line, newlines: 2)
+      aliased = {:__aliases__, [line: line], base ++ segments}
 
-          true ->
-            meta
-        end
+      quoted = {:alias, meta, [aliased]}
 
-      aliased = {:__aliases__, [], base ++ segments}
+      cond do
+        index == 1 ->
+          Sourceror.prepend_comments(quoted, alias_meta[:leading_comments])
 
-      {:alias, meta, [aliased]}
+        index == segments_length ->
+          # By setting the line number to 2 we can make sure there is always an empty
+          # line after the group expanded aliases
+          quoted
+          |> Macro.update_meta(&Keyword.put(&1, :end_of_expression, line: line, newlines: 2))
+          |> Sourceror.append_comments(call_meta[:trailing_comments], :trailing)
+
+        true ->
+          quoted
+      end
     end)
 
   line_correction = state.line_correction + length(aliases)
@@ -408,6 +418,8 @@ defmodule Sample do
   alias Bar.{G, H, I,
     # Inner comment!
     J, K
+    # Inner last comment!
+
   }
 
   def foo() do
@@ -416,11 +428,14 @@ defmodule Sample do
 
     # Just return :ok
     :ok
+
+    # At the end
   end
 
   # Comment for :hello
   :hello
 end
+# End of file!
 """
 |> Sourceror.parse_string!()
 |> Sourceror.postwalk(postwalk_aliases)

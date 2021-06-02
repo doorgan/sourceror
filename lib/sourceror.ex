@@ -28,24 +28,30 @@ defmodule Sourceror do
   A wrapper around `Code.string_to_quoted_with_comments!/2` for compatibility
   with pre 1.13 Elixir versions.
   """
-  def string_to_quoted!(string, opts) do
-    @code_module.string_to_quoted_with_comments!(string, opts)
+  defmacro string_to_quoted!(string, opts) do
+    quote bind_quoted: [code_module: @code_module, string: string, opts: opts] do
+      code_module.string_to_quoted_with_comments!(string, opts)
+    end
   end
 
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments/2` for compatibility
   with pre 1.13 Elixir versions.
   """
-  def string_to_quoted(string, opts) do
-    @code_module.string_to_quoted_with_comments(string, opts)
+  defmacro string_to_quoted(string, opts) do
+    quote bind_quoted: [code_module: @code_module, string: string, opts: opts] do
+      code_module.string_to_quoted_with_comments(string, opts)
+    end
   end
 
   @doc """
   A wrapper around `Code.quoted_to_algebra/2` for compatibility with pre 1.13
   Elixir versions.
   """
-  def quoted_to_algebra(quoted, opts) do
-    @code_module.quoted_to_algebra(quoted, opts)
+  defmacro quoted_to_algebra(quoted, opts) do
+    quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts] do
+      code_module.quoted_to_algebra(quoted, opts)
+    end
   end
 
   @doc """
@@ -75,7 +81,7 @@ defmodule Sourceror do
     Sourceror.Comments.merge_comments(quoted, comments)
   end
 
-  defp to_quoted_opts() do
+  defp to_quoted_opts do
     [
       literal_encoder: &{:ok, {:__block__, &2, [&1]}},
       token_metadata: true,
@@ -215,7 +221,7 @@ defmodule Sourceror do
       Macro.traverse(quoted, %PostwalkState{acc: acc}, &postwalk_correct_lines/2, fn
         {form, meta, args}, state ->
           updated_ends =
-            correct_lines(meta, state.line_correction, skip: [:leading_comments | @start_fields])
+            correct_lines(meta, state.line_correction, skip: [:leading_comments] ++ @start_fields)
 
           meta = Keyword.merge(meta, updated_ends)
 
@@ -231,7 +237,12 @@ defmodule Sourceror do
   end
 
   defp postwalk_correct_lines({_, _, _} = quoted, state) do
-    quoted = Macro.update_meta(quoted, &correct_lines(&1, state.line_correction))
+    quoted =
+      Macro.update_meta(
+        quoted,
+        &correct_lines(&1, state.line_correction, skip: [:trailing_comments] ++ @end_fields)
+      )
+
     {quoted, state}
   end
 
@@ -606,5 +617,61 @@ defmodule Sourceror do
       start: get_start_position(quoted),
       end: end_position
     }
+  end
+
+  @doc """
+  Prepends comments to the leading or trailing comments of a node.
+  """
+  @spec prepend_comments(Macro.t(), [map], :leading | :trailing) :: Macro.t()
+  def prepend_comments(quoted, comments, position \\ :leading)
+      when position in [:leading, :trailing] do
+    key =
+      case position do
+        :leading -> :leading_comments
+        :trailing -> :trailing_comments
+      end
+
+    current_comments = get_meta(quoted)[key] || []
+
+    line =
+      if comment = List.first(current_comments) do
+        comment.line
+      else
+        get_start_position(quoted)[:line]
+      end
+
+    comments = Enum.map(comments, &%{&1 | line: line})
+
+    current_comments = comments ++ current_comments
+
+    Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
+  end
+
+  @doc """
+  Appends comments to the leading or trailing comments of a node.
+  """
+  @spec append_comments(Macro.t(), [map], :leading | :trailing) :: Macro.t()
+  def append_comments(quoted, comments, position \\ :leading)
+      when position in [:leading, :trailing] do
+    key =
+      case position do
+        :leading -> :leading_comments
+        :trailing -> :trailing_comments
+      end
+
+    current_comments = get_meta(quoted)[key] || []
+
+    line =
+      if comment = List.last(current_comments) do
+        comment.line
+      else
+        get_end_line(quoted) + 1
+      end
+
+    comments = Enum.map(comments, &%{&1 | line: line})
+
+    current_comments = current_comments ++ comments
+
+    Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
   end
 end

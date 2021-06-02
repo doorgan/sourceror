@@ -1,6 +1,11 @@
-# Changelog for Sourceror v0.4
+# Changelog for Sourceror v0.5.0
 
-## v0.4
+## v0.5.0
+
+### 1. Enhancements
+  * [Sourceror] - Add `Sourceror.prepend_comments/2` and `Sourceror.append_comments/2`.
+
+## v0.4.0
 
 ### 1. Enhancements
 

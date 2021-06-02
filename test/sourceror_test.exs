@@ -2,6 +2,23 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
+  test "parse_string!/2 and to_string/2 idempotency" do
+    source =
+      ~S"""
+      # A
+      foo do
+        # B
+        :ok
+        # C
+      end
+
+      # D
+      """
+      |> String.trim()
+
+    assert source == Sourceror.parse_string!(source) |> Sourceror.to_string()
+  end
+
   describe "parse_string!/2" do
     test "raises on invalid string" do
       assert_raise SyntaxError, fn ->
@@ -333,6 +350,96 @@ defmodule SourcerorTest do
                start: [line: 1, column: 1],
                end: [line: 3, column: 1]
              }
+    end
+  end
+
+  describe "prepend_comments/3" do
+    test "prepends comments to node" do
+      comments = [
+        %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+      ]
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        # A
+        :ok
+        """)
+
+      quoted = Sourceror.prepend_comments(quoted, comments)
+      leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
+
+      assert leading_comments == [
+               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"},
+               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# A"}
+             ]
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        foo do
+          :ok
+          # A
+        end
+        """)
+
+      quoted = Sourceror.prepend_comments(quoted, comments, :trailing)
+      trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
+
+      assert trailing_comments == [
+               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"},
+               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A"}
+             ]
+    end
+  end
+
+  describe "append_comments/3" do
+    test "appends comments to node" do
+      comments = [
+        %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+      ]
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        # A
+        :ok
+        """)
+
+      quoted = Sourceror.append_comments(quoted, comments)
+      leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
+
+      assert leading_comments == [
+               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# A"},
+               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+             ]
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        foo do
+          :ok
+          # A
+        end
+        """)
+
+      quoted = Sourceror.append_comments(quoted, comments, :trailing)
+      trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
+
+      assert trailing_comments == [
+               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A"},
+               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+             ]
+
+      quoted =
+        Sourceror.parse_string!(~S"""
+        foo do
+          :ok
+        end
+        """)
+
+      quoted = Sourceror.append_comments(quoted, comments, :trailing)
+      trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
+
+      assert trailing_comments == [
+               %{line: 4, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+             ]
     end
   end
 end
