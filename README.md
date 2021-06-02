@@ -5,6 +5,9 @@
 
 Utilities to work with Elixir source code.
 
+**NOTICE:** This library is under heavy development. Expect frequent breaking
+changes until the first stable v1.0 release is out.
+
 ## Documentation
 
 You can find Sourceror documentation on [Hex Docs](https://hexdocs.pm/sourceror/readme.html).
