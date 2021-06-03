@@ -40,6 +40,19 @@ defmodule SourcerorTest.RangeTest do
     end
 
     test "strings with interpolations" do
+      assert to_range(~S/"foo#{2}bar"/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 13]
+             }
+
+      assert to_range(~S'''
+             "foo#{
+               2
+               }bar"
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 3, column: 8]
+             }
     end
 
     test "atoms" do
@@ -56,6 +69,19 @@ defmodule SourcerorTest.RangeTest do
     end
 
     test "atoms with interpolations" do
+      assert to_range(~S/:"foo#{2}bar"/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+
+      assert to_range(~S'''
+             :"foo#{
+               2
+               }bar"
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 3, column: 8]
+             }
     end
 
     test "variables" do
@@ -235,6 +261,51 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S[foo..bar//baz]) == %{
                start: [line: 1, column: 1],
                end: [line: 1, column: 14]
+             }
+    end
+
+    test "bitstrings" do
+      assert to_range(~S[<<1, 2, foo>>]) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+
+      assert to_range(~S"""
+             <<1, 2,
+
+              foo>>
+             """) == %{start: [line: 1, column: 1], end: [line: 3, column: 7]}
+    end
+
+    test "sigils" do
+      assert to_range(~S/~s[foo#{2}bar]/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
+
+      assert to_range(~S/~s[foo#{2}bar]abc/) == %{
+              start: [line: 1, column: 1],
+              end: [line: 1, column: 18]
+            }
+
+      assert to_range(~S'''
+             ~s"""
+             foo#{10
+              }bar
+             """
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 4, column: 4]
+             }
+
+      assert to_range(~S'''
+             ~s"""
+             foo#{10
+              }bar
+             """abc
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 4, column: 7]
              }
     end
   end

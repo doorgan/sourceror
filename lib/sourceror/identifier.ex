@@ -59,8 +59,8 @@ defmodule Sourceror.Identifier do
       iex> Sourceror.Identifier.is_unary_op(:+)
       true
   """
-  @spec is_unary_op(atom) :: boolean
-  defguard is_unary_op(op) when op in @unary_ops
+  @spec is_unary_op(Macro.t) :: Macro.t
+  defguard is_unary_op(op) when is_atom(op) and op in @unary_ops
 
   @doc """
   Checks if the given identifier is a binary op.
@@ -68,8 +68,8 @@ defmodule Sourceror.Identifier do
       iex> Sourceror.Identifier.is_binary_op(:+)
       true
   """
-  @spec is_binary_op(atom) :: boolean
-  defguard is_binary_op(op) when op in @binary_ops
+  @spec is_binary_op(Macro.t) :: Macro.t
+  defguard is_binary_op(op) when is_atom(op) and op in @binary_ops
 
   @doc """
   Checks if the given atom is a valid module alias.

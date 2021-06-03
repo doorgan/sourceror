@@ -5,6 +5,9 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
+  @spec get_range(Macro.t) :: Sourceror.range
+  def get_range(quoted)
+
   # Module aliases
   def get_range({:__aliases__, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
@@ -132,6 +135,14 @@ defmodule Sourceror.Range do
     get_range_for_node_with_closing_line(quoted)
   end
 
+  # Interpolated atoms
+  def get_range({{:., _, [:erlang, :binary_to_atom]}, meta, [interpolation, :utf8]}) do
+    interpolation =
+      Macro.update_meta(interpolation, &Keyword.put(&1, :delimiter, meta[:delimiter]))
+
+    get_range_for_interpolation(interpolation)
+  end
+
   # Qualified call
   def get_range({{:., _, [left, right]}, meta, []}) when is_atom(right) do
     left_range = get_range(left)
@@ -194,8 +205,41 @@ defmodule Sourceror.Range do
     }
   end
 
+  # Bitstrings and interpolations
+  def get_range({:<<>>, meta, _} = quoted) do
+    if meta[:delimiter] do
+      get_range_for_interpolation(quoted)
+    else
+      get_range_for_bitstring(quoted)
+    end
+  end
+
+  # Sigils
+  def get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]}) when is_list(modifiers) do
+    case Atom.to_string(sigil) do
+      <<"sigil_", _name>> ->
+        # Congratulations, it's a sigil!
+        start_pos = Keyword.take(meta, [:line, :column])
+
+        end_pos = get_end_pos_for_interpolation_segments(segments, start_pos)
+
+        %{
+          start: start_pos,
+          end: Keyword.update!(end_pos, :column, & &1 + length(modifiers))
+        }
+
+      _ ->
+        # Regular call
+        raise "not implemented"
+    end
+  end
+
   # Unqualified calls
-  def get_range({call, meta, args} = quoted) when is_atom(call) do
+  def get_range({call, _, _} = quoted) when is_atom(call) do
+    get_range_for_unqualified_call(quoted)
+  end
+
+  def get_range_for_unqualified_call({_call, meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
@@ -221,36 +265,42 @@ defmodule Sourceror.Range do
     %{start: start_position, end: end_position}
   end
 
-  # TODO Sigils
-  #  def get_range({sigil, meta, [{:<<>>, _, args}, modifiers]}) do
-  #   case Atom.to_string(sigil) do
-  #     <<"sigil_", _name>> ->
-  #       # Congratulations, it's a sigil!
-  #       contents_length =
-  #         Enum.reduce(args, 0, fn
-  #           str, acc when is_binary(str) -> acc + String.length(str)
-  #           # for now
-  #           _, acc -> acc + 0
-  #         end)
+  def get_range_for_interpolation({:<<>>, meta, segments}) do
+    start_pos = Keyword.take(meta, [:line, :column])
 
-  #       delimiter = meta[:delimiter]
-  #       start_pos = Keyword.take(meta, [:line, :column])
+    end_pos = get_end_pos_for_interpolation_segments(segments, start_pos)
 
-  #       end_pos = [
-  #         line: start_pos[:line],
-  #         column:
-  #           start_pos[:column] + 2 * String.length(delimiter) + 1 + contents_length +
-  #             length(modifiers)
-  #       ]
+    %{start: start_pos, end: end_pos}
+  end
 
-  #       %{
-  #         start: start_pos,
-  #         end: end_pos
-  #       }
+  def get_end_pos_for_interpolation_segments(segments, start_pos) do
+    end_pos = Enum.reduce(segments, start_pos, fn
+      string, pos when is_binary(string) ->
+        lines = split_on_newline(string)
+        length = String.length(List.last(lines) || "")
 
-  #     _ ->
-  #       # Regular bitstring
-  #       raise "not implemented"
-  #   end
-  # end
+        [
+          line: pos[:line] + length(lines) - 1,
+          column: pos[:column] + length
+        ]
+
+      {:"::", _, [{_, meta, _}, {:binary, _, _}]}, _pos ->
+        meta
+        |> Keyword.get(:closing)
+        |> Keyword.take([:line, :column])
+        # Add the closing }
+        |> Keyword.update!(:column, &(&1 + 1))
+    end)
+
+    Keyword.update!(end_pos, :column, &(&1 + 1))
+  end
+
+  def get_range_for_bitstring(quoted) do
+    range = get_range_for_node_with_closing_line(quoted)
+
+    # get_range_for_node_with_closing_line/1 will add 1 to the ending column
+    # because it assumes it ends with ), ] or }, but bitstring closing token is
+    # >>, so we need to add another 1
+    update_in(range, [:end, :column], &(&1 + 1))
+  end
 end
