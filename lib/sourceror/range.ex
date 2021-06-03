@@ -152,6 +152,17 @@ defmodule Sourceror.Range do
     %{start: start_pos, end: end_pos}
   end
 
+  def get_range({{:., _, [left, _]}, _meta, args} = quoted) do
+    if Sourceror.has_closing_line?(quoted) do
+      get_range_for_node_with_closing_line(quoted)
+    else
+      start_pos = get_range(left).start
+      end_pos = get_range(List.last(args) || left).end
+
+      %{start: start_pos, end: end_pos}
+    end
+  end
+
   # Unary operators
   def get_range({op, meta, [arg]}) when is_unary_op(op) do
     start_pos = Keyword.take(meta, [:line, :column])
@@ -184,8 +195,15 @@ defmodule Sourceror.Range do
   end
 
   # Unqualified calls
-  def get_range(quoted) do
-    get_range_for_node_with_closing_line(quoted)
+  def get_range({call, meta, args} = quoted) when is_atom(call) do
+    if Sourceror.has_closing_line?(quoted) do
+      get_range_for_node_with_closing_line(quoted)
+    else
+      start_pos = Keyword.take(meta, [:line, :column])
+      end_pos = get_range(List.last(args)).end
+
+      %{start: start_pos, end: end_pos}
+    end
   end
 
   def get_range_for_node_with_closing_line({_, meta, _} = quoted) do

@@ -155,6 +155,37 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S/a.b.c/) == %{start: [line: 1, column: 1], end: [line: 1, column: 6]}
     end
 
+    test "qualified calls without parens" do
+      assert to_range(~S/foo.bar baz/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 12]
+             }
+
+      assert to_range(~S/foo.bar baz, qux/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 17]
+             }
+    end
+
+    test "unqualified calls" do
+      assert to_range(~S/foo(bar)/) == %{start: [line: 1, column: 1], end: [line: 1, column: 9]}
+
+      assert to_range(~S"""
+             foo(
+               bar
+               )
+             """) == %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+    end
+
+    test "unqualified calls without parens" do
+      assert to_range(~S/foo bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
+
+      assert to_range(~S/foo bar baz/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 12]
+             }
+    end
+
     test "module aliases" do
       assert to_range(~S/Foo.bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
     end
