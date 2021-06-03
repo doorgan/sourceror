@@ -196,5 +196,15 @@ defmodule SourcerorTest.RangeTest do
              bar
              """) == %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
     end
+
+    test "ranges" do
+      assert to_range(~S[1..2]) == %{start: [line: 1, column: 1], end: [line: 1, column: 5]}
+      assert to_range(~S[1..2//3]) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
+
+      assert to_range(~S[foo..bar//baz]) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+    end
   end
 end

@@ -5,6 +5,7 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
+  # Module aliases
   def get_range({:__aliases__, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
 
@@ -20,7 +21,7 @@ defmodule Sourceror.Range do
   def get_range({:__block__, meta, [string]}) when is_binary(string) do
     lines = split_on_newline(string)
 
-    last_line = List.last(lines, "")
+    last_line = List.last(lines) || ""
 
     end_line = meta[:line] + length(lines)
 
@@ -67,7 +68,7 @@ defmodule Sourceror.Range do
 
     lines = split_on_newline(string)
 
-    last_line = List.last(lines, "")
+    last_line = List.last(lines) || ""
 
     end_line = meta[:line] + length(lines) - 1
 
@@ -168,6 +169,14 @@ defmodule Sourceror.Range do
 
   # Binary operators
   def get_range({op, _, [left, right]}) when is_binary_op(op) do
+    %{
+      start: get_range(left).start,
+      end: get_range(right).end
+    }
+  end
+
+  # Stepped ranges
+  def get_range({:"..//", _, [left, _middle, right]}) do
     %{
       start: get_range(left).start,
       end: get_range(right).end
