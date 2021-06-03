@@ -86,7 +86,8 @@ defmodule Sourceror do
       literal_encoder: &{:ok, {:__block__, &2, [&1]}},
       token_metadata: true,
       unescape: false,
-      columns: true
+      columns: true,
+      warn_on_unnecessary_quotes: false
     ]
   end
 
