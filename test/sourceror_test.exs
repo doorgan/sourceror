@@ -344,7 +344,7 @@ defmodule SourcerorTest do
 
       assert Sourceror.get_range(quoted) == %{
                start: [line: 1, column: 1],
-               end: [line: 3, column: 3]
+               end: [line: 3, column: 4]
              }
 
       quoted =
@@ -357,7 +357,7 @@ defmodule SourcerorTest do
 
       assert Sourceror.get_range(quoted) == %{
                start: [line: 1, column: 1],
-               end: [line: 3, column: 1]
+               end: [line: 3, column: 2]
              }
     end
   end

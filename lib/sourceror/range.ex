@@ -1,4 +1,6 @@
 defmodule Sourceror.Range do
+  @moduledoc false
+
   import Sourceror.Identifier, only: [is_unary_op: 1, is_binary_op: 1]
 
   defp split_on_newline(string) do

@@ -18,11 +18,13 @@ defmodule Sourceror do
           end: position
         }
 
-  @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
-                  Code
-                else
-                  Sourceror.Code
-                end)
+  # @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
+  #                 Code
+  #               else
+  #                 Sourceror.Code
+  #               end)
+
+  @code_module Sourceror.Code
 
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments!/2` for compatibility
@@ -598,7 +600,7 @@ defmodule Sourceror do
       ...> end
       ...> "\"" |> Sourceror.parse_string!()
       iex> Sourceror.get_range(quoted)
-      %{start: [line: 1, column: 1], end: [line: 3, column: 3]}
+      %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
 
       iex> quoted = ~S"\""
       ...> Foo.{
@@ -606,23 +608,11 @@ defmodule Sourceror do
       ...> }
       ...> "\"" |> Sourceror.parse_string!()
       iex> Sourceror.get_range(quoted)
-      %{start: [line: 1, column: 1], end: [line: 3, column: 1]}
+      %{start: [line: 1, column: 1], end: [line: 3, column: 2]}
   """
   @spec get_range(Macro.t()) :: range
-  def get_range({_, meta, _} = quoted) do
-    end_position = get_end_position(quoted)
-
-    end_position =
-      if Keyword.has_key?(meta, :end) do
-        Keyword.update!(end_position, :column, &(&1 + 2))
-      else
-        end_position
-      end
-
-    %{
-      start: get_start_position(quoted),
-      end: end_position
-    }
+  def get_range(quoted) do
+    Sourceror.Range.get_range(quoted)
   end
 
   @doc """
