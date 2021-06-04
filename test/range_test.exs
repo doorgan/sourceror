@@ -284,9 +284,9 @@ defmodule SourcerorTest.RangeTest do
              }
 
       assert to_range(~S/~s[foo#{2}bar]abc/) == %{
-              start: [line: 1, column: 1],
-              end: [line: 1, column: 18]
-            }
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 18]
+             }
 
       assert to_range(~S'''
              ~s"""

@@ -59,7 +59,7 @@ defmodule Sourceror.Identifier do
       iex> Sourceror.Identifier.is_unary_op(:+)
       true
   """
-  @spec is_unary_op(Macro.t) :: Macro.t
+  @spec is_unary_op(Macro.t()) :: Macro.t()
   defguard is_unary_op(op) when is_atom(op) and op in @unary_ops
 
   @doc """
@@ -68,7 +68,7 @@ defmodule Sourceror.Identifier do
       iex> Sourceror.Identifier.is_binary_op(:+)
       true
   """
-  @spec is_binary_op(Macro.t) :: Macro.t
+  @spec is_binary_op(Macro.t()) :: Macro.t()
   defguard is_binary_op(op) when is_atom(op) and op in @binary_ops
 
   @doc """

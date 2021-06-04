@@ -7,7 +7,7 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
-  @spec get_range(Macro.t) :: Sourceror.range
+  @spec get_range(Macro.t()) :: Sourceror.range()
   def get_range(quoted)
 
   # Module aliases
@@ -227,7 +227,7 @@ defmodule Sourceror.Range do
 
         %{
           start: start_pos,
-          end: Keyword.update!(end_pos, :column, & &1 + length(modifiers))
+          end: Keyword.update!(end_pos, :column, &(&1 + length(modifiers)))
         }
 
       _ ->
@@ -276,23 +276,24 @@ defmodule Sourceror.Range do
   end
 
   def get_end_pos_for_interpolation_segments(segments, start_pos) do
-    end_pos = Enum.reduce(segments, start_pos, fn
-      string, pos when is_binary(string) ->
-        lines = split_on_newline(string)
-        length = String.length(List.last(lines) || "")
+    end_pos =
+      Enum.reduce(segments, start_pos, fn
+        string, pos when is_binary(string) ->
+          lines = split_on_newline(string)
+          length = String.length(List.last(lines) || "")
 
-        [
-          line: pos[:line] + length(lines) - 1,
-          column: pos[:column] + length
-        ]
+          [
+            line: pos[:line] + length(lines) - 1,
+            column: pos[:column] + length
+          ]
 
-      {:"::", _, [{_, meta, _}, {:binary, _, _}]}, _pos ->
-        meta
-        |> Keyword.get(:closing)
-        |> Keyword.take([:line, :column])
-        # Add the closing }
-        |> Keyword.update!(:column, &(&1 + 1))
-    end)
+        {:"::", _, [{_, meta, _}, {:binary, _, _}]}, _pos ->
+          meta
+          |> Keyword.get(:closing)
+          |> Keyword.take([:line, :column])
+          # Add the closing }
+          |> Keyword.update!(:column, &(&1 + 1))
+      end)
 
     Keyword.update!(end_pos, :column, &(&1 + 1))
   end
