@@ -588,11 +588,9 @@ defmodule Sourceror do
   end
 
   @doc """
-  Gets the range used byt the given quoted expression in the source code.
+  Gets the range used by the given quoted expression in the source code.
 
-  The range is a map with `:start` and `:end` positions. Since the end position
-  is normally the start of the closing token, the end position column is
-  adjusted to reflect the real position of the end token.
+  The range is a map with `:start` and `:end` positions.
 
       iex> quoted = ~S"\""
       ...> def foo do

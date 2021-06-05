@@ -14,12 +14,11 @@ defmodule Sourceror.Range do
   def get_range({:__aliases__, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
 
-    length = Enum.join(segments, ".") |> String.length()
+    last_segment_length = List.last(segments) |> to_string() |> String.length()
 
-    %{
-      start: start_pos,
-      end: [line: meta[:line], column: meta[:column] + length]
-    }
+    end_pos = meta[:last] |> Keyword.update!(:column, &(&1 + last_segment_length))
+
+    %{start: start_pos, end: end_pos}
   end
 
   # Strings
@@ -146,25 +145,32 @@ defmodule Sourceror.Range do
   end
 
   # Qualified call
-  def get_range({{:., _, [left, right]}, meta, []}) when is_atom(right) do
-    left_range = get_range(left)
-    start_pos = left_range.start
+  def get_range({{:., _, [left, right]}, meta, []} = quoted) when is_atom(right) do
+    if Sourceror.has_closing_line?(quoted) do
+      get_range_for_node_with_closing_line(quoted)
+    else
+      start_pos = get_range(left).start
+      identifier_pos = Keyword.take(meta, [:line, :column])
 
-    parens_length =
-      if meta[:no_parens] do
-        0
-      else
-        2
-      end
+      parens_length =
+        if meta[:no_parens] do
+          0
+        else
+          2
+        end
 
-    end_pos = [
-      line: left_range.end[:line],
-      column: left_range.end[:column] + 1 + String.length(Atom.to_string(right)) + parens_length
-    ]
+      end_pos = [
+        line: identifier_pos[:line],
+        column:
+          identifier_pos[:column] + String.length(Atom.to_string(right)) +
+            parens_length
+      ]
 
-    %{start: start_pos, end: end_pos}
+      %{start: start_pos, end: end_pos}
+    end
   end
 
+  # Qualified call with arguments
   def get_range({{:., _, [left, _]}, _meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)

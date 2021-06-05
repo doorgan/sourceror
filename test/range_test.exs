@@ -178,6 +178,12 @@ defmodule SourcerorTest.RangeTest do
     test "qualified calls" do
       assert to_range(~S/foo.bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
       assert to_range(~S/foo.bar()/) == %{start: [line: 1, column: 1], end: [line: 1, column: 10]}
+
+      assert to_range(~s/foo.bar(\n)/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 2, column: 2]
+             }
+
       assert to_range(~S/a.b.c/) == %{start: [line: 1, column: 1], end: [line: 1, column: 6]}
     end
 
@@ -210,10 +216,24 @@ defmodule SourcerorTest.RangeTest do
                start: [line: 1, column: 1],
                end: [line: 1, column: 12]
              }
+
+      assert to_range(~s/foo\n  bar/) == %{start: [line: 1, column: 1], end: [line: 2, column: 6]}
+      assert to_range(~S/Foo.bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
+
+      assert to_range(~s/Foo.\n  bar/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 2, column: 6]
+             }
     end
 
     test "module aliases" do
-      assert to_range(~S/Foo.bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
+      assert to_range(~S/Foo/) == %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
+      assert to_range(~S/Foo.Bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
+
+      assert to_range(~s/Foo.\n  Bar/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 2, column: 6]
+             }
     end
 
     test "unary operators" do
