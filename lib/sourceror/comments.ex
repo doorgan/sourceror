@@ -161,10 +161,12 @@ defmodule Sourceror.Comments do
       end)
 
     comments =
-      with [first | rest] <- comments do
-        [%{first | previous_eol_count: 0} | rest]
-      else
-        _ -> comments
+      case comments do
+        [first | rest] ->
+          [%{first | previous_eol_count: 0} | rest]
+
+        _ ->
+          comments
       end
 
     case List.pop_at(comments, -1) do

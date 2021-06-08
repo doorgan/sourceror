@@ -33,14 +33,12 @@ defmodule Sourceror.LinesCorrector do
           {quoted, %{state | last_line: get_line(quoted)}}
       end
 
-    cond do
-      has_leading_comments?(quoted) ->
-        leading_comments = length(meta[:leading_comments])
-        meta = Keyword.put(meta, :line, state.last_line + leading_comments + 1)
-        {{form, meta, args}, %{state | last_line: meta[:line]}}
-
-      true ->
-        {quoted, state}
+    if has_leading_comments?(quoted) do
+      leading_comments = length(meta[:leading_comments])
+      meta = Keyword.put(meta, :line, state.last_line + leading_comments + 1)
+      {{form, meta, args}, %{state | last_line: meta[:line]}}
+    else
+      {quoted, state}
     end
   end
 
