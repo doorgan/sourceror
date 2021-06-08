@@ -41,29 +41,12 @@ end
   {:defp, meta, [{:deps, _, _} = fun, body]}, state ->
     [{{_, _, [:do]}, block_ast}] = body
     {:__block__, block_meta, [deps]} = block_ast
-
-    lines = Enum.map(deps, fn {:__block__, meta, _} -> meta[:line] end)
-
     deps =
       Enum.sort_by(deps, fn {:__block__, _, [{{_, _, [name]}, _}]} ->
         Atom.to_string(name)
       end)
 
-    deps =
-      Enum.zip([lines, deps])
-      |> Enum.map(fn {old_line, dep} ->
-        {_, tuple_meta, [{left, right}]} = dep
-        line_correction = old_line - tuple_meta[:line]
-
-        tuple_meta = Sourceror.correct_lines(tuple_meta, line_correction)
-        left = Macro.update_meta(left, &Sourceror.correct_lines(&1, line_correction))
-        right = Macro.update_meta(right, &Sourceror.correct_lines(&1, line_correction))
-
-        {:__block__, tuple_meta, [{left, right}]}
-      end)
-
     quoted = {:defp, meta, [fun, [do: {:__block__, block_meta, [deps]}]]}
-    state = Map.update!(state, :line_correction, & &1)
     {quoted, state}
 
   quoted, state ->

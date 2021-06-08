@@ -54,7 +54,6 @@ defmodule Demo do
             ]
 
         ast = {:defp, meta, [fun, [do: {:__block__, block_meta, [deps]}]]}
-        state = Map.update!(state, :line_correction, & &1)
         {ast, state}
 
       other, state ->
