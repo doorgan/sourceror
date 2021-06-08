@@ -6,6 +6,7 @@ defmodule SourcerorTest do
     source =
       ~S"""
       foo()
+
       # Bar
       """
       |> String.trim()
@@ -18,6 +19,7 @@ defmodule SourcerorTest do
       foo do
         # B
         :ok
+
         # C
       end
 
@@ -429,6 +431,7 @@ defmodule SourcerorTest do
                ~S"""
                foo do
                  :ok
+
                  # B
                  # A
                end
@@ -453,6 +456,7 @@ defmodule SourcerorTest do
                ~S"""
                foo do
                  :ok
+
                  # B
                end
                """
@@ -471,6 +475,7 @@ defmodule SourcerorTest do
                ~S"""
                Foo.{
                  Bar
+
                  # B
                }
                """
@@ -529,6 +534,7 @@ defmodule SourcerorTest do
         Sourceror.parse_string!(~S"""
         foo do
           :ok
+
           # A
         end
         """)
@@ -537,14 +543,15 @@ defmodule SourcerorTest do
       trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
 
       assert trailing_comments == [
-               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A"},
-               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
+               %{line: 4, previous_eol_count: 2, next_eol_count: 1, text: "# A"},
+               %{line: 4, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
              ]
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
                foo do
                  :ok
+
                  # A
                  # B
                end
@@ -569,6 +576,7 @@ defmodule SourcerorTest do
                ~S"""
                foo do
                  :ok
+
                  # B
                end
                """
@@ -587,6 +595,7 @@ defmodule SourcerorTest do
                ~S"""
                Foo.{
                  Bar
+
                  # B
                }
                """

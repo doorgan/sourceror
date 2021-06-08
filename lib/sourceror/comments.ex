@@ -99,6 +99,14 @@ defmodule Sourceror.Comments do
   @spec extract_comments(Macro.t()) :: {Macro.t(), list(map)}
   def extract_comments(quoted, opts \\ []) do
     collapse_comments = Keyword.get(opts, :collapse_comments, false)
+    correct_lines = Keyword.get(opts, :correct_lines, false)
+
+    quoted =
+      if correct_lines do
+        Sourceror.LinesCorrector.correct(quoted)
+      else
+        quoted
+      end
 
     Macro.postwalk(quoted, [], fn
       {_, _, _} = quoted, acc ->
@@ -147,18 +155,21 @@ defmodule Sourceror.Comments do
 
     comments =
       Enum.map(trailing_comments, fn comment ->
-        line = Sourceror.get_end_line(quoted, meta[:line])
+        line = meta[:end_of_expression][:line] || meta[:line]
 
-        if Sourceror.has_closing_line?(quoted) do
-          %{comment | line: line - 1, previous_eol_count: 0}
-        else
-          %{comment | line: line + 1, previous_eol_count: 1}
-        end
+        %{comment | line: line - 1, previous_eol_count: 1}
       end)
+
+    comments =
+      with [first | rest] <- comments do
+        [%{first | previous_eol_count: 0} | rest]
+      else
+        _ -> comments
+      end
 
     case List.pop_at(comments, -1) do
       {last, rest} when is_map(last) ->
-        rest ++ [%{last | previous_eol_count: 0, next_eol_count: 2}]
+        rest ++ [%{last | next_eol_count: 2}]
 
       _ ->
         comments

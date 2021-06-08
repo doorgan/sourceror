@@ -168,7 +168,9 @@ defmodule Sourceror do
         :tabs -> "\t"
       end
 
-    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, opts)
+    extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
+
+    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
 
     quoted
     |> quoted_to_algebra(comments: comments)
@@ -281,7 +283,13 @@ defmodule Sourceror do
   defp correct_line(meta, key, line_correction) do
     case Keyword.get(meta, key, []) do
       value when value != [] ->
-        value = put_in(value, [:line], value[:line] + line_correction)
+        value =
+          if value[:line] do
+            put_in(value, [:line], value[:line] + line_correction)
+          else
+            value
+          end
+
         [{key, value}]
 
       _ ->
