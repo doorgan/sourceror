@@ -18,13 +18,11 @@ defmodule Sourceror do
           end: position
         }
 
-  # @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
-  #                 Code
-  #               else
-  #                 Sourceror.Code
-  #               end)
-
-  @code_module Sourceror.Code
+  @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
+                  Code
+                else
+                  Sourceror.Code
+                end)
 
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments!/2` for compatibility
@@ -168,7 +166,9 @@ defmodule Sourceror do
         :tabs -> "\t"
       end
 
-    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, opts)
+    extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
+
+    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
 
     quoted
     |> quoted_to_algebra(comments: comments)
@@ -281,7 +281,13 @@ defmodule Sourceror do
   defp correct_line(meta, key, line_correction) do
     case Keyword.get(meta, key, []) do
       value when value != [] ->
-        value = put_in(value, [:line], value[:line] + line_correction)
+        value =
+          if value[:line] do
+            put_in(value, [:line], value[:line] + line_correction)
+          else
+            value
+          end
+
         [{key, value}]
 
       _ ->

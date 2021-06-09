@@ -10,12 +10,6 @@ makes module uses harder to search for in large code bases, as mentioned by [cre
 warnings. We can use Sourceror to fix this issue by expanding this syntax into multiple
 calls to `alias`, each in its own line.
 
-To do so, we need to traverse the ast to find any ocurrence of a qualified tuple call(ie.
-calls with the form `{:., meta, [left, :{}]}` as their first element) that is an argument
-to an `:alias` call. Then for each module inside of the curly brackets, we need to join
-the module segments from the left hand side with the ones in the right hand side, and
-finally put them in a call to `:alias`.
-
 Let's first start by installing Sourceror:
 
 ```elixir
@@ -27,7 +21,7 @@ Mix.install([
 ])
 ```
 
-And not lets parse an example:
+And now lets parse an example to get an idea of the kind of structure we're going to work with:
 
 ```elixir
 source = ~S"""
@@ -38,6 +32,12 @@ end
 
 quoted = Sourceror.parse_string!(source)
 ```
+
+We need to traverse the ast to find any ocurrence of a qualified tuple call(ie.
+calls with the form `{:., meta, [left, :{}]}` as their first element) that is an argument
+to an `:alias` call. Then for each module inside of the curly brackets, we need to join
+the module segments from the left hand side with the ones in the right hand side, and
+finally put them in a call to `:alias`.
 
 For the traversal part, we can use `Sourceror.postwalk/2`. Postwalk functions will go down
 the tree to the deepest node, then to the sibling nodes, then to the parent node, and so
@@ -63,23 +63,27 @@ would change the semantics of the code and it would not behave as we expect, but
 doing these manipulations to output code as text, we can afford to do it:
 
 ```elixir
-postwalk_aliases = fn
-  {:alias, _, [{{:., _, [left, :{}]}, _, right}]}, state ->
-    {_, _, base} = left
+defmodule AliasExpansion do
+  def expand_aliases(quoted) do
+    Sourceror.postwalk(quoted, fn
+      {:alias, _, [{{:., _, [left, :{}]}, _, right}]}, state ->
+        {_, _, base} = left
 
-    aliases =
-      Enum.map(right, fn {_, _, segments} ->
-        aliased = {:__aliases__, [], base ++ segments}
-        {:alias, [], [aliased]}
-      end)
+        aliases =
+          Enum.map(right, fn {_, _, segments} ->
+            aliased = {:__aliases__, [], base ++ segments}
+            {:alias, [], [aliased]}
+          end)
 
-    {{:__block__, [], aliases}, state}
+        {{:__block__, [], aliases}, state}
 
-  quoted, state ->
-    {quoted, state}
+      quoted, state ->
+        {quoted, state}
+    end)
+  end
 end
 
-Sourceror.postwalk(quoted, postwalk_aliases)
+AliasExpansion.expand_aliases(quoted)
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -96,7 +100,7 @@ end
 """
 
 Sourceror.parse_string!(source)
-|> Sourceror.postwalk(postwalk_aliases)
+|> AliasExpansion.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -129,43 +133,45 @@ if it's inside another block. When traversing, if we encounter a block, we reduc
 to unwrap any marked block, essentially "adding multiple nodes" to the block:
 
 ```elixir
-expand_alias = fn {:alias, _, [{{:., _, [left, :{}]}, _, right}]} ->
-  {_, _, base} = left
-
-  aliases =
-    Enum.map(right, fn {_, _, segments} ->
-      aliased = {:__aliases__, [], base ++ segments}
-      {:alias, [], [aliased]}
+defmodule AliasExpansion do
+  def expand_aliases(quoted) do
+    Sourceror.postwalk(quoted, fn
+      {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
+        aliases = expand_alias(quoted)
+    
+        {{:__block__, [unwrap_me?: true], aliases}, state}
+    
+      {:__block__, meta, args}, state ->
+        args = Enum.reduce(args, [], &unwrap_aliases/2)
+    
+        {{:__block__, meta, args}, state}
+    
+      quoted, state ->
+        {quoted, state}
     end)
+  end
 
-  aliases
-end
+  defp expand_alias({:alias, _, [{{:., _, [left, :{}]}, _, right}]}) do
+    {_, _, base} = left
 
-unwrap_aliases = fn
-  {:__block__, [unwrap_me?: true], aliases}, args ->
+    aliases =
+      Enum.map(right, fn {_, _, segments} ->
+        aliased = {:__aliases__, [], base ++ segments}
+        {:alias, [], [aliased]}
+      end)
+
+    aliases
+  end
+
+  defp unwrap_aliases({:__block__, [unwrap_me?: true], aliases}, args) do
     args ++ aliases
-
-  quoted, args ->
+  end
+  defp unwrap_aliases(quoted, args) do
     args ++ [quoted]
-end
-
-postwalk_aliases = fn
-  {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
-    aliases = expand_alias.(quoted)
-
-    {{:__block__, [unwrap_me?: true], aliases}, state}
-
-  {:__block__, meta, args}, state ->
-    args = Enum.reduce(args, [], unwrap_aliases)
-
-    {{:__block__, meta, args}, state}
-
-  quoted, state ->
-    {quoted, state}
-end
+  end
 
 Sourceror.parse_string!(source)
-|> Sourceror.postwalk(postwalk_aliases)
+|> AliasExpansion.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -175,10 +181,10 @@ Sourceror.parse_string!(source)
 Great! Now that we have addressed this issue, there is one last problem we need to take care of.
 In our current code we are completely ignoring the nodes metadata. This would be fine in most
 cases if we were working with macros, but it becomes a big issue if we want to turn this AST
-into formatted text. It is a problem for two reasons: first because we are discarding the
-comments associated with the node, thus not respecting the original code, and second because
-we are also discarding the nodes line numbers, which makes it impossible for the formatter to
-know how to properly place comments.
+into formatted text. To avoid adding new types of AST nodes, Sourceror places comments in the
+nodes metadata, so if we discard nodes metadata, we would also be discarding it's associated
+comments. An important aspect of refactoring tools is that they should be able to preserve as
+much data as possible while doing the transformation, so we must take comments into account.
 
 This is easier to see with an example:
 
@@ -193,65 +199,86 @@ alias Foo.{Bar, Baz}
 |> IO.puts()
 ```
 
-The first issue is easy to avoid if we always remember to pass the metadata around. In this
+This issue is easy to avoid if we always remember to pass the metadata around. In this
 particular example, due to the way Sourceror merges comments, we only need to preserve the alias
-and the individual `:__aliases__` metadata. Moreover, we are adding nodes that should end in new
-lines, so we need to also increment the line number for each alias we expand.
+and the individual `:__aliases__` metadata.
 
-The other thing to keep is that we're getting rid of the first alias an starting anew with the right
+The other thing to keep is that we're getting rid of the first alias and starting anew with the right
 side segments. But this first alias is the one that holds the leading comments for the first
 expression, which means that if we discard it, we lose the comments right before the multi alias.
-We can solve this by getting the index of the element, and if is the first then add the alias comments
-to the expanded alias trailing comments:
+
+We can solve this by attaching the leading comments to the first one, and the trailing comments to
+the last one:
 
 ```elixir
-expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, _, right}]} ->
-  {_, _, base} = left
+defmodule AliasExpansion do
+  def expand_aliases(quoted) do
+    Sourceror.postwalk(quoted, fn
+      {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
+        {aliases, state} = expand_alias(quoted, state)
 
-  segments_length = length(right)
+        {{:__block__, [unwrap_me?: true], aliases}, state}
 
-  aliases =
-    right
-    |> Enum.with_index(1)
-    |> Enum.map(fn {segments, index} ->
-      {_, meta, segments} = segments
-      line = alias_meta[:line] + index
-      meta = Keyword.put(meta, :line, line)
+      {:__block__, meta, args}, state ->
+        args = Enum.reduce(args, [], &unwrap_aliases/2)
 
-      meta =
-        cond do
-          index == 1 ->
-            Keyword.update!(meta, :leading_comments, &(alias_meta[:leading_comments] ++ &1))
+        {{:__block__, meta, args}, state}
 
-          index == segments_length ->
-            # By setting the line number to 2 we can make sure there is always an empty
-            # line after the group expanded aliases
-            Keyword.put(meta, :end_of_expression, line: line, newlines: 2)
-
-          true ->
-            meta
-        end
-
-      aliased = {:__aliases__, [], base ++ segments}
-      {:alias, meta, [aliased]}
+      quoted, state ->
+        {quoted, state}
     end)
+  end
 
-  aliases
-end
+  defp unwrap_aliases({:__block__, [unwrap_me?: true], aliases}, args) do
+    args ++ aliases
+  end
 
-postwalk_aliases = fn
-  {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
-    aliases = expand_alias.(quoted)
+  defp unwrap_aliases(quoted, args) do
+    args ++ [quoted]
+  end
 
-    {{:__block__, [unwrap_me?: true], aliases}, state}
+  defp expand_alias({:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}]}, state) do
+    {_, _, base_segments} = left
 
-  {:__block__, meta, args}, state ->
-    args = Enum.reduce(args, [], unwrap_aliases)
+    leading_comments = alias_meta[:leading_comments] || []
+    trailing_comments = call_meta[:trailing_comments] || []
 
-    {{:__block__, meta, args}, state}
+    aliases =
+      right
+      |> Enum.map(&segments_to_alias(base_segments, &1))
+      |> put_leading_comments(leading_comments)
+      |> put_trailing_comments(trailing_comments)
 
-  quoted, state ->
-    {quoted, state}
+    {aliases, state}
+  end
+
+  defp segments_to_alias(base_segments, {_, meta, segments}) do
+    {:alias, meta, [{:__aliases__, [], base_segments ++ segments}]}
+  end
+
+  defp put_leading_comments([first | rest], comments) do
+    [Sourceror.prepend_comments(first, comments) | rest]
+  end
+
+  defp put_trailing_comments(list, comments) do
+    case List.pop_at(list, -1) do
+      {nil, list} ->
+        list
+
+      {last, list} ->
+        last =
+          {:__block__,
+           [
+             trailing_comments: comments,
+             # End of expression newlines higher than 1 will cause the formatter to add an
+             # additional line break after the node. This is entirely optional and only showcased
+             # here to improve the readability of the output
+             end_of_expression: [newlines: 2]
+           ], [last]}
+
+        list ++ [last]
+    end
+  end
 end
 
 ~S"""
@@ -259,175 +286,19 @@ end
 alias Foo.{Bar, Baz}
 """
 |> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
+|> AliasExpansion.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
 
-## Correcting line numbers
+Older versions of sourceror required you to keep track of line numbers, and in an example like the
+one above you'd be required to keep track of how line numbers changed to Sourceror would apply
+corrections and ensure comments ended up in the correct places. Fortunately, newer Sourceror versions
+eliminate this issue so you can focus just on moving nodes around and stop worrying about hacky
+line numbers calculations.
 
-This solves the issue of the first comment, but what happens if we have more comments in disparate
-places? Let's look at what happens with this code:
-
-```elixir
-~S"""
-# Multi alias example
-alias Foo.{ # Opening the multi alias
-  Bar, # Here is Bar
-  # Here come the Baz
-  Baz.Qux, # With a Qux!
-  F, G, H, I
-}
-# End of the file :)
-"""
-|> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
-|> Sourceror.to_string()
-|> IO.puts()
-```
-
-It seems to work fine even in that case. Now one last test: what happens if we have more expressions
-after the aliases?
-
-```elixir
-source = ~S"""
-alias Foo.{A, B, C, D, E, F}
-
-# Comment for :hello
-:hello
-"""
-
-source
-|> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
-|> Sourceror.to_string()
-|> IO.puts()
-```
-
-The comment didn't get discarded, but it got misplaced.
-
-When Sourceror extracts the comments from the AST to give them to the Elixir formatter, it gives them
-the line number of the node they're attached to. Then when the formatter walks the ast and mixes it
-with comments, it checks if its line number is equal or lesser than the next comment in the comments
-list, and prints it if that is the case.
-
-What is happening in our case is that the `:hello` is on line 4, but since we are incrementing the
-line numbers of it's previous lines, we end up with something like this:
-
-```
-1 alias Foo.A
-2 alias Foo.B
-3 alias Foo.C
-4 alias Foo.D
-5 alias Foo.E
-6 alias Foo.F
-4 :hello
-```
-
-Because `alias Foo.D` and `:hello` nodes have a line number of `4`, the formatter will find
-the `alias Foo.D` node first, see the `# Comment for :hello` comment at the tome with line
-number 4, and print it for that node instead of printing it for `:hello`. This means that
-whenever we do a transformation that involves changing a line number, we need to make
-sure to propagate the live changes to the rest of the tree.
-
-You may have noticed that in our postwalk function we receive two parameter: the first is
-the current node we're visiting, and the second one is the *state* of the traversal. The
-state is like the accumulator in the regular `Macro.postwalk/3` function, but in this case
-it is a map with information that tells Sourceror what should be done while walking. One of
-these fields is the `line_correction` field, which is used to tell Sourceror that line numbers
-should be updated. Before visiting a node Sourceror will apply `Sourceror.correct_lines/2`
-to it with the line correction in the state. We can use this feature to update the line numbers
-of the subsequent nodes after we expand the multi alias.
-
-One last thing we have to keep in mind is that the qualified tuple call will hold the trailing
-comments of the curly brackets, so we need to get those and attach them to the last alias.
-
-```elixir
-expand_alias = fn {:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}]}, state ->
-  {_, _, base} = left
-
-  segments_length = length(right)
-
-  aliases =
-    right
-    |> Enum.with_index(1)
-    |> Enum.map(fn {segments, index} ->
-      {_, meta, segments} = segments
-      line = alias_meta[:line] + index
-
-      {leading_comments, meta} = Keyword.pop(meta, :leading_comments, [])
-
-      leading_comments = Enum.map(leading_comments, &%{&1 | line: line})
-
-      meta =
-        meta
-        |> Keyword.put(:column, alias_meta[:column])
-        |> Keyword.put(:line, line)
-        |> Keyword.put(:leading_comments, leading_comments)
-
-      aliased = {:__aliases__, [], base ++ segments}
-
-      quoted = {:alias, meta, [aliased]}
-
-      cond do
-        index == 1 ->
-          Sourceror.prepend_comments(quoted, alias_meta[:leading_comments])
-
-        index == segments_length ->
-          # Wrap the last one in a block so we can use the trailing comment
-          trailing_comments = call_meta[:trailing_comments]
-
-          quoted =
-            {:__block__,
-             [
-               line: line,
-               end_of_expression: [
-                 line: line,
-                 column: alias_meta[:column],
-                 newlines: 2
-               ]
-             ], [quoted]}
-
-          Sourceror.prepend_comments(quoted, trailing_comments, :trailing)
-
-        true ->
-          quoted
-      end
-    end)
-
-  line_correction = state.line_correction + length(aliases)
-
-  {aliases, %{state | line_correction: line_correction}}
-end
-
-postwalk_aliases = fn
-  {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
-    {aliases, state} = expand_alias.(quoted, state)
-
-    {{:__block__, [unwrap_me?: true], aliases}, state}
-
-  {:__block__, meta, args}, state ->
-    args = Enum.reduce(args, [], unwrap_aliases)
-
-    {{:__block__, meta, args}, state}
-
-  quoted, state ->
-    {quoted, state}
-end
-
-source
-|> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
-|> Sourceror.to_string()
-|> IO.puts()
-```
-
-And with this we now have a fully working function to expand occurrences of multi aliases, while
-preserving comments associated to the correct nodes.
-
-However, there are a lot of nuances when it comes to the way the Elixir formatter places comments,
-and many of them will still end up misplaced, due to the fact that adding and removing comments to
-a node requires propagating even more line corrections:
+You can try with more convoluted examples and see that the code above produces the output you would
+expect:
 
 ```elixir
 source = ~S"""
@@ -468,26 +339,7 @@ end
 
 source
 |> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
+|> AliasExpansion.expand_aliases()
 |> Sourceror.to_string()
-|> IO.puts()
-```
-
-While Sourceror does it's best to correct
-line numbers for you, taking comments into account makes the code much more convoluted, forcing you
-to do tricks with `Enum.reduce` instead of just using `Enum.map`, aggregating the total line
-corrections that happened while enumerating child nodes, and so on.
-
-To simplify this, you can pass the `collapse_comments: true` option to `Sourceror.to_string/2`. With
-this option enabled, Sourceror will try to squash all comments line numbers into a single one, making
-the line number of comments during transformation largely irrelevant. This relies on the fact that
-the Elixir formatter goes through comments in order and only uses their line number and eol counts
-to decide if
-
-```elixir
-source
-|> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
-|> Sourceror.to_string(collapse_comments: true)
 |> IO.puts()
 ```
