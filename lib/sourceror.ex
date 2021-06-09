@@ -18,13 +18,11 @@ defmodule Sourceror do
           end: position
         }
 
-  # @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
-  #                 Code
-  #               else
-  #                 Sourceror.Code
-  #               end)
-
-  @code_module Sourceror.Code
+  @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
+                  Code
+                else
+                  Sourceror.Code
+                end)
 
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments!/2` for compatibility
