@@ -85,35 +85,6 @@ defmodule SourcerorTest do
   end
 
   describe "postwalk/2" do
-    test "corrects line numbers" do
-      quoted =
-        Sourceror.parse_string!(~S"""
-        :a
-        :b
-        :c
-        """)
-
-      quoted =
-        Sourceror.postwalk(quoted, fn
-          {:__block__, _, [:b]} = quoted, state ->
-            state = Map.update!(state, :line_correction, &(&1 + 10))
-            {quoted, state}
-
-          quoted, state ->
-            {quoted, state}
-        end)
-
-      assert {:__block__, _,
-              [
-                {:__block__, a_meta, [:a]},
-                {:__block__, b_meta, [:b]},
-                {:__block__, c_meta, [:c]}
-              ]} = quoted
-
-      assert a_meta[:line] == 1
-      assert b_meta[:line] == 2
-      assert c_meta[:line] == 13
-    end
   end
 
   describe "to_string/2" do
@@ -206,60 +177,6 @@ defmodule SourcerorTest do
                  ],
                  1
                )
-    end
-  end
-
-  describe "get_line_span/1" do
-    defp line_span_from_source(source) do
-      source |> Sourceror.parse_string!() |> Sourceror.get_line_span()
-    end
-
-    test "returns the correct lien span" do
-      source = ~S"""
-      def foo do
-        :ok
-      end
-      """
-
-      assert line_span_from_source(source) == 3
-
-      source = ~S"""
-      def foo do
-        :ok end
-      """
-
-      assert line_span_from_source(source) == 2
-
-      source = ~S"""
-      def foo do :ok end
-      """
-
-      assert line_span_from_source(source) == 1
-
-      source = ~S"""
-      alias Foo.{
-        Bar
-      }
-      """
-
-      assert line_span_from_source(source) == 3
-
-      source = ~S"""
-      def get_end_line(quoted, default \\ 1) do
-        {_, line} =
-          Macro.postwalk(quoted, default, fn
-            {_, _, _} = quoted, acc ->
-              {quoted, max(acc, get_node_end_line(quoted, default))}
-
-            terminal, acc ->
-              {terminal, acc}
-          end)
-
-        line
-      end
-      """
-
-      assert line_span_from_source(source) == 12
     end
   end
 
@@ -422,10 +339,7 @@ defmodule SourcerorTest do
       quoted = Sourceror.prepend_comments(quoted, comments, :trailing)
       trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
 
-      assert trailing_comments == [
-               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"},
-               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# A"}
-             ]
+      assert [%{text: "# B"}, %{text: "# A"}] = trailing_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
@@ -448,9 +362,7 @@ defmodule SourcerorTest do
       quoted = Sourceror.prepend_comments(quoted, comments, :trailing)
       trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
 
-      assert trailing_comments == [
-               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
-             ]
+      assert [%{text: "# B"}] = trailing_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
@@ -498,10 +410,7 @@ defmodule SourcerorTest do
       quoted = Sourceror.append_comments(quoted, comments)
       leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
 
-      assert leading_comments == [
-               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# A"},
-               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
-             ]
+      assert [%{text: "# A"}, %{text: "# B"}] = leading_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
@@ -519,9 +428,7 @@ defmodule SourcerorTest do
       quoted = Sourceror.append_comments(quoted, comments)
       leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
 
-      assert leading_comments == [
-               %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
-             ]
+      assert [%{text: "# B"}] = leading_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
@@ -542,10 +449,7 @@ defmodule SourcerorTest do
       quoted = Sourceror.append_comments(quoted, comments, :trailing)
       trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
 
-      assert trailing_comments == [
-               %{line: 4, previous_eol_count: 2, next_eol_count: 1, text: "# A"},
-               %{line: 4, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
-             ]
+      assert [%{text: "# A"}, %{text: "# B"}] = trailing_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
@@ -568,9 +472,7 @@ defmodule SourcerorTest do
       quoted = Sourceror.append_comments(quoted, comments, :trailing)
       trailing_comments = Sourceror.get_meta(quoted)[:trailing_comments]
 
-      assert trailing_comments == [
-               %{line: 3, previous_eol_count: 1, next_eol_count: 1, text: "# B"}
-             ]
+      assert [%{text: "# B"}] = trailing_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""

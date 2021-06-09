@@ -4,19 +4,26 @@ defmodule Sourceror do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
-  alias Sourceror.PostwalkState
+  alias Sourceror.TraversalState
 
   @line_fields ~w[closing do end end_of_expression]a
-  @start_fields ~w[line do]a
+  # @start_fields ~w[line do]a
   @end_fields ~w[end closing end_of_expression]a
 
-  @type postwalk_function :: (Macro.t(), PostwalkState.t() -> {Macro.t(), PostwalkState.t()})
+  @type comment :: %{
+          line: integer,
+          previous_eol_count: integer,
+          next_eol_count: integer,
+          text: String.t()
+        }
 
   @type position :: keyword
   @type range :: %{
           start: position,
           end: position
         }
+
+  @type traversal_function :: (Macro.t(), TraversalState.t() -> {Macro.t(), TraversalState.t()})
 
   @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
                   Code
@@ -92,7 +99,8 @@ defmodule Sourceror do
   end
 
   @doc """
-  Parses a single expression from the given string.
+  Parses a single expression from the given string. It tries to parse on a
+  per-line basis.
 
   Returns `{:ok, quoted, rest}` on success or `{:error, source}` on error.
 
@@ -181,12 +189,11 @@ defmodule Sourceror do
   end
 
   @doc """
-  Performs a depth-first post-order traversal of a quoted expression, correcting
-  line numbers as it goes.
+  Performs a depth-first post-order traversal of a quoted expression.
 
   See `postwalk/3` for more information.
   """
-  @spec postwalk(Macro.t(), postwalk_function) ::
+  @spec postwalk(Macro.t(), traversal_function) ::
           Macro.t()
   def postwalk(quoted, fun) do
     {quoted, _} = postwalk(quoted, nil, fun)
@@ -195,62 +202,52 @@ defmodule Sourceror do
 
   @doc """
   Performs a depth-first post-order traversal of a quoted expression with an
-  accumulator, correcting line numbers as it goes.
+  accumulator.
 
   `fun` is a function that will receive the current node as a first argument and
   the traversal state as the second one. It must return a `{quoted, state}`,
   in the same way it would return `{quoted, acc}` when using `Macro.postwalk/3`.
 
-  Before calling `fun` in a node, its line numbers will be corrected by the
-  `state.line_correction`. If you need to manually correct the line number of
-  a node, use `correct_lines/2`.
-
   The state is a map with the following keys:
-    * `:line_correction` - an integer representing how many lines subsequent
-      nodes should be shifted. If the function *adds* more nodes to the tree
-      that should go in a new line, the line numbers of the subsequent nodes
-      need to be updated in order for comments to be correctly placed during the
-      formatting process. If the function does this kind of change, it must
-      update the `:line_correction` field by adding the amount of lines that
-      should be shifted. Note that this field is cumulative, setting it to 0
-      will reset it for the whole traversal. Starts at `0`.
-
     * `:acc` - The accumulator. Defaults to `nil` if none is given.
   """
-  @spec postwalk(Macro.t(), term, postwalk_function) ::
+  @spec postwalk(Macro.t(), term, traversal_function) ::
           {Macro.t(), term}
   def postwalk(quoted, acc, fun) do
-    {quoted, %{acc: acc}} =
-      Macro.traverse(quoted, %PostwalkState{acc: acc}, &postwalk_correct_lines/2, fn
-        {form, meta, args}, state ->
-          updated_ends =
-            correct_lines(meta, state.line_correction, skip: [:leading_comments] ++ @start_fields)
-
-          meta = Keyword.merge(meta, updated_ends)
-
-          {quoted, state} = fun.({form, meta, args}, state)
-          {quoted, state}
-
-        quoted, state ->
-          {quoted, state} = fun.(quoted, state)
-          {quoted, state}
-      end)
+    {quoted, %{acc: acc}} = Macro.traverse(quoted, %TraversalState{acc: acc}, &{&1, &2}, fun)
 
     {quoted, acc}
   end
 
-  defp postwalk_correct_lines({_, _, _} = quoted, state) do
-    quoted =
-      Macro.update_meta(
-        quoted,
-        &correct_lines(&1, state.line_correction, skip: [:trailing_comments] ++ @end_fields)
-      )
+  @doc """
+  Performs a depth-first pre-order traversal of a quoted expression.
 
-    {quoted, state}
+  See `prewalk/3` for more information.
+  """
+  @spec prewalk(Macro.t(), traversal_function) ::
+          Macro.t()
+  def prewalk(quoted, fun) do
+    {quoted, _} = prewalk(quoted, nil, fun)
+    quoted
   end
 
-  defp postwalk_correct_lines(quoted, state) do
-    {quoted, state}
+  @doc """
+  Performs a depth-first pre-order traversal of a quoted expression with an
+  accumulator.
+
+  `fun` is a function that will receive the current node as a first argument and
+  the traversal state as the second one. It must return a `{quoted, state}`,
+  in the same way it would return `{quoted, acc}` when using `Macro.prewalk/3`.
+
+  The state is a map with the following keys:
+    * `:acc` - The accumulator. Defaults to `nil` if none is given.
+  """
+  @spec prewalk(Macro.t(), term, traversal_function) ::
+          {Macro.t(), term}
+  def prewalk(quoted, acc, fun) do
+    {quoted, %{acc: acc}} = Macro.traverse(quoted, %TraversalState{acc: acc}, fun, &{&1, &2})
+
+    {quoted, acc}
   end
 
   @doc """
@@ -270,8 +267,6 @@ defmodule Sourceror do
     meta
     |> apply_line_corrections(line_correction, skip)
     |> maybe_correct_line(line_correction, skip)
-    |> maybe_correct_comments(:leading_comments, line_correction, skip)
-    |> maybe_correct_comments(:trailing_comments, line_correction, skip)
   end
 
   def correct_lines(quoted, line_correction, _opts) do
@@ -311,20 +306,6 @@ defmodule Sourceror do
     else
       meta
     end
-  end
-
-  defp maybe_correct_comments(meta, key, line_correction, skip) do
-    if Keyword.has_key?(meta, key) and key not in skip do
-      Keyword.update!(meta, key, &correct_comments_line(&1, line_correction))
-    else
-      meta
-    end
-  end
-
-  defp correct_comments_line(comments, line_correction) do
-    Enum.map(comments, fn comment ->
-      %{comment | line: comment.line + line_correction}
-    end)
   end
 
   @doc """
@@ -427,27 +408,6 @@ defmodule Sourceror do
   @spec get_end_line(Macro.t(), integer) :: integer
   def get_end_line(quoted, default \\ 1) when is_integer(default) do
     get_end_position(quoted, line: default, column: 1)[:line]
-  end
-
-  @doc """
-  Returns how many lines a quoted expression used in the original source code.
-
-      iex> "foo do :ok end" |> Sourceror.parse_string!() |> Sourceror.get_line_span()
-      1
-
-      iex> "\""
-      ...> foo do
-      ...>   :ok
-      ...> end
-      ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_line_span()
-      3
-  """
-  @spec get_line_span(Macro.t()) :: integer
-  def get_line_span(quoted) do
-    start_line = get_line(quoted)
-    end_line = get_end_line(quoted)
-
-    1 + end_line - start_line
   end
 
   @doc """
@@ -596,6 +556,11 @@ defmodule Sourceror do
   @doc """
   Gets the range used by the given quoted expression in the source code.
 
+  The quoted expression must have at least line and column metadata, otherwise
+  it is not possible to calculate an accurate range, or to calculate it at all.
+  This function is most useful when used after `Sourceror.parse_string/1`,
+  before any kind of modification to the AST.
+
   The range is a map with `:start` and `:end` positions.
 
       iex> quoted = ~S"\""
@@ -622,7 +587,11 @@ defmodule Sourceror do
   @doc """
   Prepends comments to the leading or trailing comments of a node.
   """
-  @spec prepend_comments(Macro.t(), [map], :leading | :trailing) :: Macro.t()
+  @spec prepend_comments(
+          quoted :: Macro.t(),
+          comments :: [comment],
+          position :: :leading | :trailing
+        ) :: Macro.t()
   def prepend_comments(quoted, comments, position \\ :leading)
       when position in [:leading, :trailing] do
     do_add_comments(quoted, comments, :prepend, position)
@@ -631,7 +600,12 @@ defmodule Sourceror do
   @doc """
   Appends comments to the leading or trailing comments of a node.
   """
-  @spec append_comments(Macro.t(), [map], :leading | :trailing) :: Macro.t()
+  @spec append_comments(
+          quoted :: Macro.t(),
+          comments :: [comment],
+          position :: :leading | :trailing
+        ) ::
+          Macro.t()
   def append_comments(quoted, comments, position \\ :leading)
       when position in [:leading, :trailing] do
     do_add_comments(quoted, comments, :append, position)
@@ -646,53 +620,13 @@ defmodule Sourceror do
 
     current_comments = Keyword.get(meta, key, [])
 
-    comments = adjust_comment_lines(comments, current_comments, quoted, mode, position)
-
     current_comments =
       case mode do
         :append -> current_comments ++ comments
         :prepend -> comments ++ current_comments
       end
 
-    quoted = Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
-
-    maybe_correct_closing_line(quoted, position, length(comments))
-  end
-
-  defp adjust_comment_lines(comments, current_comments, quoted, mode, position) do
-    reference_comment =
-      case mode do
-        :append -> List.last(current_comments)
-        :prepend -> List.first(current_comments)
-      end
-
-    line =
-      cond do
-        reference_comment ->
-          reference_comment.line
-
-        position == :leading ->
-          get_start_position(quoted)[:line]
-
-        position == :trailing ->
-          get_end_line(quoted)
-      end
-
-    Enum.map(comments, &%{&1 | line: line})
-  end
-
-  defp maybe_correct_closing_line({_, meta, _} = quoted, :trailing, line_correction) do
-    corrections = Enum.map(@end_fields, &correct_line(meta, &1, line_correction))
-
-    Macro.update_meta(quoted, fn meta ->
-      Enum.reduce(corrections, meta, fn correction, meta ->
-        Keyword.merge(meta, correction)
-      end)
-    end)
-  end
-
-  defp maybe_correct_closing_line(quoted, _, _) do
-    quoted
+    Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
   end
 
   @doc false

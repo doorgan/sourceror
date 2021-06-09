@@ -54,6 +54,12 @@ formatter modules. This means that for Elixir versions prior to 1.12 it will
 successfully parse the new syntax for stepped ranges instead of raising a
 `SyntaxError`, but everything else should work as expected.
 
+## Goals of the library
+
+  * Be as close as possible to the standard Elixir AST.
+  * Make working with comments as simple as possible.
+  * No runtime dependencies, to simplify integration with other tools.
+
 ## Background
 
 There have been several attempts at source code manipulation in the Elixir
@@ -158,116 +164,6 @@ ending line of a node, based on the `end`, `closing` or `end_of_expression`
 line. This also makes the Sourceror AST consistent with the way the Elixir
 formatter works, making it easier to reason about how a given AST would be
 formatted.
-
-## Working with line numbers
-
-The way the Elixir formatter combines AST and comments depends on their line
-numbers and the order in which the AST is traversed. This means that whenever
-you move a node around, you need to also change the line numbers to reflect
-their position in the node. This is best seen with an example. Lets imagine you
-have a list of atoms and you want to sort them in alphabetical order:
-```elixir
-:a
-# Comment for :j
-:j
-:c
-# Comment for :b
-:b
-```
-Sorting it is trivial, as you just need to use `Enum.sort_by` with
-`Atom.to_string(atom)`. But if we consider the line numbers:
-```
-1 :a
-2 # Comment for :j
-3 :j
-4 :c
-5 # Comment for :b
-6 :b
-```
-If we sort them, we end up with this:
-```
-1 :a
-6 :b
-4 :c
-3 :j
-```
-And the comments will be associated to the line number of the node they're leading:
-```
-6 # Comment for :b
-3 # Comment for :j
-```
-When the formatter traverses the AST, it will find node `:b` with line `6` and
-will see comment with line `6`, and it will print that comment. But it will also
-see the comment with line `3` and will go like "hey, this comment has a line
-number smaller than this node, so this is a trailing comment too!" and will
-print that comment as well. That will make it output this code:
-```elixir
-:a
-# Comment for :b
-# Comment for :j
-:b
-:c
-:j
-```
-And that's not what we want at all. To avoid this issue, we need to calculate
-how line numbers changed while the sorting and correct them appropiately.
-Sourceror provides a `correct_lines(node, line_correction)` that takes care of
-correcting all the line numbers associated to a node, so all you have to do is
-figure out the line correction numbers. One way to do it in this example is by
-getting the line numbers before the change, reorder the nodes, zip the old line
-numbers with the nodes, and correct their line numbers by the difference between
-the new and the old one. Translated to code, it would look something like this:
-```elixir
-test "sorts atoms with correct comments placement" do
-  {:__block__, meta, atoms} = """
-  :a
-  # Comment for :j
-  :j
-  :c
-  # Comment for :b
-  :b
-  """ |> Sourceror.parse_string!()
-
-  lines = Enum.map(atoms, &Sourceror.get_line/1)
-
-  atoms =
-    Enum.sort_by(atoms, fn {:__block__, _, [atom]} ->
-      Atom.to_string(atom)
-    end)
-    |> Enum.zip(lines)
-    |> Enum.map(fn {atom, old_line} ->
-      line_correction = old_line - Sourceror.get_line(atom)
-      Macro.update_meta(atom, &Sourceror.correct_lines(&1, line_correction))
-    end)
-
-  assert Sourceror.to_string({:__block__, meta, atoms}) == """
-  :a
-  # Comment for :b
-  :b
-  :c
-  # Comment for :j
-  :j
-  """ |> String.trim()
-end
-```
-Which will produce the code we expect:
-```elixir
-:a
-# Comment for :b
-:b
-:c
-# Comment for :j
-:j
-```
-
-In other cases, you may want to add lines to the code, which would cause the new
-nodes to have higher line numbers than the nodes that come after it, and that
-would also mess up the comments placement. For those use cases Sourceror
-provides the `Sourceror.postwalk/3` function. It's a wrapper over
-`Macro.postwalk/3` that lets you set the line correction that should be applied
-to subsequent nodes, and it will automatically correct them for you before
-calling your function on each node. You can see this in action in the
-`examples/expand_multi_alias.exs` example.
 
 ## License
 

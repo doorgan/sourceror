@@ -223,7 +223,8 @@ defmodule Sourceror.Range do
   end
 
   # Sigils
-  def get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]}) when is_list(modifiers) do
+  def get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]} = quoted)
+      when is_list(modifiers) do
     case Atom.to_string(sigil) do
       <<"sigil_", _name>> ->
         # Congratulations, it's a sigil!
@@ -237,8 +238,7 @@ defmodule Sourceror.Range do
         }
 
       _ ->
-        # Regular call
-        raise "not implemented"
+        get_range_for_unqualified_call(quoted)
     end
   end
 
