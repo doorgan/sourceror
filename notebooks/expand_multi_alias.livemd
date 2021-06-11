@@ -15,7 +15,7 @@ Let's first start by installing Sourceror:
 ```elixir
 Mix.install([
   # For latest published release:
-  # {:sourceror, "~> 0.5"}
+  # {:sourceror, "~> 0.6"}
 
   {:sourceror, github: "doorgan/sourceror"}
 ])
@@ -138,14 +138,14 @@ defmodule AliasExpansion do
     Sourceror.postwalk(quoted, fn
       {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
         aliases = expand_alias(quoted)
-    
+
         {{:__block__, [unwrap_me?: true], aliases}, state}
-    
+
       {:__block__, meta, args}, state ->
         args = Enum.reduce(args, [], &unwrap_aliases/2)
-    
+
         {{:__block__, meta, args}, state}
-    
+
       quoted, state ->
         {quoted, state}
     end)
