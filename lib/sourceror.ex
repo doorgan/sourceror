@@ -57,7 +57,7 @@ defmodule Sourceror do
   """
   defmacro quoted_to_algebra(quoted, opts) do
     quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts] do
-      code_module.quoted_to_algebra(quoted, opts)
+      Sourceror.Code.quoted_to_algebra(quoted, opts)
     end
   end
 

@@ -56,10 +56,15 @@ defmodule Sourceror.LinesCorrector do
         last_line
       end
 
-    eoe = meta[:end_of_expression] || []
-    eoe = Keyword.put(eoe, :line, last_line)
+    meta =
+      if meta[:end_of_expression] || has_trailing_comments?(quoted) do
+        eoe = meta[:end_of_expression] || []
+        eoe = Keyword.put(eoe, :line, last_line)
 
-    meta = Keyword.put(meta, :end_of_expression, eoe)
+        Keyword.put(meta, :end_of_expression, eoe)
+      else
+        meta
+      end
 
     meta =
       if meta[:end] do

@@ -289,7 +289,7 @@ defmodule Sourceror.Code.Normalizer do
       end
 
     meta =
-      if is_nil(meta[:no_parens]) and is_nil(meta[:closing]) and
+      if is_nil(meta[:no_parens]) and is_nil(meta[:closing]) and is_nil(meta[:do]) and
            not Sourceror.Code.Formatter.local_without_parens?(
              form,
              arity,
