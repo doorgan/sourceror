@@ -46,7 +46,7 @@ defmodule Sourceror.LinesCorrector do
     {quoted, state}
   end
 
-  defp post_correct({form, meta, args} = quoted, state) do
+  defp post_correct({_, meta, _} = quoted, state) do
     last_line = Sourceror.get_end_line(quoted, state.last_line)
 
     last_line =
@@ -56,6 +56,20 @@ defmodule Sourceror.LinesCorrector do
         last_line
       end
 
+    quoted =
+      quoted
+      |> maybe_correct_end_of_expression(last_line)
+      |> maybe_correct_end(last_line)
+      |> maybe_correct_closing(last_line)
+
+    {quoted, %{state | last_line: last_line}}
+  end
+
+  defp post_correct(quoted, state) do
+    {quoted, state}
+  end
+
+  defp maybe_correct_end_of_expression({form, meta, args} = quoted, last_line) do
     meta =
       if meta[:end_of_expression] || has_trailing_comments?(quoted) do
         eoe = meta[:end_of_expression] || []
@@ -66,6 +80,10 @@ defmodule Sourceror.LinesCorrector do
         meta
       end
 
+    {form, meta, args}
+  end
+
+  defp maybe_correct_end({form, meta, args}, last_line) do
     meta =
       if meta[:end] do
         put_in(meta, [:end, :line], last_line)
@@ -73,6 +91,10 @@ defmodule Sourceror.LinesCorrector do
         meta
       end
 
+    {form, meta, args}
+  end
+
+  defp maybe_correct_closing({form, meta, args}, last_line) do
     meta =
       cond do
         meta[:do] ->
@@ -85,11 +107,7 @@ defmodule Sourceror.LinesCorrector do
           meta
       end
 
-    {{form, meta, args}, %{state | last_line: last_line}}
-  end
-
-  defp post_correct(quoted, state) do
-    {quoted, state}
+    {form, meta, args}
   end
 
   def has_comments?(quoted) do
