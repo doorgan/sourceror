@@ -174,6 +174,29 @@ defmodule SourcerorTest do
 
       assert expected == actual
     end
+
+    test "does not escape characters twice" do
+      assert_same(~S'''
+      defmodule Sample do
+        @moduledoc """
+        Documentation for `Sample`.
+        """
+
+        @doc """
+        Hello world.
+
+        ## Examples
+
+            iex> Sample.hello()
+            :world
+
+        """
+        def hello do
+          :world
+        end
+      end
+      ''')
+    end
   end
 
   describe "correct_lines/2" do

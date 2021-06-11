@@ -160,7 +160,7 @@ defmodule Sourceror do
       of nested blocks. Defaults to `0`.
 
     * `:indent_type` - the type of indentation to use. It can be one of `:spaces`,
-      `:single_space` or `:tabs`. Defaults to `:spaces`;
+      `:single_space` or `:tabs`. Defaults to `:spaces`.
   """
   @spec to_string(Macro.t(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
@@ -179,7 +179,7 @@ defmodule Sourceror do
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
 
     quoted
-    |> quoted_to_algebra(comments: comments)
+    |> quoted_to_algebra(comments: comments, escape: false)
     |> Inspect.Algebra.format(line_length)
     |> IO.iodata_to_binary()
     |> String.split("\n")
