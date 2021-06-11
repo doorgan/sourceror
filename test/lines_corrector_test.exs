@@ -7,12 +7,19 @@ defmodule SourcerorTest.LinesCorrectorTest do
 
   describe "correct/1" do
     test "keeps previous line number if missing" do
-      assert {:__block__, block, [{:foo, foo, _}, {:bar, bar, _}]} =
-               correct(parse_string!("foo; bar"))
+      corrected = correct(parse_string!("foo; bar"))
+      assert {:__block__, block, [{:foo, foo, _}, {:bar, bar, _}]} = corrected
 
       assert block[:line] == 1
       assert foo[:line] == 1
       assert bar[:line] == 1
+
+      assert Sourceror.to_string(corrected) ==
+               ~S"""
+               foo
+               bar
+               """
+               |> String.trim()
     end
 
     test "increments line number if it's too low" do
@@ -20,13 +27,21 @@ defmodule SourcerorTest.LinesCorrectorTest do
 
       bar = Sourceror.correct_lines(bar, -2)
 
-      assert {:__block__, _, [{:foo, foo_meta, _}, {:bar, bar_meta, _}]} =
-               correct({:__block__, block_meta, [foo, bar]})
+      corrected = correct({:__block__, block_meta, [foo, bar]})
+
+      assert {:__block__, _, [{:foo, foo_meta, _}, {:bar, bar_meta, _}]} = corrected
 
       # kept as it
       assert foo_meta[:line] == 1
       # incremented
       assert bar_meta[:line] == 2
+
+      assert Sourceror.to_string(corrected) ==
+               ~S"""
+               foo
+               bar
+               """
+               |> String.trim()
     end
 
     test "increments end lines" do
@@ -37,12 +52,22 @@ defmodule SourcerorTest.LinesCorrectorTest do
           %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# bar comment"}
         ])
 
-      assert {:foo, foo_meta, [[{_, {:bar, bar_meta, _}}]]} =
-               correct({:foo, foo_meta, [[{do_kw, bar}]]})
+      corrected = correct({:foo, foo_meta, [[{do_kw, bar}]]})
+
+      assert {:foo, foo_meta, [[{_, {:bar, bar_meta, _}}]]} = corrected
 
       assert foo_meta[:line] == 1
       assert bar_meta[:line] == 3
       assert foo_meta[:end][:line] == 3
+
+      assert Sourceror.to_string(corrected) ==
+               ~S"""
+               foo do
+                 # bar comment
+                 bar
+               end
+               """
+               |> String.trim()
     end
   end
 end

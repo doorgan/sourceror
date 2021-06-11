@@ -504,10 +504,18 @@ defmodule Sourceror do
   end
 
   defp get_node_end_position(quoted, default) do
+    meta = get_meta(quoted)
+
+    start_position = [
+      line: meta[:line] || default[:line],
+      column: meta[:column] || default[:column]
+    ]
+
     get_meta(quoted)
     |> Keyword.take(@end_fields)
     |> Keyword.values()
     |> Enum.map(&Keyword.take(&1, [:line, :column]))
+    |> Enum.concat([start_position])
     |> Enum.max_by(
       & &1,
       fn prev, next ->

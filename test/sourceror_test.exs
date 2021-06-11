@@ -2,32 +2,58 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
+  defmacro assert_same(string) do
+    quote bind_quoted: [string: string] do
+      string = String.trim(string)
+      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string()
+    end
+  end
+
   test "parse_string!/2 and to_string/2 idempotency" do
-    source =
-      ~S"""
-      foo()
+    assert_same(~S"""
+    foo()
 
-      # Bar
-      """
-      |> String.trim()
+    # Bar
+    """)
 
-    assert source == Sourceror.parse_string!(source) |> Sourceror.to_string()
+    assert_same(~S"""
+    # A
+    foo do
+      # B
+      :ok
 
-    source =
-      ~S"""
-      # A
-      foo do
-        # B
-        :ok
+      # C
+    end
 
-        # C
-      end
+    # D
+    """)
 
-      # D
-      """
-      |> String.trim()
+    assert_same(~S"""
+    # 1
+    A.{
+      # 2
+      B,
+      C,
+      # 3
+      D
 
-    assert source == Sourceror.parse_string!(source) |> Sourceror.to_string()
+      # 4
+    }
+
+    # 5
+    """)
+
+    assert_same(~S"""
+    # 1
+    a.b c do
+      # 4
+      d
+
+      # 5
+    end
+
+    # 6
+    """)
   end
 
   describe "parse_string!/2" do

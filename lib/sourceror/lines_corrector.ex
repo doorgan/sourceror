@@ -26,7 +26,7 @@ defmodule Sourceror.LinesCorrector do
 
         get_line(quoted) < state.last_line ->
           correction = state.last_line + 1 - get_line(quoted)
-          quoted = correct_lines(quoted, correction)
+          quoted = recursive_correct_lines(quoted, correction)
           {quoted, %{state | last_line: get_line(quoted)}}
 
         true ->
@@ -35,8 +35,8 @@ defmodule Sourceror.LinesCorrector do
 
     if has_leading_comments?(quoted) do
       leading_comments = length(meta[:leading_comments])
-      meta = Keyword.put(meta, :line, state.last_line + leading_comments + 1)
-      {{form, meta, args}, %{state | last_line: meta[:line]}}
+      quoted = recursive_correct_lines(quoted, leading_comments + 1)
+      {quoted, %{state | last_line: meta[:line]}}
     else
       {quoted, state}
     end
@@ -63,16 +63,21 @@ defmodule Sourceror.LinesCorrector do
 
     meta =
       if meta[:end] do
-        put_in(meta, [:end, :line], eoe[:line])
+        put_in(meta, [:end, :line], last_line)
       else
         meta
       end
 
     meta =
-      if meta[:closing] do
-        put_in(meta, [:closing, :line], eoe[:line])
-      else
-        meta
+      cond do
+        meta[:do] ->
+          meta
+
+        meta[:closing] ->
+          put_in(meta, [:closing, :line], last_line)
+
+        true ->
+          meta
       end
 
     {{form, meta, args}, %{state | last_line: last_line}}
@@ -92,5 +97,15 @@ defmodule Sourceror.LinesCorrector do
 
   def has_trailing_comments?({_, meta, _}) do
     match?([_ | _], meta[:trailing_comments])
+  end
+
+  defp recursive_correct_lines(ast, line_correction) do
+    Macro.postwalk(ast, fn
+      {_, _, _} = ast ->
+        correct_lines(ast, line_correction)
+
+      ast ->
+        ast
+    end)
   end
 end
