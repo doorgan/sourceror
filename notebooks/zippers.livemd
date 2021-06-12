@@ -9,10 +9,7 @@ we need to remove a node, ins
 
 ```elixir
 Mix.install([
-  # For latest published release:
-  # {:sourceror, "~> 0.7"}
-
-  {:sourceror, github: "doorgan/sourceror"}
+  {:sourceror, "~> 0.7"}
 ])
 ```
 
