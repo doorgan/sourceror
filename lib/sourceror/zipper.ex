@@ -65,18 +65,24 @@ defmodule Sourceror.Zipper do
   def zip(term), do: {term, nil}
 
   @doc """
+  Walks the zipper all the way up and returns the top zipper.
+  """
+  @spec top(zipper) :: zipper
+  def top({tree, :end}), do: {tree, :end}
+
+  def top(zipper) do
+    if parent = up(zipper) do
+      top(parent)
+    else
+      zipper
+    end
+  end
+
+  @doc """
   Walks the zipper all the way up and returns the root node.
   """
   @spec root(zipper) :: tree
-  def root({tree, :end}), do: tree
-
-  def root(zipper) do
-    if parent = up(zipper) do
-      root(parent)
-    else
-      node(zipper)
-    end
-  end
+  def root(zipper), do: zipper |> top() |> node()
 
   @doc """
   Returns the node at the zipper.
@@ -137,15 +143,10 @@ defmodule Sourceror.Zipper do
   def leftmost({_, %{l: nil}} = zipper), do: zipper
 
   def leftmost({tree, meta}) do
-    case Enum.reverse(meta.l) do
-      [left | rest] ->
-        r = rest ++ [tree] ++ (meta.r || [])
+    [left | rest] = Enum.reverse(meta.l)
+    r = rest ++ [tree] ++ (meta.r || [])
 
-        {left, %{meta | l: nil, r: r}}
-
-      _ ->
-        {tree, meta}
-    end
+    {left, %{meta | l: nil, r: r}}
   end
 
   @doc """
@@ -175,15 +176,10 @@ defmodule Sourceror.Zipper do
   def rightmost({_, %{r: nil}} = zipper), do: zipper
 
   def rightmost({tree, meta}) do
-    case Enum.reverse(meta.r) do
-      [right | rest] ->
-        l = rest ++ [tree] ++ (meta.l || [])
+    [right | rest] = Enum.reverse(meta.r)
+    l = rest ++ [tree] ++ (meta.l || [])
 
-        {right, %{meta | l: l, r: nil}}
-
-      _ ->
-        {tree, meta}
-    end
+    {right, %{meta | l: l, r: nil}}
   end
 
   @doc """

@@ -120,6 +120,11 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.rightmost()
              |> Z.rightmost()
              |> Z.node() == 5
+
+      assert Z.zip([1, 2, 3])
+             |> Z.rightmost()
+             |> Z.rightmost()
+             |> Z.node() == [1, 2, 3]
     end
   end
 
@@ -140,6 +145,11 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.leftmost()
              |> Z.leftmost()
              |> Z.node() == 1
+
+      assert Z.zip([1, 2, 3])
+             |> Z.leftmost()
+             |> Z.leftmost()
+             |> Z.node() == [1, 2, 3]
     end
   end
 
@@ -173,6 +183,8 @@ defmodule SourcerorTest.ZipperTest do
                |> Z.next()
                |> Z.next()
                |> Z.next()
+
+      assert {42, :end} |> Z.next() == {42, :end}
     end
   end
 
@@ -180,7 +192,18 @@ defmodule SourcerorTest.ZipperTest do
     test "walks backwards in depth-first pre-order" do
       zipper = Z.zip([1, [2, [3, 4]], 5])
 
-      assert zipper |> Z.next() |> Z.next() |> Z.next() |> Z.prev() |> Z.prev() |> Z.node() == 1
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.prev()
+             |> Z.prev()
+             |> Z.prev()
+             |> Z.node() == [3, 4]
     end
 
     test "returns nil when it reaches past the top" do
@@ -204,6 +227,18 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "traverse/2" do
+    test "traverses in depth-first pre-order" do
+      zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
+
+      assert Z.traverse(zipper, fn
+               {x, m} when is_integer(x) -> {x * 2, m}
+               z -> z
+             end)
+             |> Z.node() == [2, [4, [6, 8], 10], [12, 14]]
+    end
+  end
+
   describe "traverse/3" do
     test "traverses in depth-first pre-order" do
       zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
@@ -223,6 +258,16 @@ defmodule SourcerorTest.ZipperTest do
                6,
                7
              ] == Enum.reverse(acc)
+    end
+  end
+
+  describe "top/1" do
+    test "returns the top zipper" do
+      assert Z.zip([1, [2, [3, 4]]]) |> Z.next() |> Z.next() |> Z.next() |> Z.top() ==
+               {[1, [2, [3, 4]]], nil}
+
+      assert Z.zip(42) |> Z.top() |> Z.top() |> Z.top() == {42, nil}
+      assert {42, :end} |> Z.top() |> Z.top() |> Z.top() == {42, :end}
     end
   end
 
@@ -252,6 +297,14 @@ defmodule SourcerorTest.ZipperTest do
 
       assert Z.node(zipper) == 3
       assert Z.root(zipper) == [1, [2, 3]]
+
+      assert Z.zip([1, 2, 3])
+             |> Z.next()
+             |> Z.rightmost()
+             |> Z.remove()
+             |> Z.remove()
+             |> Z.remove()
+             |> Z.node() == []
     end
 
     test "raises when attempting to remove the root" do
@@ -286,6 +339,31 @@ defmodule SourcerorTest.ZipperTest do
                3,
                :last
              ]
+
+      assert Z.zip({:left, :right}) |> Z.insert_child(:first) |> Z.root() ==
+               {:{}, [],
+                [
+                  :first,
+                  :left,
+                  :right
+                ]}
+
+      assert Z.zip({:left, :right}) |> Z.append_child(:last) |> Z.root() ==
+               {:{}, [],
+                [
+                  :left,
+                  :right,
+                  :last
+                ]}
+
+      assert Z.zip({:foo, [], []}) |> Z.insert_child(:first) |> Z.append_child(:last) |> Z.root() ==
+               {:foo, [], [:first, :last]}
+
+      assert Z.zip({{:., [], [:a, :b]}, [], []})
+             |> Z.insert_child(:first)
+             |> Z.append_child(:last)
+             |> Z.root() ==
+               {{:., [], [:a, :b]}, [], [:first, :last]}
     end
   end
 
