@@ -150,5 +150,3 @@ instead of a zipper.
 
 That wraps up the introduction to zippers. We'll see them in action in the "Multi alias exapansion"
 livebook, where we use them to simplify the traversal and tranformations.
-
-## Section
