@@ -1,1 +1,1 @@
-Mix.install([{:sourceror, git: "https://github.com/doorgan/sourceror.git"}])
+Mix.install([{:sourceror, github: "doorgan/sourceror"}])

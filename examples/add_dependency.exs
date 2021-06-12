@@ -1,4 +1,4 @@
-Mix.install([{:sourceror, git: "https://github.com/doorgan/sourceror.git"}, :httpoison, :jason])
+Mix.install([{:sourceror, github: "doorgan/sourceror"}, :httpoison, :jason])
 
 defmodule Demo do
   def fetch_version(name) do

@@ -15,7 +15,7 @@ Let's first start by installing Sourceror:
 ```elixir
 Mix.install([
   # For latest published release:
-  # {:sourceror, "~> 0.6"}
+  # {:sourceror, "~> 0.7"}
 
   {:sourceror, github: "doorgan/sourceror"}
 ])

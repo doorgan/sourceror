@@ -14,8 +14,8 @@ You can find Sourceror documentation on [Hex Docs](https://hexdocs.pm/sourceror/
 
 ## Examples
 
-You can find usage examples in the `examples` folder. You can run them with
-`elixir examples/<example_file>.exs`.
+You can find usage examples in the `examples` folder. You can run them by
+cloning the repo and running `elixir examples/<example_file>.exs`.
 
 You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
 in the `notebooks` folder.
@@ -41,7 +41,7 @@ Add `:sourceror` as a dependency to your project's `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:sourceror, "~> 0.6.1"}
+    {:sourceror, "~> 0.7.0"}
   ]
 end
 ```
