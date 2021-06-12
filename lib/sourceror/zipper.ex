@@ -6,6 +6,16 @@ defmodule Sourceror.Zipper do
   paper.
   """
 
+  # Remove once we figure out why these functions cause a "pattern can never
+  # match" error:
+  #
+  # The pattern can never match the type.
+  #
+  # Pattern: _child = {_, _}
+  #
+  # Type: nil
+  @dialyzer {:nowarn_function, do_prev: 1, prev_after_remove: 1}
+
   import Kernel, except: [node: 1]
 
   @type tree :: Macro.t()
@@ -14,7 +24,7 @@ defmodule Sourceror.Zipper do
           ptree: zipper,
           r: [tree]
         }
-  @type zipper :: {tree, path}
+  @type zipper :: {tree, path | nil | :end}
 
   @doc """
   Returns true if the node is a branch.
@@ -193,25 +203,27 @@ defmodule Sourceror.Zipper do
   Removes the node at the zipper, returning the zipper that would have preceded
   it in a depth-first walk.
   """
-  @spec remove(zipper) :: zipper | nil
+  @spec remove(zipper) :: zipper
   def remove({_, nil}), do: raise(ArgumentError, message: "Cannot remove the top level node.")
 
   def remove({_, meta}) do
-    if is_list(meta.l) and meta.l != [] do
-      [left | rest] = meta.l
-      prev_after_remove({left, %{meta | l: rest}})
-    else
-      children = meta.r || []
-      {parent, parent_meta} = meta.ptree
-      {make_node(parent, children), parent_meta}
+    case meta.l do
+      [left | rest] ->
+        prev_after_remove({left, %{meta | l: rest}})
+
+      _ ->
+        children = meta.r || []
+        {parent, parent_meta} = meta.ptree
+        {make_node(parent, children), parent_meta}
     end
   end
 
-  defp prev_after_remove({tree, _} = zipper) do
-    if child = branch?(tree) && down(zipper) do
+  defp prev_after_remove(zipper) do
+    with branch?(node(zipper)),
+         {_, _} = child <- down(zipper) do
       prev_after_remove(rightmost(child))
     else
-      zipper
+      _ -> zipper
     end
   end
 
@@ -297,6 +309,7 @@ defmodule Sourceror.Zipper do
   Returns the previous zipper in depth-first pre-order. If it's already at
   the end, it returns nil.
   """
+  @spec prev(zipper) :: zipper
   def prev(zipper) do
     if left = left(zipper) do
       do_prev(left)
@@ -306,10 +319,11 @@ defmodule Sourceror.Zipper do
   end
 
   defp do_prev(zipper) do
-    if child = branch?(node(zipper)) && down(zipper) do
+    with branch?(node(zipper)),
+         {_, _} = child <- down(zipper) do
       do_prev(rightmost(child))
     else
-      zipper
+      _ -> zipper
     end
   end
 
