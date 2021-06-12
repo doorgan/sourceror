@@ -6,16 +6,6 @@ defmodule Sourceror.Zipper do
   paper.
   """
 
-  # Remove once we figure out why these functions cause a "pattern can never
-  # match" error:
-  #
-  # The pattern can never match the type.
-  #
-  # Pattern: _child = {_, _}
-  #
-  # Type: nil
-  @dialyzer {:nowarn_function, do_prev: 1, prev_after_remove: 1}
-
   import Kernel, except: [node: 1]
 
   @type tree :: Macro.t()
