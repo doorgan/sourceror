@@ -26,7 +26,7 @@ and the numbers from `6` to `10` at it's right. We can encode that information i
       ↑                   ↑
 left siblings      right siblings
 ```
-That data structure, composed of the focus and the rest of the data as viewd from the focus, is called
+That data structure, composed of the focus and the rest of the data as viewed from the focus, is called
 a *zipper*. In a traditional list, if we wanted to go to the previous element, we would have to
 start from the beginning of the list and traverse it all the way down until the current element minus
 one position. With a list zipper, however, all we need to do is to pop the first element of the
