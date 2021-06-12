@@ -422,6 +422,8 @@ zipper |> Z.next() |> Z.next() |> Z.next() |> Z.prev() |> Z.prev() |> Z.node()
 Walking a tree is nice, but we also need to change it. For that we have tools like `Z.replace/2`,
 `Z.update/2`, `Z.remove/1`, `Z.insert_child` or `Z.traverse/3`.
 
+We can see them in action by rewriting our `AliasExpansion` module to use the zipper api:
+
 ```elixir
 defmodule AliasExpansion do
   alias Sourceror.Zipper, as: Z
@@ -484,4 +486,17 @@ source
 |> IO.puts()
 ```
 
-The produced output is exactly the same, but the usage of zipper
+The produced output is exactly the same, but the usage of zipper greatly simplifies the code.
+We no longer have to resort to hacks like grouping the aliases in a block with the `:flatten_me?`
+metadata and wait for the traversal to go up to unwrap it. We just say "add these nodes after me"
+and that's it. The only detail is that we need to reverse the aliases so the reducing step inserts
+them in the correct order, but otherwise the code is much more straightforward: find an alias,
+generate the expanded aliases, add them to the tree and remove the old alias.
+
+## Final words
+
+We've seen how Sourceror approaches comments, we looked at how to perform a simple but yet
+non-trivial transformation to the source code, and finally we had a look into the Zipper API
+to make powerful transformations in a simple and straightforward way. With these primites,
+you are now able to leverage Sourceror to create your own transformations, refactoring scripts
+and maybe even macros.
