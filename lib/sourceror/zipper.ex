@@ -80,9 +80,10 @@ defmodule Sourceror.Zipper do
   """
   @spec down(zipper) :: zipper | nil
   def down({tree, meta}) do
-    if branch?(tree) do
-      [first | rest] = children(tree)
+    with true <- branch?(tree), [first | rest] <- children(tree) do
       {first, %{ptree: {tree, meta}, l: nil, r: rest}}
+    else
+      _ -> nil
     end
   end
 
@@ -126,10 +127,15 @@ defmodule Sourceror.Zipper do
   def leftmost({_, %{l: nil}} = zipper), do: zipper
 
   def leftmost({tree, meta}) do
-    [left | rest] = Enum.reverse(meta.l)
-    r = rest ++ [tree] ++ (meta.r || [])
+    case Enum.reverse(meta.l) do
+      [left | rest] ->
+        r = rest ++ [tree] ++ (meta.r || [])
 
-    {left, %{meta | l: nil, r: r}}
+        {left, %{meta | l: nil, r: r}}
+
+      _ ->
+        {tree, meta}
+    end
   end
 
   @doc """
@@ -159,10 +165,15 @@ defmodule Sourceror.Zipper do
   def rightmost({_, %{r: nil}} = zipper), do: zipper
 
   def rightmost({tree, meta}) do
-    [right | rest] = Enum.reverse(meta.r)
-    l = rest ++ [tree] ++ (meta.l || [])
+    case Enum.reverse(meta.r) do
+      [right | rest] ->
+        l = rest ++ [tree] ++ (meta.l || [])
 
-    {right, %{meta | l: l, r: nil}}
+        {right, %{meta | l: l, r: nil}}
+
+      _ ->
+        {tree, meta}
+    end
   end
 
   @doc """
