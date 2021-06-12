@@ -2,9 +2,6 @@
 
 ## Introduction
 
-**Note:** this document is a work in progress and uses the latest Sourceror version in the
-main branch.
-
 The multi-alias syntax `alias Foo.{Bar, Baz}`, while handy to alias multiple modules at once,
 makes module uses harder to search for in large code bases, as mentioned by [credo](https://github.com/rrrene/credo)
 warnings. We can use Sourceror to fix this issue by expanding this syntax into multiple
@@ -14,10 +11,7 @@ Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
-  # For latest published release:
-  # {:sourceror, "~> 0.7"}
-
-  {:sourceror, github: "doorgan/sourceror"}
+  {:sourceror, "~> 0.7"}
 ])
 ```
 
