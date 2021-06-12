@@ -1,0 +1,115 @@
+# Zippers
+
+## Introduction
+
+Elixir provides the functions `Macro.traverse/4`, `Macro.prewalk/3` and `Macro.postwalk/3` to traverse
+the AST. They are very useful if we want to collect the nodes of some type, or to perform localized
+manipulations to the *current node* we are visiting, but it becomes increasingly hard to use when
+we need to remove a node, ins
+
+```elixir
+Mix.install([
+  # For latest published release:
+  # {:sourceror, "~> 0.7"}
+
+  {:sourceror, github: "doorgan/sourceror"}
+])
+```
+
+The module that implements zippers for the Elixir AST is `Sourceror.Zipper`, we will alias it `Z` for
+convenience:
+
+```elixir
+alias Sourceror.Zipper, as: Z
+```
+
+To create a zipper for a tree, we use `Z.zip/1`. Let's first start with a tree of lists first, since
+they are easier to visualize than a full blown AST:
+
+```elixir
+zipper = Z.zip([1, [2, 3], 4, [5, [6, 7]], 8])
+```
+
+For now it's not very interesting, it's just a 2-tuple where the first element is the tree we passed
+in, and the second one is just `nil` becau
+
+```elixir
+zipper |> Z.down()
+```
+
+Now it's getting more interesting! Now the first element is `1`, meaning we went down a level and we
+are now focusing at the first element of the list. The second element of the tuple is now a map holding
+the rest of the tree *from the perspective of `1`*. We are at the first element, so our left siblings
+`l` is `nil`, our right siblings are the rest of the elements in the list, and our parent is the
+zipper of the parent node. If we now move one position to the right, we get a different zipper:
+
+```elixir
+zipper |> Z.down() |> Z.right()
+```
+
+Now we are focusing `[2, 3]`, which was popped from the right siblings and the `1` we had in the
+previous step was added to the left siblings. We didn't move vertically, so the parent tree stayed
+the same.
+
+Besides moving around, we can also change the tree as a localized operation. For example, let's add
+an element to the right of our position:
+
+```elixir
+zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!)
+```
+
+We can see that the atom `:to_the_right!` was added to our right siblings. let's now remove it:
+
+```elixir
+zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!) |> Z.right() |> Z.remove()
+```
+
+A couple interesting things happened. First, the item was removed, we can see it nowhere in the zipper.
+Second, the focus moved to the previous element, but inside of the `[2, 3]` list. Whenever we remove
+an item, the focus is moved to the previous element in *depth-first* order. It's as if we did a
+`Macro.postwalk`
+
+```elixir
+zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!) |> Z.up()
+```
+
+Here instead of removing the added node we went back up. The list was reconstructed and the second
+element is now `nil`, meaning we reached the top. One way is that when we go down a level, the
+tree is deconstructed to adjust to the new focus, ie the zipper is being opened, and when we go up
+a level the tree is reconstructed, ie the zipper is being closed.
+
+Now, while it's useful to know how to move up, down, left and right, this only works if we know the
+shape of the tree before hand. In the real world, we never know the shape of the tree, and so we use
+other kinds of movements to traverse it. For zippers, we have `Z.next/1` and `Z.prev/1` to move
+one step forward or backwards in depth-first pre-order, and `Z.traverse/2-3` to perform a depth-first
+pre-order traversal while calling a function at each location.
+
+To demonstrate the ability of zippers to look arount at the rest of the tree, we will traverse a tree
+of lists and integers, multiplying each integer by the integer at it's right, or removing it if it's
+already the rightmost sibling, or the following element is another list:
+
+```elixir
+[1, 2, 3, [4, 5, 6, [7, 8, 9], 10, 11], 12, 13, 14]
+|> Z.zip()
+|> Z.traverse(fn
+  {x, _} = zipper when is_integer(x) ->
+    with {right, _} when is_integer(right) <- Z.right(zipper) do
+      Z.replace(zipper, x * right)
+    else
+      _ -> Z.remove(zipper)
+    end
+
+  zipper ->
+    zipper
+end)
+|> Z.node()
+```
+
+The traversal function takes a zipper representing the current position, and must return a new zipper.
+When we get back to the top of the tree, the second element will be the atom `:end`, signifying that
+the traversal ended, preventing subsequent calls to `Z.next/1` from going down the tree again. The
+`Z.node/1` function just extracts the current node from the zipper, so we can look at the final result
+instead of a zipper.
+
+That wraps up the introduction to zippers. We'll see them in action in the "Multi alias exapansion"
+livebook, where we use them to simplify the traversal and tranformations.
