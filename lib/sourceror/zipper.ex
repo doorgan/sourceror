@@ -219,7 +219,7 @@ defmodule Sourceror.Zipper do
   end
 
   defp prev_after_remove(zipper) do
-    with branch?(node(zipper)),
+    with true <- branch?(node(zipper)),
          {_, _} = child <- down(zipper) do
       prev_after_remove(rightmost(child))
     else
@@ -319,7 +319,7 @@ defmodule Sourceror.Zipper do
   end
 
   defp do_prev(zipper) do
-    with branch?(node(zipper)),
+    with true <- branch?(node(zipper)),
          {_, _} = child <- down(zipper) do
       do_prev(rightmost(child))
     else
