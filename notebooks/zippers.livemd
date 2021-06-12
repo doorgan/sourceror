@@ -17,7 +17,7 @@ the list of integers from 1 to 10, and let's stand at the 5th element:
              ↑
            focus
 ```
-From the perspectiv of the `5`, the surrounding elements are the numbers from `4` to `1` at it's left,
+From the perspective of the `5`, the surrounding elements are the numbers from `4` to `1` at it's left,
 and the numbers from `6` to `10` at it's right. We can encode that information in a tuple:
 ```elixir
              focus
