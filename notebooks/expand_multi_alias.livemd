@@ -343,3 +343,151 @@ source
 |> Sourceror.to_string()
 |> IO.puts()
 ```
+
+## Simplifying traversals with Sourceror.Zipper
+
+So far the code works, but there is a detail that can be improved. When we expand the alias, we
+are placing all of them in temporary block with the `:flatten_me?` metadata flag, and then
+we remove it when going up in the postwalk. While this work, it is clearly a hack and we are
+working around one of the limitation of "traditional" tree traversals.
+
+Sourceror provides a Zipper implementation for the Elixir AST that makes it easy to traverse
+the AST in arbitrary directions and perform local manipulations like adding siblings or
+removing nodes.
+
+A tree Zipper is a data structure that represents a *location* in a tree, rather than the whole
+tree from top to bottom. It's shape is a 2-tuple, where the first element is the current node
+the zipper is focused on, and the second element is the context, or in other words, the rest
+of the tree from the perspective of the current node.
+
+When we are at the top level of
+
+```elixir
+alias Sourceror.Zipper, as: Z
+
+Z.zip([1, [2, 3], 4])
+```
+
+We get the tuple `{[1, [2, 3], 4], nil}`, where the first element is the tree and the second
+element is `nil`, signifying that this is a zipper focusing on the root node of the tree.
+
+To move around in the tree, we can use `Z.up/1` and `Z.down/1` for vertical movement, `Z.left/1`
+and `Z.right/1` for horizontal movement, and `Z.next/1` and `Z.prev/1` to walk the tree in
+a depth-first, pre-order fashion. Let's go down the tree and see what happens:
+
+```elixir
+zipper = Z.zip([1, [2, 3], 4])
+
+zipper |> Z.down()
+```
+
+Since we went down a level, we are now at the node `1`, as seen in the first element of the
+tuple, and the metadata is now a tree with the rest of the tree relative to `1`: `l` holds
+the sibling nodes at the *left* of the current node, `r` holds the sibling nodes at the *right*
+of the current node, and `ptree` holds a the parent tree as a zipper. In a way, every time we
+go down a level the zipper rips apart the parent
+
+```elixir
+zipper |> Z.down() |> Z.up()
+```
+
+Most of the time we don't care about the metadata/context of the zipper, and we want to get the
+current node out of it. For that we can use `Z.node/1`:
+
+```elixir
+zipper |> Z.down() |> Z.node()
+```
+
+Or we can use `Z.root/1` to go all the way up to
+
+```elixir
+zipper |> Z.down() |> Z.root()
+```
+
+To move *horizontally*, `Z.left/1` and `Z.right/1` come to the rescue:
+
+```elixir
+zipper |> Z.down() |> Z.right() |> Z.node()
+```
+
+```elixir
+zipper |> Z.down() |> Z.right() |> Z.left() |> Z.node()
+```
+
+Finally, to walk the tree in a similar way to how we would walk it with `Macro.prewalk`, we can
+use `Z.next/1` and `Z.prev/1`:
+
+```elixir
+zipper |> Z.next() |> Z.next() |> Z.next() |> Z.node()
+```
+
+```elixir
+zipper |> Z.next() |> Z.next() |> Z.next() |> Z.prev() |> Z.prev() |> Z.node()
+```
+
+Walking a tree is nice, but we also need to change it. For that we have tools like `Z.replace/2`,
+`Z.update/2`, `Z.remove/1`, `Z.insert_child` or `Z.traverse/3`.
+
+```elixir
+defmodule AliasExpansion do
+  alias Sourceror.Zipper, as: Z
+
+  def expand_aliases(quoted) do
+    Z.zip(quoted)
+    |> Z.traverse(&expand_alias/1)
+    |> Z.root()
+  end
+
+  defp expand_alias(
+         {{:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}]}, _metadata} = zipper
+       ) do
+    {_, _, base_segments} = left
+
+    leading_comments = alias_meta[:leading_comments] || []
+    trailing_comments = call_meta[:trailing_comments] || []
+
+    right
+    |> Enum.map(&segments_to_alias(base_segments, &1))
+    |> put_leading_comments(leading_comments)
+    |> put_trailing_comments(trailing_comments)
+    |> Enum.reverse()
+    |> Enum.reduce(zipper, &Z.insert_right(&2, &1))
+    |> Z.remove()
+  end
+
+  defp expand_alias(zipper), do: zipper
+
+  defp segments_to_alias(base_segments, {_, meta, segments}) do
+    {:alias, meta, [{:__aliases__, [], base_segments ++ segments}]}
+  end
+
+  defp put_leading_comments([first | rest], comments) do
+    [Sourceror.prepend_comments(first, comments) | rest]
+  end
+
+  defp put_trailing_comments(list, comments) do
+    case List.pop_at(list, -1) do
+      {nil, list} ->
+        list
+
+      {last, list} ->
+        last =
+          {:__block__,
+           [
+             trailing_comments: comments,
+             end_of_expression: [newlines: 2]
+           ], [last]}
+
+        list ++ [last]
+    end
+  end
+end
+
+source
+|> Sourceror.parse_string!()
+|> AliasExpansion.expand_aliases()
+|> Sourceror.to_string()
+|> IO.puts()
+```
+
+The produced output is exactly the same, but the usage of zipper
