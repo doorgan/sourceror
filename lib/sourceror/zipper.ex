@@ -3,7 +3,13 @@ defmodule Sourceror.Zipper do
   Implements a Zipper for the Elixir AST based on Gérard Huet [Functional
   pearl: the
   zipper](https://www.st.cs.uni-saarland.de/edu/seminare/2005/advanced-fp/docs/huet-zipper.pdf)
-  paper.
+  paper and Clojure's `clojure.zip` API.
+
+  A zipper is a data structure that represents a location in a tree from the
+  perspective of the current node, also called *focus*. It is represented by a
+  2-tuple where the first element is the focus and the second element is the
+  metadata/context. When the focus is the topmost node, the metadata is `nil`,
+  or `:end` after the end of a traversal.
   """
 
   # Remove once we figure out why these functions cause a "pattern can never

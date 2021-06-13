@@ -83,7 +83,12 @@ be able to stay as close to the source as possible. There have been several
 proposal in the past to bring all this information to the Elixir AST, but they
 all meant a change that would either break macros due to the addition of new
 types of AST nodes, or making a compromise in core Elixir itself by storing
-comments in the nods metadata.
+comments in the nods metadata. [This
+discussion](https://groups.google.com/u/1/g/elixir-lang-core/c/GM0yM5Su1Zc/m/poIKsiEVDQAJ)
+in the Elixir mailing list highlights the various issues faced when deciding if
+and how the comments would be preserved. Arjan Scherpenisse also did a
+[talk](https://www.youtube.com/watch?v=aM0BLWgr0g4&t=117s) where he discusses
+about the problems of using the standard Elixir AST to build refactoring tools.
 
 Despite of all these issues, the Elixir formatter is still capable of
 manipulating the source code to pretty print it. Under the hood it does some
