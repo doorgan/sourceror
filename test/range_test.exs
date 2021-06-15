@@ -53,6 +53,27 @@ defmodule SourcerorTest.RangeTest do
                start: [line: 1, column: 1],
                end: [line: 3, column: 8]
              }
+
+      assert to_range(~S'''
+             "foo#{
+               2
+               }
+               bar"
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 4, column: 7]
+             }
+
+      assert to_range(~S'''
+             "foo#{
+               2
+               }
+               bar
+             "
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 5, column: 2]
+             }
     end
 
     test "atoms" do
@@ -81,6 +102,16 @@ defmodule SourcerorTest.RangeTest do
              ''') == %{
                start: [line: 1, column: 1],
                end: [line: 3, column: 8]
+             }
+
+      assert to_range(~S'''
+             :"foo#{
+               2
+               }
+             bar"
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 4, column: 5]
              }
     end
 
@@ -313,6 +344,23 @@ defmodule SourcerorTest.RangeTest do
     end
 
     test "sigils" do
+      assert to_range(~S/~s[foo bar]/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 12]
+             }
+
+      assert to_range(~S'''
+             ~s"""
+             foo
+             bar
+             """
+             ''') == %{
+               start: [line: 1, column: 1],
+               end: [line: 4, column: 4]
+             }
+    end
+
+    test "sigils with interpolations" do
       assert to_range(~S/~s[foo#{2}bar]/) == %{
                start: [line: 1, column: 1],
                end: [line: 1, column: 15]
@@ -326,11 +374,12 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S'''
              ~s"""
              foo#{10
-              }bar
+              }
+             bar
              """
              ''') == %{
                start: [line: 1, column: 1],
-               end: [line: 4, column: 4]
+               end: [line: 5, column: 4]
              }
 
       assert to_range(~S'''

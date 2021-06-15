@@ -230,11 +230,34 @@ defmodule Sourceror.Range do
         # Congratulations, it's a sigil!
         start_pos = Keyword.take(meta, [:line, :column])
 
-        end_pos = get_end_pos_for_interpolation_segments(segments, start_pos)
+        end_pos =
+          get_end_pos_for_interpolation_segments(segments, meta[:delimiter], start_pos)
+          |> Keyword.update!(:column, &(&1 + length(modifiers)))
+
+        end_pos =
+          cond do
+            multiline_delimiter?(meta[:delimiter]) and !has_interpolations?(segments) ->
+              # If it has no interpolations and is a multiline sigil, then the first
+              # line will be incorrectly reported because the first string in the
+              # segments(which is the only one) won't have a leading newline, so
+              # we're compensating for that here. The end column will be at the same
+              # indentation as the start column, plus the length of the multiline
+              # delimiter
+              [line: end_pos[:line] + 1, column: start_pos[:column] + 3]
+
+            multiline_delimiter?(meta[:delimiter]) or has_interpolations?(segments) ->
+              # If it's a multiline sigil or has interpolations, then the positions
+              # will already be correctly calculated
+              end_pos
+
+            true ->
+              # If it's a single line sigil, add the offset for the ~x
+              Keyword.update!(end_pos, :column, &(&1 + 2))
+          end
 
         %{
           start: start_pos,
-          end: Keyword.update!(end_pos, :column, &(&1 + length(modifiers)))
+          end: end_pos
         }
 
       _ ->
@@ -276,21 +299,31 @@ defmodule Sourceror.Range do
   def get_range_for_interpolation({:<<>>, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
 
-    end_pos = get_end_pos_for_interpolation_segments(segments, start_pos)
+    end_pos =
+      get_end_pos_for_interpolation_segments(segments, meta[:delimiter] || "\"", start_pos)
 
     %{start: start_pos, end: end_pos}
   end
 
-  def get_end_pos_for_interpolation_segments(segments, start_pos) do
+  def get_end_pos_for_interpolation_segments(segments, delimiter, start_pos) do
     end_pos =
       Enum.reduce(segments, start_pos, fn
         string, pos when is_binary(string) ->
           lines = split_on_newline(string)
           length = String.length(List.last(lines) || "")
 
+          line_count = length(lines) - 1
+
+          column =
+            if line_count > 0 do
+              start_pos[:column] + length
+            else
+              pos[:column] + length
+            end
+
           [
-            line: pos[:line] + length(lines) - 1,
-            column: pos[:column] + length
+            line: pos[:line] + line_count,
+            column: column
           ]
 
         {:"::", _, [{_, meta, _}, {:binary, _, _}]}, _pos ->
@@ -301,7 +334,24 @@ defmodule Sourceror.Range do
           |> Keyword.update!(:column, &(&1 + 1))
       end)
 
-    Keyword.update!(end_pos, :column, &(&1 + 1))
+    cond do
+      multiline_delimiter?(delimiter) and has_interpolations?(segments) ->
+        [line: end_pos[:line], column: String.length(delimiter) + 1]
+
+      has_interpolations?(segments) ->
+        Keyword.update!(end_pos, :column, &(&1 + 1))
+
+      true ->
+        Keyword.update!(end_pos, :column, &(&1 + 2))
+    end
+  end
+
+  defp has_interpolations?(segments) do
+    Enum.any?(segments, &match?({:"::", _, _}, &1))
+  end
+
+  defp multiline_delimiter?(delimiter) do
+    delimiter in ~w[""" ''']
   end
 
   def get_range_for_bitstring(quoted) do
