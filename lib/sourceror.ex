@@ -23,6 +23,12 @@ defmodule Sourceror do
           end: position
         }
 
+  @type patch :: %{
+          optional(:preserve_indentation) => boolean,
+          range: range,
+          text: String.t()
+        }
+
   @type traversal_function :: (Macro.t(), TraversalState.t() -> {Macro.t(), TraversalState.t()})
 
   @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
@@ -645,4 +651,150 @@ defmodule Sourceror do
     end
     |> Enum.any?()
   end
+
+  @doc """
+  Applies one or more textual patches to the given string.
+
+  This functions limits itself to apply the patches in order, but it does not
+  check for overlapping ranges, so make sure to pass non-overlapping patches.
+
+  A patch is a map containing at least the range that it should patch, and the
+  text that should replace the old text in the range, for example:
+
+      iex> original = ~S"\""
+      ...> if not allowed? do
+      ...>   raise "Not allowed!"
+      ...> end
+      ...> "\""
+      iex> patch = %{
+      ...>   text: "unless allowed? do\\n  raise \\"Not allowed!\\"\\nend",
+      ...>   range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+      ...> }
+      iex> Sourceror.patch_string(original, [patch])
+      ~S"\""
+      unless allowed? do
+        raise "Not allowed!"
+      end
+      "\""
+
+  By default, the patch will be automatically indented to match the indentation
+  of the range it wants to replace:
+
+      iex> original = ~S"\""
+      ...> foo do bar do
+      ...>   :ok
+      ...>   end end
+      ...> "\""
+      iex> patch = %{
+      ...>   text: "baz do\\n  :not_ok\\nend",
+      ...>   range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
+      ...> }
+      iex> Sourceror.patch_string(original, [patch])
+      ~S"\""
+      foo do baz do
+          :not_ok
+        end end
+      "\""
+
+  If you don't want this behavior, you can add `:preserve_indentation: false` to
+  your patch:
+
+      iex> original = ~S"\""
+      ...> foo do bar do
+      ...>   :ok
+      ...>   end end
+      ...> "\""
+      iex> patch = %{
+      ...>   text: "baz do\\n  :not_ok\\nend",
+      ...>   range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]},
+      ...>   preserve_indentation: false
+      ...> }
+      iex> Sourceror.patch_string(original, [patch])
+      ~S"\""
+      foo do baz do
+        :not_ok
+      end end
+      "\""
+  """
+  @spec patch_string(String.t(), [patch]) :: String.t()
+  def patch_string(string, patches) do
+    patches = Enum.sort_by(patches, & &1.range.start[:line], &>=/2)
+
+    lines =
+      string
+      |> String.split(~r/\n|\r\n|\r/)
+      |> Enum.reverse()
+
+    do_patch_string(lines, patches, [], length(lines))
+    |> Enum.join("\n")
+  end
+
+  defp do_patch_string(lines, [], seen, _), do: Enum.reverse(lines) ++ seen
+
+  defp do_patch_string([], _, seen, _), do: seen
+
+  defp do_patch_string([line | rest], [patch | patches], seen, current_line) do
+    if current_line == patch.range.start[:line] do
+      seen = apply_patch([line | seen], patch)
+      do_patch_string(rest, patches, seen, current_line - 1)
+    else
+      do_patch_string(rest, [patch | patches], [line | seen], current_line - 1)
+    end
+  end
+
+  defp apply_patch(lines, patch) do
+    line_span = patch.range.end[:line] - patch.range.start[:line] + 1
+
+    if line_span == 1 do
+      column_span = patch.range.end[:column] - patch.range.start[:column]
+
+      [first | rest] = lines
+      {start, middle} = String.split_at(first, patch.range.start[:column] - 1)
+      {_to_patch, ending} = String.split_at(middle, column_span)
+
+      [Enum.join([start, patch.text, ending]) | rest]
+    else
+      [first | lines] = lines
+      {first, _} = String.split_at(first, patch.range.start[:column] - 1)
+
+      {to_patch, lines} = Enum.split(lines, line_span - 1)
+      {last, _} = List.pop_at(to_patch, -1, "")
+      {_, last} = String.split_at(last, patch.range.end[:column] - 1)
+
+      [first_patch | middle_patch] = String.split(patch.text, ~r/\n|\r\n|\r/)
+
+      middle_patch =
+        if Map.get(patch, :preserve_indentation, true) do
+          indent = get_indent(first)
+
+          indent =
+            if String.trim(first) != "" and get_indent(List.first(middle_patch) || "") > 0 do
+              # If the patch does not start at the start of the line and the next
+              # lines have an additional indentation, then we need to add it to
+              # prevent the "flattening" of the indentations, essentially to
+              # avoid this:
+              #     foo do bar do
+              #       :ok
+              #     end
+              #     end
+              indent + 1
+            else
+              indent
+            end
+
+          middle_patch
+          |> Enum.map(&(String.duplicate("\s\s", indent) <> &1))
+          |> Enum.join("\n")
+        else
+          middle_patch
+          |> Enum.join("\n")
+        end
+
+      [first <> first_patch, middle_patch <> last | lines]
+    end
+  end
+
+  defp get_indent(string, count \\ 0)
+  defp get_indent("\s\s" <> rest, count), do: get_indent(rest, count + 1)
+  defp get_indent(_, count), do: count
 end

@@ -553,4 +553,159 @@ defmodule SourcerorTest do
                |> String.trim()
     end
   end
+
+  describe "patch_string/2" do
+    test "patches single line ranges" do
+      original = ~S"""
+      hello wod do
+        :ok
+      end
+      """
+
+      patch = %{text: "world", range: %{start: [line: 1, column: 7], end: [line: 1, column: 10]}}
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello world do
+               :ok
+             end
+             """
+    end
+
+    test "patches multiple line ranges" do
+      original = ~S"""
+      if !allowed? do
+        raise "Not allowed!"
+      end
+      """
+
+      patch_text =
+        ~S"""
+        unless allowed? do
+          raise "Not allowed!"
+        end
+        """
+        |> String.trim()
+
+      patch = %{
+        text: patch_text,
+        range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             unless allowed? do
+               raise "Not allowed!"
+             end
+             """
+    end
+
+    test "patches multiline ranges without beaking indentation" do
+      original = ~S"""
+      foo do bar do
+        :ok
+        end end
+      """
+
+      patch_text =
+        ~S"""
+        baz do
+          :not_ok
+        end
+        """
+        |> String.trim()
+
+      patch = %{
+        text: patch_text,
+        range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             foo do baz do
+                 :not_ok
+               end end
+             """
+    end
+
+    test "applies multiple patches" do
+      original =
+        ~S"""
+        if not allowed? do raise "Not allowed!"
+        end
+
+        unless not allowed? do
+          :allowed
+        end
+        """
+        |> String.trim()
+
+      patch1 = %{
+        text:
+          String.trim(~S"""
+          unless allowed? do
+            raise "Not allowed!"
+          end
+          """),
+        range: %{
+          start: [line: 1, column: 1],
+          end: [line: 2, column: 4]
+        }
+      }
+
+      patch2 = %{
+        text:
+          String.trim(~S"""
+          if allowed? do
+            :allowed
+          end
+          """),
+        range: %{
+          start: [line: 4, column: 1],
+          end: [line: 7, column: 4]
+        }
+      }
+
+      assert Sourceror.patch_string(original, [patch1, patch2]) ==
+               ~S"""
+               unless allowed? do
+                 raise "Not allowed!"
+               end
+
+               if allowed? do
+                 :allowed
+               end
+               """
+               |> String.trim()
+    end
+
+    test "allows the user to skip indentation fixes" do
+      original = ~S"""
+      foo do
+        bar do
+          :ok
+        end
+      end
+      """
+
+      patch = %{
+        text:
+          String.trim(~S"""
+          baz do
+            :not_ok
+          end
+          """),
+        range: %{
+          start: [line: 2, column: 3],
+          end: [line: 4, column: 6]
+        },
+        preserve_indentation: false
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             foo do
+               baz do
+               :not_ok
+             end
+             end
+             """
+    end
+  end
 end
