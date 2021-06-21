@@ -1,5 +1,11 @@
 # Changelog for Sourceror v0.7
 
+## v0.7.2
+
+### 1. Bug Fixes
+  * [Sourceror] - `get_range/1` now returns the correct ranges for 2-tuples from
+    keyword lists.
+
 ## v0.7.1
 
 ### 1. Bug Fixes
