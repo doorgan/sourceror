@@ -126,6 +126,14 @@ defmodule Sourceror.Range do
     %{start: start_pos, end: end_pos}
   end
 
+  # 2-tuples from keyword lists
+  def get_range({left, right}) do
+    left_range = get_range(left)
+    right_range = get_range(right)
+
+    %{start: left_range.start, end: right_range.end}
+  end
+
   # Access syntax
   def get_range({{:., _, [Access, :get]}, _, _} = quoted) do
     get_range_for_node_with_closing_line(quoted)

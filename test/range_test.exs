@@ -137,6 +137,15 @@ defmodule SourcerorTest.RangeTest do
              """) == %{start: [line: 1, column: 1], end: [line: 3, column: 6]}
     end
 
+    test "2-tuples from keyword lists" do
+      {_, _, [[tuple]]} = Sourceror.parse_string!(~S/[foo: :bar]/)
+
+      assert Sourceror.Range.get_range(tuple) == %{
+               start: [line: 1, column: 2],
+               end: [line: 1, column: 11]
+             }
+    end
+
     test "qualified tuples" do
       assert to_range(~S/Foo.{Bar, Baz}/) == %{
                start: [line: 1, column: 1],
