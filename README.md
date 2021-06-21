@@ -1,7 +1,7 @@
 ![Github Actions](https://github.com/doorgan/sourceror/actions/workflows/main.yml/badge.svg?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/doorgan/sourceror/badge.svg?branch=main)](https://coveralls.io/github/doorgan/sourceror?branch=main)
 
-# Sourceror
+# Sourceror 🧙
 
 Utilities to work with Elixir source code.
 
