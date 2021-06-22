@@ -653,7 +653,7 @@ defmodule Sourceror do
   end
 
   @doc """
-  Applies one or more textual patches to the given string.
+  Applies one or more patches to the given string.
 
   This functions limits itself to apply the patches in order, but it does not
   check for overlapping ranges, so make sure to pass non-overlapping patches.
