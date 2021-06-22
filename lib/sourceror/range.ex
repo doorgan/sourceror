@@ -7,11 +7,41 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
+  def get_range(quoted, _opts \\ []) do
+    range = do_get_range(quoted)
+
+    first_comment =
+      case quoted do
+        {_, meta, _} ->
+          comments = meta[:leading_comments] || []
+          List.first(comments)
+
+        _ ->
+          nil
+      end
+
+    start_line =
+      if first_comment do
+        first_comment.line
+      else
+        range.start[:line]
+      end
+
+    start_column =
+      if first_comment do
+        min(range.start[:column], first_comment.column || 1)
+      else
+        range.start[:column]
+      end
+
+    %{start: [line: start_line, column: start_column], end: range.end}
+  end
+
   @spec get_range(Macro.t()) :: Sourceror.range()
-  def get_range(quoted)
+  defp do_get_range(quoted)
 
   # Module aliases
-  def get_range({:__aliases__, meta, segments}) do
+  defp do_get_range({:__aliases__, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
 
     last_segment_length = List.last(segments) |> to_string() |> String.length()
@@ -22,7 +52,7 @@ defmodule Sourceror.Range do
   end
 
   # Strings
-  def get_range({:__block__, meta, [string]}) when is_binary(string) do
+  defp do_get_range({:__block__, meta, [string]}) when is_binary(string) do
     lines = split_on_newline(string)
 
     last_line = List.last(lines) || ""
@@ -56,7 +86,7 @@ defmodule Sourceror.Range do
   end
 
   # Integers, Floats
-  def get_range({:__block__, meta, [number]}) when is_integer(number) or is_float(number) do
+  defp do_get_range({:__block__, meta, [number]}) when is_integer(number) or is_float(number) do
     %{
       start: Keyword.take(meta, [:line, :column]),
       end: [line: meta[:line], column: meta[:column] + String.length(meta[:token])]
@@ -64,7 +94,7 @@ defmodule Sourceror.Range do
   end
 
   # Atoms
-  def get_range({:__block__, meta, [atom]}) when is_atom(atom) do
+  defp do_get_range({:__block__, meta, [atom]}) when is_atom(atom) do
     start_pos = Keyword.take(meta, [:line, :column])
     string = Atom.to_string(atom)
 
@@ -100,7 +130,7 @@ defmodule Sourceror.Range do
   end
 
   # Block with no parenthesis
-  def get_range({:__block__, _, args} = quoted) do
+  defp do_get_range({:__block__, _, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
@@ -115,7 +145,7 @@ defmodule Sourceror.Range do
   end
 
   # Variables
-  def get_range({form, meta, context}) when is_atom(form) and is_atom(context) do
+  defp do_get_range({form, meta, context}) when is_atom(form) and is_atom(context) do
     start_pos = Keyword.take(meta, [:line, :column])
 
     end_pos = [
@@ -127,7 +157,7 @@ defmodule Sourceror.Range do
   end
 
   # 2-tuples from keyword lists
-  def get_range({left, right}) do
+  defp do_get_range({left, right}) do
     left_range = get_range(left)
     right_range = get_range(right)
 
@@ -135,17 +165,17 @@ defmodule Sourceror.Range do
   end
 
   # Access syntax
-  def get_range({{:., _, [Access, :get]}, _, _} = quoted) do
+  defp do_get_range({{:., _, [Access, :get]}, _, _} = quoted) do
     get_range_for_node_with_closing_line(quoted)
   end
 
   # Qualified tuple
-  def get_range({{:., _, [_, :{}]}, _, _} = quoted) do
+  defp do_get_range({{:., _, [_, :{}]}, _, _} = quoted) do
     get_range_for_node_with_closing_line(quoted)
   end
 
   # Interpolated atoms
-  def get_range({{:., _, [:erlang, :binary_to_atom]}, meta, [interpolation, :utf8]}) do
+  defp do_get_range({{:., _, [:erlang, :binary_to_atom]}, meta, [interpolation, :utf8]}) do
     interpolation =
       Macro.update_meta(interpolation, &Keyword.put(&1, :delimiter, meta[:delimiter]))
 
@@ -153,7 +183,7 @@ defmodule Sourceror.Range do
   end
 
   # Qualified call
-  def get_range({{:., _, [left, right]}, meta, []} = quoted) when is_atom(right) do
+  defp do_get_range({{:., _, [left, right]}, meta, []} = quoted) when is_atom(right) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
@@ -179,7 +209,7 @@ defmodule Sourceror.Range do
   end
 
   # Qualified call with arguments
-  def get_range({{:., _, [left, _]}, _meta, args} = quoted) do
+  defp do_get_range({{:., _, [left, _]}, _meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
@@ -191,7 +221,7 @@ defmodule Sourceror.Range do
   end
 
   # Unary operators
-  def get_range({op, meta, [arg]}) when is_unary_op(op) do
+  defp do_get_range({op, meta, [arg]}) when is_unary_op(op) do
     start_pos = Keyword.take(meta, [:line, :column])
     arg_range = get_range(arg)
 
@@ -206,7 +236,7 @@ defmodule Sourceror.Range do
   end
 
   # Binary operators
-  def get_range({op, _, [left, right]}) when is_binary_op(op) do
+  defp do_get_range({op, _, [left, right]}) when is_binary_op(op) do
     %{
       start: get_range(left).start,
       end: get_range(right).end
@@ -214,7 +244,7 @@ defmodule Sourceror.Range do
   end
 
   # Stepped ranges
-  def get_range({:"..//", _, [left, _middle, right]}) do
+  defp do_get_range({:"..//", _, [left, _middle, right]}) do
     %{
       start: get_range(left).start,
       end: get_range(right).end
@@ -222,7 +252,7 @@ defmodule Sourceror.Range do
   end
 
   # Bitstrings and interpolations
-  def get_range({:<<>>, meta, _} = quoted) do
+  defp do_get_range({:<<>>, meta, _} = quoted) do
     if meta[:delimiter] do
       get_range_for_interpolation(quoted)
     else
@@ -231,8 +261,8 @@ defmodule Sourceror.Range do
   end
 
   # Sigils
-  def get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]} = quoted)
-      when is_list(modifiers) do
+  defp do_get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]} = quoted)
+       when is_list(modifiers) do
     case Atom.to_string(sigil) do
       <<"sigil_", _name>> ->
         # Congratulations, it's a sigil!
@@ -274,11 +304,11 @@ defmodule Sourceror.Range do
   end
 
   # Unqualified calls
-  def get_range({call, _, _} = quoted) when is_atom(call) do
+  defp do_get_range({call, _, _} = quoted) when is_atom(call) do
     get_range_for_unqualified_call(quoted)
   end
 
-  def get_range_for_unqualified_call({_call, meta, args} = quoted) do
+  defp get_range_for_unqualified_call({_call, meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
@@ -289,7 +319,7 @@ defmodule Sourceror.Range do
     end
   end
 
-  def get_range_for_node_with_closing_line({_, meta, _} = quoted) do
+  defp get_range_for_node_with_closing_line({_, meta, _} = quoted) do
     start_position = Sourceror.get_start_position(quoted)
     end_position = Sourceror.get_end_position(quoted)
 
@@ -304,7 +334,7 @@ defmodule Sourceror.Range do
     %{start: start_position, end: end_position}
   end
 
-  def get_range_for_interpolation({:<<>>, meta, segments}) do
+  defp get_range_for_interpolation({:<<>>, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
 
     end_pos =
@@ -362,7 +392,7 @@ defmodule Sourceror.Range do
     delimiter in ~w[""" ''']
   end
 
-  def get_range_for_bitstring(quoted) do
+  defp get_range_for_bitstring(quoted) do
     range = get_range_for_node_with_closing_line(quoted)
 
     # get_range_for_node_with_closing_line/1 will add 1 to the ending column
