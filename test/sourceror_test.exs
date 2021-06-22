@@ -562,7 +562,10 @@ defmodule SourcerorTest do
       end
       """
 
-      patch = %{text: "world", range: %{start: [line: 1, column: 7], end: [line: 1, column: 10]}}
+      patch = %{
+        change: "world",
+        range: %{start: [line: 1, column: 7], end: [line: 1, column: 10]}
+      }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
              hello world do
@@ -587,7 +590,7 @@ defmodule SourcerorTest do
         |> String.trim()
 
       patch = %{
-        text: patch_text,
+        change: patch_text,
         range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
       }
 
@@ -614,7 +617,7 @@ defmodule SourcerorTest do
         |> String.trim()
 
       patch = %{
-        text: patch_text,
+        change: patch_text,
         range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
       }
 
@@ -638,7 +641,7 @@ defmodule SourcerorTest do
         |> String.trim()
 
       patch1 = %{
-        text:
+        change:
           String.trim(~S"""
           unless allowed? do
             raise "Not allowed!"
@@ -651,7 +654,7 @@ defmodule SourcerorTest do
       }
 
       patch2 = %{
-        text:
+        change:
           String.trim(~S"""
           if allowed? do
             :allowed
@@ -686,7 +689,7 @@ defmodule SourcerorTest do
       """
 
       patch = %{
-        text:
+        change:
           String.trim(~S"""
           baz do
             :not_ok
@@ -704,6 +707,49 @@ defmodule SourcerorTest do
                baz do
                :not_ok
              end
+             end
+             """
+    end
+
+    test "function patches" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      patch = %{
+        change: &String.upcase/1,
+        range: %{start: [line: 1, column: 7], end: [line: 1, column: 12]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello WORLD do
+               :ok
+             end
+             """
+
+      original = ~S"""
+      foo do
+        bar do
+          :ok
+        end
+      end
+      """
+
+      patch = %{
+        change: &String.upcase/1,
+        range: %{
+          start: [line: 2, column: 3],
+          end: [line: 4, column: 6]
+        }
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             foo do
+               BAR DO
+                 :OK
+               END
              end
              """
     end

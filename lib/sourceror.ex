@@ -26,7 +26,7 @@ defmodule Sourceror do
   @type patch :: %{
           optional(:preserve_indentation) => boolean,
           range: range,
-          text: String.t()
+          change: String.t() | (String.t() -> String.t())
         }
 
   @type traversal_function :: (Macro.t(), TraversalState.t() -> {Macro.t(), TraversalState.t()})
@@ -659,7 +659,7 @@ defmodule Sourceror do
   check for overlapping ranges, so make sure to pass non-overlapping patches.
 
   A patch is a map containing at least the range that it should patch, and the
-  text that should replace the old text in the range, for example:
+  change to be applied in the range, for example:
 
       iex> original = ~S"\""
       ...> if not allowed? do
@@ -667,7 +667,7 @@ defmodule Sourceror do
       ...> end
       ...> "\""
       iex> patch = %{
-      ...>   text: "unless allowed? do\\n  raise \\"Not allowed!\\"\\nend",
+      ...>   change: "unless allowed? do\\n  raise \\"Not allowed!\\"\\nend",
       ...>   range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
       ...> }
       iex> Sourceror.patch_string(original, [patch])
@@ -677,8 +677,23 @@ defmodule Sourceror do
       end
       "\""
 
+  A range can also be a function, in which case the original text in the patch
+  range will be given as an argument:
+
+      iex> original = ~S"\""
+      ...> hello :world
+      ...> "\""
+      iex> patch = %{
+      ...>   change: &String.upcase/1,
+      ...>   range: %{start: [line: 1, column: 7], end: [line: 1, column: 13]}
+      ...> }
+      iex> Sourceror.patch_string(original, [patch])
+      ~S"\""
+      hello :WORLD
+      "\""
+
   By default, the patch will be automatically indented to match the indentation
-  of the range it wants to replace:
+  of the range it wants to replace if the change is a text string:
 
       iex> original = ~S"\""
       ...> foo do bar do
@@ -686,7 +701,7 @@ defmodule Sourceror do
       ...>   end end
       ...> "\""
       iex> patch = %{
-      ...>   text: "baz do\\n  :not_ok\\nend",
+      ...>   change: "baz do\\n  :not_ok\\nend",
       ...>   range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
       ...> }
       iex> Sourceror.patch_string(original, [patch])
@@ -705,7 +720,7 @@ defmodule Sourceror do
       ...>   end end
       ...> "\""
       iex> patch = %{
-      ...>   text: "baz do\\n  :not_ok\\nend",
+      ...>   change: "baz do\\n  :not_ok\\nend",
       ...>   range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]},
       ...>   preserve_indentation: false
       ...> }
@@ -750,21 +765,36 @@ defmodule Sourceror do
 
       [first | rest] = lines
       {start, middle} = String.split_at(first, patch.range.start[:column] - 1)
-      {_to_patch, ending} = String.split_at(middle, column_span)
+      {to_patch, ending} = String.split_at(middle, column_span)
 
-      [Enum.join([start, patch.text, ending]) | rest]
+      new_text =
+        if is_binary(patch.change) do
+          patch.change
+        else
+          patch.change.(to_patch)
+        end
+
+      [Enum.join([start, new_text, ending]) | rest]
     else
-      [first | lines] = lines
-      {first, _} = String.split_at(first, patch.range.start[:column] - 1)
+      [first | rest] = lines
+      {first, first_to_patch} = String.split_at(first, patch.range.start[:column] - 1)
 
-      {to_patch, lines} = Enum.split(lines, line_span - 1)
+      {to_patch, rest} = Enum.split(rest, line_span - 1)
       {last, _} = List.pop_at(to_patch, -1, "")
       {_, last} = String.split_at(last, patch.range.end[:column] - 1)
 
-      [first_patch | middle_patch] = String.split(patch.text, ~r/\n|\r\n|\r/)
+      patch_text =
+        if is_binary(patch.change) do
+          patch.change
+        else
+          original_text = Enum.join([first_to_patch | to_patch], "\n")
+          patch.change.(original_text)
+        end
+
+      [first_patch | middle_patch] = String.split(patch_text, ~r/\n|\r\n|\r/)
 
       middle_patch =
-        if Map.get(patch, :preserve_indentation, true) do
+        if is_binary(patch.change) and Map.get(patch, :preserve_indentation, true) do
           indent = get_indent(first)
 
           indent =
@@ -790,7 +820,7 @@ defmodule Sourceror do
           |> Enum.join("\n")
         end
 
-      [first <> first_patch, middle_patch <> last | lines]
+      [first <> first_patch, middle_patch <> last | rest]
     end
   end
 
