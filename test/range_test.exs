@@ -9,6 +9,19 @@ defmodule SourcerorTest.RangeTest do
   end
 
   describe "get_range/1" do
+    test "with comments" do
+      assert to_range(~S"""
+             # Foo
+             :bar
+             """) == %{start: [line: 1, column: 1], end: [line: 2, column: 5]}
+
+      assert to_range(~S"""
+             # Foo
+             # Bar
+             :baz
+             """) == %{start: [line: 1, column: 1], end: [line: 3, column: 5]}
+    end
+
     test "numbers" do
       assert to_range("1") == %{start: [line: 1, column: 1], end: [line: 1, column: 2]}
       assert to_range("100") == %{start: [line: 1, column: 1], end: [line: 1, column: 4]}

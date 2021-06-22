@@ -139,8 +139,8 @@ Two metadata fields are added to the regular Elixir AST:
 
       assert {:__block__, meta, [:a]} = quoted
       assert meta[:leading_comments] == [
-        %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
-        %{line: 2, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
+        %{line: 1, column: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
+        %{line: 2, column: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
       ]
     end
     ```

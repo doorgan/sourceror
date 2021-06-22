@@ -345,10 +345,10 @@ defmodule SourcerorTest do
       quoted = Sourceror.prepend_comments(quoted, comments)
       leading_comments = Sourceror.get_meta(quoted)[:leading_comments]
 
-      assert leading_comments == [
+      assert [
                %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# B"},
                %{line: 1, previous_eol_count: 1, next_eol_count: 1, text: "# A"}
-             ]
+             ] = leading_comments
 
       assert Sourceror.to_string(quoted) ==
                ~S"""
