@@ -428,8 +428,28 @@ defmodule Sourceror.Code.Normalizer do
 
   defp normalize_kw_args(elems, state, keyword? \\ false)
 
+  defp normalize_kw_args(
+         [{{:__block__, key_meta, [key]}, value} = first | rest] = current,
+         state,
+         keyword?
+       )
+       when is_atom(key) do
+    keyword? = keyword? or keyword?(current)
+
+    first =
+      if key_meta[:format] == :keyword and not keyword? do
+        key_meta = Keyword.delete(key_meta, :format)
+        line = key_meta[:line] || meta_line(state)
+        {:__block__, [line: line], [{{:__block__, key_meta, [key]}, value}]}
+      else
+        first
+      end
+
+    [first | normalize_kw_args(rest, state, keyword?)]
+  end
+
   defp normalize_kw_args([{left, right} | rest] = current, state, keyword?) do
-    keyword? = keyword? or Inspect.List.keyword?(current)
+    keyword? = keyword? or keyword?(current)
 
     left =
       if keyword? do
@@ -509,4 +529,22 @@ defmodule Sourceror.Code.Normalizer do
       []
     end
   end
+
+  defp keyword?([{{:__block__, key_meta, [key]}, _} | rest]) when is_atom(key) do
+    if key_meta[:format] == :keyword do
+      keyword?(rest)
+    else
+      false
+    end
+  end
+
+  defp keyword?([{key, _value} | rest]) when is_atom(key) do
+    case Atom.to_charlist(key) do
+      'Elixir.' ++ _ -> false
+      _ -> keyword?(rest)
+    end
+  end
+
+  defp keyword?([]), do: true
+  defp keyword?(_other), do: false
 end
