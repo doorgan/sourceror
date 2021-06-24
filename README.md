@@ -1,5 +1,6 @@
 ![Github Actions](https://github.com/doorgan/sourceror/actions/workflows/main.yml/badge.svg?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/doorgan/sourceror/badge.svg?branch=main)](https://coveralls.io/github/doorgan/sourceror?branch=main)
+[![Hex.pm version](https://img.shields.io/hexpm/v/sourceror)](https://hex.pm/packages/sourceror)
 
 # Sourceror 🧙
 
@@ -41,7 +42,7 @@ Add `:sourceror` as a dependency to your project's `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:sourceror, "~> 0.7.2"}
+    {:sourceror, "~> 0.8.0"}
   ]
 end
 ```

@@ -1,9 +1,16 @@
-# Changelog for Sourceror v0.7
+# Changelog for Sourceror v0.8
 
 ## v0.8
 
 ## 1. Enhancements
   * [Sourceror] Added `Sourceror.patch_string/2`
+  * [Sourceror] Added the `format: :splicing` option to `Sourceror.to_string/2`
+
+## 2. Bug fixes
+  * [Sourceror] Now `Sourceror.to_string/2` won't produce invalid Elixir code
+    when a keyword list element is at the beginning of a non-keyword list.
+  * [Sourceror] Now `Sourceror.get_range/1` will take the leading comments into
+    account when calculating the range.
 
 ## v0.7
 
