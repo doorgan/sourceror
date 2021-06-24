@@ -167,6 +167,10 @@ defmodule Sourceror do
 
     * `:indent_type` - the type of indentation to use. It can be one of `:spaces`,
       `:single_space` or `:tabs`. Defaults to `:spaces`.
+
+    * `:format` - if set to `:splicing`, if the quoted expression is a list, it
+      will strip the square brackets. This is useful to print a single element
+      of a keyword list.
   """
   @spec to_string(Macro.t(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
