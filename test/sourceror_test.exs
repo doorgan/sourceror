@@ -197,6 +197,12 @@ defmodule SourcerorTest do
       end
       ''')
     end
+
+    test "with format: :splicing" do
+      assert "a: b" == Sourceror.to_string([{:a, {:b, [], nil}}], format: :splicing)
+      assert "1, 2, 3" == Sourceror.to_string([1, 2, 3], format: :splicing)
+      assert "{:foo, :bar}" == Sourceror.to_string({:foo, :bar}, format: :splicing)
+    end
   end
 
   describe "correct_lines/2" do

@@ -184,14 +184,21 @@ defmodule Sourceror do
 
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
 
-    quoted
-    |> quoted_to_algebra(comments: comments, escape: false)
-    |> Inspect.Algebra.format(line_length)
-    |> IO.iodata_to_binary()
-    |> String.split("\n")
-    |> Enum.map_join("\n", fn line ->
-      String.duplicate(indent_str, indent) <> line
-    end)
+    text =
+      quoted
+      |> quoted_to_algebra(comments: comments, escape: false)
+      |> Inspect.Algebra.format(line_length)
+      |> IO.iodata_to_binary()
+      |> String.split("\n")
+      |> Enum.map_join("\n", fn line ->
+        String.duplicate(indent_str, indent) <> line
+      end)
+
+    if is_list(quoted) and opts[:format] == :splicing do
+      text |> String.slice(1..-2)
+    else
+      text
+    end
   end
 
   @doc """
