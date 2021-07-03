@@ -118,7 +118,7 @@ defmodule SourcerorTest.PatchTest do
   end
 
   describe "rename_kw_keys/2" do
-    test "renames the identifier" do
+    test "renames the kw key" do
       original = ~S"[a: b, c: d, e: f]"
       expected = ~S"[foo: b, c: d, bar: f]"
 
