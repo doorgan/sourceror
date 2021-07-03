@@ -11,13 +11,19 @@ defmodule Sourceror.Patch do
   @doc """
   Renames a qualified or unqualified function call.
 
-  ## Examples
-
       iex> original = "String.to_atom(foo)"
       iex> ast = Sourceror.parse_string!(original)
       iex> patches = Sourceror.Patch.rename_call(ast, :to_existing_atom)
       iex> Sourceror.patch_string(original, patches)
       "String.to_existing_atom(foo)"
+
+  If the call is a sigil, you only need to provide the replacement letter:
+
+      iex> original = "~H(foo)"
+      iex> ast = Sourceror.parse_string!(original)
+      iex> patches = Sourceror.Patch.rename_call(ast, :F)
+      iex> Sourceror.patch_string(original, patches)
+      "~F(foo)"
   """
   @spec rename_call(call :: Macro.t(), new_name :: atom | String.t()) :: [Sourceror.patch()]
   def rename_call({{:., _, [_, call]}, meta, _}, new_name) do
@@ -33,9 +39,18 @@ defmodule Sourceror.Patch do
   def rename_call({call, meta, args}, new_name) when is_atom(call) and is_list(args) do
     new_name = to_string(new_name)
 
-    start_pos = [line: meta[:line], column: meta[:column]]
-    end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(call))]
-    range = %{start: start_pos, end: end_pos}
+    range =
+      case Atom.to_string(call) do
+        "sigil_" <> _ ->
+          start_pos = [line: meta[:line], column: meta[:column] + 1]
+          end_pos = [line: meta[:line], column: meta[:column] + 2]
+          %{start: start_pos, end: end_pos}
+
+        _ ->
+          start_pos = [line: meta[:line], column: meta[:column]]
+          end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(call))]
+          %{start: start_pos, end: end_pos}
+      end
 
     [%{range: range, change: new_name}]
   end

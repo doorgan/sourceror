@@ -15,6 +15,18 @@ defmodule SourcerorTest.PatchTest do
       assert expected == Sourceror.patch_string(original, patches)
     end
 
+    test "sigil" do
+      original = ~S"~H(foo)"
+      expected = ~S"~F(foo)"
+
+      patches =
+        original
+        |> Sourceror.parse_string!()
+        |> Sourceror.Patch.rename_call("F")
+
+      assert expected == Sourceror.patch_string(original, patches)
+    end
+
     test "qualified call" do
       original = ~S"String.to_atom(foo)"
       expected = ~S"String.to_existing_atom(foo)"
