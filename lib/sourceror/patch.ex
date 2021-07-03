@@ -51,7 +51,9 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "bar"
   """
-  @spec rename_call(call :: Macro.t(), new_name :: atom | String.t()) :: [Sourceror.patch()]
+  @spec rename_identifier(identifier :: Macro.t(), new_name :: atom | String.t()) :: [
+          Sourceror.patch()
+        ]
   def rename_identifier({identifier, meta, context}, new_name) when is_atom(context) do
     new_name = to_string(new_name)
 
