@@ -760,22 +760,34 @@ defmodule Sourceror do
   defp do_patch_string([], _, seen, _), do: seen
 
   defp do_patch_string([line | rest], [patch | patches], seen, current_line) do
-    if current_line == patch.range.start[:line] do
-      seen = apply_patch([line | seen], patch)
-      do_patch_string(rest, patches, seen, current_line - 1)
-    else
-      do_patch_string(rest, [patch | patches], [line | seen], current_line - 1)
+    cond do
+      current_line == patch.range.start[:line] and single_line_patch?(patch) ->
+        applicable_patches =
+          Enum.filter([patch | patches], fn patch ->
+            current_line == patch.range.start[:line] and single_line_patch?(patch)
+          end)
+
+        patched = apply_single_line_patches(line, applicable_patches)
+
+        do_patch_string([patched | rest], patches -- applicable_patches, seen, current_line)
+
+      current_line == patch.range.start[:line] ->
+        seen = apply_multiline_patch([line | seen], patch)
+        do_patch_string(rest, patches, seen, current_line - 1)
+
+      true ->
+        do_patch_string(rest, [patch | patches], [line | seen], current_line - 1)
     end
   end
 
-  defp apply_patch(lines, patch) do
-    line_span = patch.range.end[:line] - patch.range.start[:line] + 1
+  defp single_line_patch?(patch), do: patch.range.start[:line] == patch.range.end[:line]
 
-    if line_span == 1 do
+  defp apply_single_line_patches(string, patches) do
+    patches
+    |> Enum.sort_by(& &1.range.start[:column], &>=/2)
+    |> Enum.reduce(string, fn patch, string ->
       column_span = patch.range.end[:column] - patch.range.start[:column]
-
-      [first | rest] = lines
-      {start, middle} = String.split_at(first, patch.range.start[:column] - 1)
+      {start, middle} = String.split_at(string, patch.range.start[:column] - 1)
       {to_patch, ending} = String.split_at(middle, column_span)
 
       new_text =
@@ -785,54 +797,58 @@ defmodule Sourceror do
           patch.change.(to_patch)
         end
 
-      [Enum.join([start, new_text, ending]) | rest]
-    else
-      [first | rest] = lines
-      {first, first_to_patch} = String.split_at(first, patch.range.start[:column] - 1)
+      Enum.join([start, new_text, ending])
+    end)
+  end
 
-      {to_patch, rest} = Enum.split(rest, line_span - 1)
-      {last, _} = List.pop_at(to_patch, -1, "")
-      {_, last} = String.split_at(last, patch.range.end[:column] - 1)
+  defp apply_multiline_patch(lines, patch) do
+    line_span = patch.range.end[:line] - patch.range.start[:line] + 1
 
-      patch_text =
-        if is_binary(patch.change) do
-          patch.change
-        else
-          original_text = Enum.join([first_to_patch | to_patch], "\n")
-          patch.change.(original_text)
-        end
+    [first | rest] = lines
+    {first, first_to_patch} = String.split_at(first, patch.range.start[:column] - 1)
 
-      [first_patch | middle_patch] = String.split(patch_text, ~r/\n|\r\n|\r/)
+    {to_patch, rest} = Enum.split(rest, line_span - 1)
+    {last, _} = List.pop_at(to_patch, -1, "")
+    {_, last} = String.split_at(last, patch.range.end[:column] - 1)
 
-      middle_patch =
-        if is_binary(patch.change) and Map.get(patch, :preserve_indentation, true) do
-          indent = get_indent(first)
+    patch_text =
+      if is_binary(patch.change) do
+        patch.change
+      else
+        original_text = Enum.join([first_to_patch | to_patch], "\n")
+        patch.change.(original_text)
+      end
 
-          indent =
-            if String.trim(first) != "" and get_indent(List.first(middle_patch) || "") > 0 do
-              # If the patch does not start at the start of the line and the next
-              # lines have an additional indentation, then we need to add it to
-              # prevent the "flattening" of the indentations, essentially to
-              # avoid this:
-              #     foo do bar do
-              #       :ok
-              #     end
-              #     end
-              indent + 1
-            else
-              indent
-            end
+    [first_patch | middle_patch] = String.split(patch_text, ~r/\n|\r\n|\r/)
 
-          middle_patch
-          |> Enum.map(&(String.duplicate("\s\s", indent) <> &1))
-          |> Enum.join("\n")
-        else
-          middle_patch
-          |> Enum.join("\n")
-        end
+    middle_patch =
+      if is_binary(patch.change) and Map.get(patch, :preserve_indentation, true) do
+        indent = get_indent(first)
 
-      [first <> first_patch, middle_patch <> last | rest]
-    end
+        indent =
+          if String.trim(first) != "" and get_indent(List.first(middle_patch) || "") > 0 do
+            # If the patch does not start at the start of the line and the next
+            # lines have an additional indentation, then we need to add it to
+            # prevent the "flattening" of the indentations, essentially to
+            # avoid this:
+            #     foo do bar do
+            #       :ok
+            #     end
+            #     end
+            indent + 1
+          else
+            indent
+          end
+
+        middle_patch
+        |> Enum.map(&(String.duplicate("\s\s", indent) <> &1))
+        |> Enum.join("\n")
+      else
+        middle_patch
+        |> Enum.join("\n")
+      end
+
+    [first <> first_patch, middle_patch <> last | rest]
   end
 
   defp get_indent(string, count \\ 0)
