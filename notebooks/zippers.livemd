@@ -48,7 +48,7 @@ we need to install Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.7"}
+  {:sourceror, "~> 0.8"}
 ])
 ```
 
