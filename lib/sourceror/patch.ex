@@ -8,6 +8,8 @@ defmodule Sourceror.Patch do
   1:1 with the original source code.
   """
 
+  @sigil_letters for letter <- [?a..?z, ?A..?Z] |> Enum.flat_map(&Enum.to_list/1), do: <<letter>>
+
   @doc """
   Renames a qualified or unqualified function call.
 
@@ -36,22 +38,28 @@ defmodule Sourceror.Patch do
     [%{range: range, change: new_name}]
   end
 
-  def rename_call({call, meta, args}, new_name) when is_atom(call) and is_list(args) do
+  def rename_call({call, meta, [{:<<>>, _, _}, modifiers]}, new_name)
+      when is_atom(call) and is_list(modifiers) do
     new_name = to_string(new_name)
 
-    range =
-      case Atom.to_string(call) do
-        "sigil_" <> _ ->
-          start_pos = [line: meta[:line], column: meta[:column] + 1]
-          end_pos = [line: meta[:line], column: meta[:column] + 2]
-          %{start: start_pos, end: end_pos}
-
-        _ ->
-          start_pos = [line: meta[:line], column: meta[:column]]
-          end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(call))]
-          %{start: start_pos, end: end_pos}
+    letter =
+      case new_name do
+        "sigil_" <> letter when letter in @sigil_letters -> letter
+        letter when letter in @sigil_letters -> letter
+        _ -> raise ArgumentError, "The sigil name must be a single letter character"
       end
 
+    start_pos = [line: meta[:line], column: meta[:column] + 1]
+    end_pos = [line: meta[:line], column: meta[:column] + 2]
+    range = %{start: start_pos, end: end_pos}
+    [%{range: range, change: letter}]
+  end
+
+  def rename_call({call, meta, args}, new_name) when is_atom(call) and is_list(args) do
+    new_name = to_string(new_name)
+    start_pos = [line: meta[:line], column: meta[:column]]
+    end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(call))]
+    range = %{start: start_pos, end: end_pos}
     [%{range: range, change: new_name}]
   end
 
