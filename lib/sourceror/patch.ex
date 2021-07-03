@@ -102,17 +102,20 @@ defmodule Sourceror.Patch do
       "[foo: b, c: d, bar: f]"
   """
   @spec rename_kw_keys(keyword :: Macro.t(), replacements :: keyword) :: [Sourceror.patch()]
-  def rename_kw_keys({:__block__, _, [elems]}, replacements) when is_list(elems) do
-    for {{_, meta, [key]} = quoted, _} <- elems,
+  def rename_kw_keys({:__block__, _, [items]}, replacements) when is_list(items) do
+    for {{_, meta, [key]} = quoted, _} <- items,
         meta[:format] == :keyword,
         new_key = replacements[key],
-        new_key != nil do
-      range =
-        quoted
-        |> Sourceror.get_range()
-        |> update_in([:end, :column], &(&1 - 1))
+        new_key != nil,
+        do: patch_for_kw_key(quoted, new_key)
+  end
 
-      %{range: range, change: to_string(new_key)}
-    end
+  defp patch_for_kw_key(quoted, new_key) do
+    range =
+      quoted
+      |> Sourceror.get_range()
+      |> update_in([:end, :column], &(&1 - 1))
+
+    %{range: range, change: to_string(new_key)}
   end
 end
