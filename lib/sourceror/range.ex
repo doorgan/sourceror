@@ -10,15 +10,17 @@ defmodule Sourceror.Range do
   def get_range(quoted, _opts \\ []) do
     range = do_get_range(quoted)
 
-    first_comment =
+    comments =
       case quoted do
         {_, meta, _} ->
-          comments = meta[:leading_comments] || []
-          List.first(comments)
+          meta[:leading_comments] || []
 
         _ ->
-          nil
+          []
       end
+
+    first_comment = List.first(comments)
+    last_comment = List.last(comments)
 
     start_line =
       if first_comment do
@@ -34,7 +36,18 @@ defmodule Sourceror.Range do
         range.start[:column]
       end
 
-    %{start: [line: start_line, column: start_column], end: range.end}
+    end_column =
+      if last_comment && last_comment.line == range.start[:line] do
+        comment_length = String.length(last_comment.text)
+        max(range.end[:column], (last_comment.column || 1) + comment_length)
+      else
+        range.end[:column]
+      end
+
+    %{
+      start: [line: start_line, column: start_column],
+      end: [line: range.end[:line], column: end_column]
+    }
   end
 
   @spec get_range(Macro.t()) :: Sourceror.range()

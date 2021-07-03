@@ -20,6 +20,15 @@ defmodule SourcerorTest.RangeTest do
              # Bar
              :baz
              """) == %{start: [line: 1, column: 1], end: [line: 3, column: 5]}
+
+      assert to_range(~S"""
+             :baz # Foo
+             """) == %{start: [line: 1, column: 1], end: [line: 1, column: 11]}
+
+      assert to_range(~S"""
+             # Foo
+             :baz # Bar
+             """) == %{start: [line: 1, column: 1], end: [line: 2, column: 11]}
     end
 
     test "numbers" do
