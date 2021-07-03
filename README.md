@@ -42,7 +42,7 @@ Add `:sourceror` as a dependency to your project's `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:sourceror, "~> 0.8.0"}
+    {:sourceror, "~> 0.8.1"}
   ]
 end
 ```
@@ -57,9 +57,9 @@ successfully parse the new syntax for stepped ranges instead of raising a
 
 ## Goals of the library
 
-  * Be as close as possible to the standard Elixir AST.
-  * Make working with comments as simple as possible.
-  * No runtime dependencies, to simplify integration with other tools.
+- Be as close as possible to the standard Elixir AST.
+- Make working with comments as simple as possible.
+- No runtime dependencies, to simplify integration with other tools.
 
 ## Background
 
@@ -109,9 +109,9 @@ any change in Elixir would break the code.
 Since Elixir 1.13 this functionality from the formatter was finally exposed via
 the `Code.string_to_quoted_with_comments/2` and `Code.quoted_to_algebra/2`
 functions. The former gives us access to the list of comments in a shape the
-Elixir formatter is able to use, and the latter lets us turn *any arbitrary
-Elixir AST* into an algebra document. If we also give it the list of comments,
-it will merge them together, allowing us to format AST *and* preserve the
+Elixir formatter is able to use, and the latter lets us turn _any arbitrary
+Elixir AST_ into an algebra document. If we also give it the list of comments,
+it will merge them together, allowing us to format AST _and_ preserve the
 comments. Now all we need to care about is of manipulating the AST, and let the
 formatter do the rest.
 
@@ -128,41 +128,42 @@ also allows you to move nodes around without worrying about leaving a comment
 behind and ending up with misplaced comments.
 
 Two metadata fields are added to the regular Elixir AST:
-  * `:leading_comments` - holds the comments directly above the node or are in
-    the same line as it. For example:
 
-    ```elixir
-    test "parses leading comments" do
-      quoted = """
-      # Comment for :a
-      :a # Also a comment for :a
-      """ |> Sourceror.parse_string!()
+- `:leading_comments` - holds the comments directly above the node or are in
+  the same line as it. For example:
 
-      assert {:__block__, meta, [:a]} = quoted
-      assert meta[:leading_comments] == [
-        %{line: 1, column: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
-        %{line: 2, column: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
-      ]
-    end
-    ```
+  ```elixir
+  test "parses leading comments" do
+    quoted = """
+    # Comment for :a
+    :a # Also a comment for :a
+    """ |> Sourceror.parse_string!()
 
-  * `:trailing_comments` - holds the comments that are inside of the node, but
-    aren't leading any children, for example:
+    assert {:__block__, meta, [:a]} = quoted
+    assert meta[:leading_comments] == [
+      %{line: 1, column: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
+      %{line: 2, column: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
+    ]
+  end
+  ```
 
-    ```elixir
-    test "parses trailing comments" do
-      quoted = """
-      def foo() do
-      :ok
-      # A trailing comment
-      end # Not a trailing comment for :foo
-      """ |> Sourceror.parse_string!()
+- `:trailing_comments` - holds the comments that are inside of the node, but
+  aren't leading any children, for example:
 
-      assert {:__block__, block_meta, [{:def, meta, _}]} = quoted
-      assert [%{line: 3, text: "# A trailing comment"}] = meta[:trailing_comments]
-      assert [%{line: 4, text: "# Not a trailing comment for :foo"}] = block_meta[:trailing_comments]
-    end
-    ```
+  ```elixir
+  test "parses trailing comments" do
+    quoted = """
+    def foo() do
+    :ok
+    # A trailing comment
+    end # Not a trailing comment for :foo
+    """ |> Sourceror.parse_string!()
+
+    assert {:__block__, block_meta, [{:def, meta, _}]} = quoted
+    assert [%{line: 3, text: "# A trailing comment"}] = meta[:trailing_comments]
+    assert [%{line: 4, text: "# Not a trailing comment for :foo"}] = block_meta[:trailing_comments]
+  end
+  ```
 
 Note that Sourceror considers leading comments to the ones that are found in the
 same line as a node, and trailing coments to the ones that are found before the

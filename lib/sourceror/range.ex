@@ -22,18 +22,11 @@ defmodule Sourceror.Range do
     first_comment = List.first(comments)
     last_comment = List.last(comments)
 
-    start_line =
+    {start_line, start_column} =
       if first_comment do
-        first_comment.line
+        {first_comment.line, min(range.start[:column], first_comment.column || 1)}
       else
-        range.start[:line]
-      end
-
-    start_column =
-      if first_comment do
-        min(range.start[:column], first_comment.column || 1)
-      else
-        range.start[:column]
+        {range.start[:line], range.start[:column]}
       end
 
     end_column =
