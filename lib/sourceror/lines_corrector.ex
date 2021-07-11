@@ -13,7 +13,7 @@ defmodule Sourceror.LinesCorrector do
   * If a node has trailing comments, it's end_of_expression and end line metadata are set to the line of their last child plus the trailing comments list length
   """
   def correct(quoted) do
-    {ast, _} = Macro.traverse(quoted, %{last_line: 1}, &pre_correct/2, &post_correct/2)
+    {ast, _} = Sourceror.traverse(quoted, %{last_line: 1}, &pre_correct/2, &post_correct/2)
     ast
   end
 
@@ -123,7 +123,7 @@ defmodule Sourceror.LinesCorrector do
   end
 
   defp recursive_correct_lines(ast, line_correction) do
-    Macro.postwalk(ast, fn
+    Sourceror.postwalk(ast, fn
       {_, _, _} = ast ->
         correct_lines(ast, line_correction)
 

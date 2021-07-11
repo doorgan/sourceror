@@ -38,21 +38,17 @@ defmodule Sourceror.Patch do
     [%{range: range, change: new_name}]
   end
 
-  def rename_call({call, meta, [{:<<>>, _, _}, modifiers]}, new_name)
-      when is_atom(call) and is_list(modifiers) do
+  def rename_call({{:sigil, _name}, meta, [_content, _modifiers]}, new_name) do
     new_name = to_string(new_name)
 
-    letter =
-      case new_name do
-        "sigil_" <> letter when letter in @sigil_letters -> letter
-        letter when letter in @sigil_letters -> letter
-        _ -> raise ArgumentError, "The sigil name must be a single letter character"
-      end
+    unless new_name in @sigil_letters do
+      raise ArgumentError, "The sigil name must be a single letter character"
+    end
 
     start_pos = [line: meta[:line], column: meta[:column] + 1]
     end_pos = [line: meta[:line], column: meta[:column] + 2]
     range = %{start: start_pos, end: end_pos}
-    [%{range: range, change: letter}]
+    [%{range: range, change: new_name}]
   end
 
   def rename_call({call, meta, args}, new_name) when is_atom(call) and is_list(args) do
@@ -77,7 +73,7 @@ defmodule Sourceror.Patch do
   @spec rename_identifier(identifier :: Macro.t(), new_name :: atom | String.t()) :: [
           Sourceror.patch()
         ]
-  def rename_identifier({identifier, meta, context}, new_name) when is_atom(context) do
+  def rename_identifier({:var, meta, identifier}, new_name) when is_atom(identifier) do
     new_name = to_string(new_name)
 
     start_pos = [line: meta[:line], column: meta[:column]]
@@ -102,8 +98,8 @@ defmodule Sourceror.Patch do
       "[foo: b, c: d, bar: f]"
   """
   @spec rename_kw_keys(keyword :: Macro.t(), replacements :: keyword) :: [Sourceror.patch()]
-  def rename_kw_keys({:__block__, _, [items]}, replacements) when is_list(items) do
-    for {{_, meta, [key]} = quoted, _} <- items,
+  def rename_kw_keys({[], _, items}, replacements) do
+    for {{:atom, meta, key} = quoted, _} <- items,
         meta[:format] == :keyword,
         new_key = replacements[key],
         new_key != nil,

@@ -54,6 +54,9 @@ defmodule SourcerorTest do
 
     # 6
     """)
+
+    assert_same(~S"[{a, b}, c, d: e]")
+    assert_same(~S"~w/a b c/d")
   end
 
   describe "parse_string!/2" do

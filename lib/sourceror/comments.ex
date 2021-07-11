@@ -14,7 +14,7 @@ defmodule Sourceror.Comments do
   @spec merge_comments(Macro.t(), list(map)) :: Macro.t()
   def merge_comments(quoted, comments) do
     {quoted, leftovers} =
-      Macro.traverse(quoted, comments, &do_merge_comments/2, &merge_leftovers/2)
+      Sourceror.traverse(quoted, comments, &do_merge_comments/2, &merge_leftovers/2)
 
     case leftovers do
       [] ->
@@ -108,7 +108,7 @@ defmodule Sourceror.Comments do
         quoted
       end
 
-    Macro.postwalk(quoted, [], fn
+    Sourceror.postwalk(quoted, [], fn
       {_, _, _} = quoted, acc ->
         do_extract_comments(quoted, acc, collapse_comments)
 

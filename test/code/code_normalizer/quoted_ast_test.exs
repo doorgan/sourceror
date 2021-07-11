@@ -647,7 +647,7 @@ defmodule SourcerorTest.Code.Normalizer.QuotedASTTest do
   end
 
   defp strip_metadata(ast) do
-    Macro.prewalk(ast, &Macro.update_meta(&1, fn _ -> [] end))
+    Sourceror.prewalk(ast, &Macro.update_meta(&1, fn _ -> [] end))
   end
 
   defp quoted_to_string(quoted, opts \\ []) do

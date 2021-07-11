@@ -90,8 +90,7 @@ defmodule Sourceror do
   """
   @spec parse_string!(String.t()) :: Macro.t()
   def parse_string!(source) do
-    {quoted, comments} = string_to_quoted!(source, to_quoted_opts())
-    Sourceror.Comments.merge_comments(quoted, comments)
+    Sourceror.Parser.parse(source)
   end
 
   defp to_quoted_opts do
@@ -190,6 +189,7 @@ defmodule Sourceror do
 
     text =
       quoted
+      |> Sourceror.Parser.to_formatter_ast()
       |> quoted_to_algebra(comments: comments, escape: false)
       |> Inspect.Algebra.format(line_length)
       |> IO.iodata_to_binary()
@@ -206,65 +206,96 @@ defmodule Sourceror do
   end
 
   @doc """
-  Performs a depth-first post-order traversal of a quoted expression.
-
-  See `postwalk/3` for more information.
+  Performs a depth-first traversal of quoted expressions
+  using an accumulator.
   """
-  @spec postwalk(Macro.t(), traversal_function) ::
-          Macro.t()
-  def postwalk(quoted, fun) do
-    {quoted, _} = postwalk(quoted, nil, fun)
-    quoted
+  @spec traverse(
+          Macro.t(),
+          any,
+          (Macro.t(), any -> {Macro.t(), any}),
+          (Macro.t(), any -> {Macro.t(), any})
+        ) :: {Macro.t(), any}
+  def traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
+    {ast, acc} = pre.(ast, acc)
+    do_traverse(ast, acc, pre, post)
+  end
+
+  defp do_traverse({form, meta, args}, acc, pre, post) when is_atom(form) and is_list(args) do
+    {args, acc} = do_traverse_args(args, acc, pre, post)
+    post.({form, meta, args}, acc)
+  end
+
+  defp do_traverse({form, meta, args}, acc, pre, post) when is_list(args) do
+    {form, acc} = pre.(form, acc)
+    {form, acc} = do_traverse(form, acc, pre, post)
+    {args, acc} = do_traverse_args(args, acc, pre, post)
+    post.({form, meta, args}, acc)
+  end
+
+  defp do_traverse({left, right}, acc, pre, post) do
+    {left, acc} = pre.(left, acc)
+    {left, acc} = do_traverse(left, acc, pre, post)
+    {right, acc} = pre.(right, acc)
+    {right, acc} = do_traverse(right, acc, pre, post)
+    post.({left, right}, acc)
+  end
+
+  defp do_traverse(list, acc, pre, post) when is_list(list) do
+    {list, acc} = do_traverse_args(list, acc, pre, post)
+    post.(list, acc)
+  end
+
+  defp do_traverse(x, acc, _pre, post) do
+    post.(x, acc)
+  end
+
+  defp do_traverse_args(args, acc, _pre, _post) when is_atom(args) do
+    {args, acc}
+  end
+
+  defp do_traverse_args(args, acc, pre, post) when is_list(args) do
+    :lists.mapfoldl(
+      fn x, acc ->
+        {x, acc} = pre.(x, acc)
+        do_traverse(x, acc, pre, post)
+      end,
+      acc,
+      args
+    )
   end
 
   @doc """
-  Performs a depth-first post-order traversal of a quoted expression with an
-  accumulator.
-
-  `fun` is a function that will receive the current node as a first argument and
-  the traversal state as the second one. It must return a `{quoted, state}`,
-  in the same way it would return `{quoted, acc}` when using `Macro.postwalk/3`.
-
-  The state is a map with the following keys:
-    * `:acc` - The accumulator. Defaults to `nil` if none is given.
+  Performs a depth-first, pre-order traversal of quoted expressions.
   """
-  @spec postwalk(Macro.t(), term, traversal_function) ::
-          {Macro.t(), term}
-  def postwalk(quoted, acc, fun) do
-    {quoted, %{acc: acc}} = Macro.traverse(quoted, %TraversalState{acc: acc}, &{&1, &2}, fun)
-
-    {quoted, acc}
+  @spec prewalk(Macro.t(), (Macro.t() -> Macro.t())) :: Macro.t()
+  def prewalk(ast, fun) when is_function(fun, 1) do
+    elem(prewalk(ast, nil, fn x, nil -> {fun.(x), nil} end), 0)
   end
 
   @doc """
-  Performs a depth-first pre-order traversal of a quoted expression.
-
-  See `prewalk/3` for more information.
+  Performs a depth-first, pre-order traversal of quoted expressions
+  using an accumulator.
   """
-  @spec prewalk(Macro.t(), traversal_function) ::
-          Macro.t()
-  def prewalk(quoted, fun) do
-    {quoted, _} = prewalk(quoted, nil, fun)
-    quoted
+  @spec prewalk(Macro.t(), any, (Macro.t(), any -> {Macro.t(), any})) :: {Macro.t(), any}
+  def prewalk(ast, acc, fun) when is_function(fun, 2) do
+    traverse(ast, acc, fun, fn x, a -> {x, a} end)
   end
 
   @doc """
-  Performs a depth-first pre-order traversal of a quoted expression with an
-  accumulator.
-
-  `fun` is a function that will receive the current node as a first argument and
-  the traversal state as the second one. It must return a `{quoted, state}`,
-  in the same way it would return `{quoted, acc}` when using `Macro.prewalk/3`.
-
-  The state is a map with the following keys:
-    * `:acc` - The accumulator. Defaults to `nil` if none is given.
+  Performs a depth-first, post-order traversal of quoted expressions.
   """
-  @spec prewalk(Macro.t(), term, traversal_function) ::
-          {Macro.t(), term}
-  def prewalk(quoted, acc, fun) do
-    {quoted, %{acc: acc}} = Macro.traverse(quoted, %TraversalState{acc: acc}, fun, &{&1, &2})
+  @spec postwalk(Macro.t(), (Macro.t() -> Macro.t())) :: Macro.t()
+  def postwalk(ast, fun) when is_function(fun, 1) do
+    elem(postwalk(ast, nil, fn x, nil -> {fun.(x), nil} end), 0)
+  end
 
-    {quoted, acc}
+  @doc """
+  Performs a depth-first, post-order traversal of quoted expressions
+  using an accumulator.
+  """
+  @spec postwalk(Macro.t(), any, (Macro.t(), any -> {Macro.t(), any})) :: {Macro.t(), any}
+  def postwalk(ast, acc, fun) when is_function(fun, 2) do
+    traverse(ast, acc, fn x, a -> {x, a} end, fun)
   end
 
   @doc """
@@ -500,7 +531,7 @@ defmodule Sourceror do
   @spec get_end_position(Macro.t(), position) :: position
   def get_end_position(quoted, default \\ [line: 1, column: 1]) do
     {_, position} =
-      Macro.postwalk(quoted, default, fn
+      Sourceror.postwalk(quoted, default, fn
         {_, _, _} = quoted, end_position ->
           current_end_position = get_node_end_position(quoted, default)
 

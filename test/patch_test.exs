@@ -84,22 +84,9 @@ defmodule SourcerorTest.PatchTest do
       patches = Sourceror.Patch.rename_call(ast, :F)
       assert expected == Sourceror.patch_string(original, patches)
 
-      patches = Sourceror.Patch.rename_call(ast, :sigil_F)
-      assert expected == Sourceror.patch_string(original, patches)
-
       assert_raise ArgumentError, fn -> Sourceror.Patch.rename_call(ast, "nope") end
       assert_raise ArgumentError, fn -> Sourceror.Patch.rename_call(ast, :nope) end
       assert_raise ArgumentError, fn -> Sourceror.Patch.rename_call(ast, :sigil_nope) end
-    end
-
-    test "not a sigil" do
-      original = ~S"sigil_s(<<45>>, [:foo])"
-      expected = ~S"f(<<45>>, [:foo])"
-
-      ast = Sourceror.parse_string!(original)
-
-      patches = Sourceror.Patch.rename_call(ast, :f)
-      assert expected == Sourceror.patch_string(original, patches)
     end
   end
 

@@ -31,6 +31,9 @@ defmodule SourcerorTest.ZipperTest do
              ]
 
       assert Z.children({:left, :right}) == [:left, :right]
+
+      assert Z.children({[], [], [1, 2, 3]}) == [1, 2, 3]
+      assert Z.children({{:sigil, "w"}, [], ["foo", 'a']}) == ["w", "foo", 'a']
     end
   end
 
@@ -44,8 +47,17 @@ defmodule SourcerorTest.ZipperTest do
       assert Z.make_node({1, 2}, [3]) == {:{}, [], [3]}
     end
 
-    test "lists" do
+    test "bare lists" do
       assert Z.make_node([1, 2, 3], [:a, :b, :c]) == [:a, :b, :c]
+    end
+
+    test "list nodes" do
+      assert Z.make_node({[], [], [1, 2, 3]}, [:a, :b, :c]) == {[], [], [:a, :b, :c]}
+    end
+
+    test "sigils" do
+      assert Z.make_node({{:sigil, "w"}, [], ["foo", 'a']}, ["S", "bar", []]) ==
+               {{:sigil, "S"}, [], ["bar", []]}
     end
 
     test "unqualified calls" do

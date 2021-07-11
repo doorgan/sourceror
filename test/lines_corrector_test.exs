@@ -8,7 +8,7 @@ defmodule SourcerorTest.LinesCorrectorTest do
   describe "correct/1" do
     test "keeps previous line number if missing" do
       corrected = correct(parse_string!("foo; bar"))
-      assert {:__block__, block, [{:foo, foo, _}, {:bar, bar, _}]} = corrected
+      assert {:__block__, block, [{:var, foo, :foo}, {:var, bar, :bar}]} = corrected
 
       assert block[:line] == 1
       assert foo[:line] == 1
@@ -29,7 +29,7 @@ defmodule SourcerorTest.LinesCorrectorTest do
 
       corrected = correct({:__block__, block_meta, [foo, bar]})
 
-      assert {:__block__, _, [{:foo, foo_meta, _}, {:bar, bar_meta, _}]} = corrected
+      assert {:__block__, _, [{:var, foo_meta, :foo}, {:var, bar_meta, :bar}]} = corrected
 
       # kept as it
       assert foo_meta[:line] == 1
@@ -54,7 +54,7 @@ defmodule SourcerorTest.LinesCorrectorTest do
 
       corrected = correct({:foo, foo_meta, [[{do_kw, bar}]]})
 
-      assert {:foo, foo_meta, [[{_, {:bar, bar_meta, _}}]]} = corrected
+      assert {:foo, foo_meta, [[{_, {:var, bar_meta, :bar}}]]} = corrected
 
       assert foo_meta[:line] == 1
       assert bar_meta[:line] == 3

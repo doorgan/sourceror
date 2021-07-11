@@ -139,7 +139,7 @@ Two metadata fields are added to the regular Elixir AST:
     :a # Also a comment for :a
     """ |> Sourceror.parse_string!()
 
-    assert {:__block__, meta, [:a]} = quoted
+    assert {:atom, meta, :a} = quoted
     assert meta[:leading_comments] == [
       %{line: 1, column: 1, previous_eol_count: 1, next_eol_count: 1, text: "# Comment for :a"},
       %{line: 2, column: 4, previous_eol_count: 0, next_eol_count: 1, text: "# Also a comment for :a"},
@@ -171,6 +171,19 @@ ending line of a node, based on the `end`, `closing` or `end_of_expression`
 line. This also makes the Sourceror AST consistent with the way the Elixir
 formatter works, making it easier to reason about how a given AST would be
 formatted.
+
+To remove ambiguities and make it easier to match on certain nodes, Sourceror
+also changes the representation of some nodes:
+
+```
+foo          ->   {:var, metadata, :foo}
+400_000      ->   {:int, [token: "400_000" | metadata], 400000}
+42.0         ->   {:float, [token: "42.0" | metadata], 42.0}
+:foo         ->   {:atom, metadata, :foo}
+[1, 2]       ->   {[], metadata, [1, 2]}
+{1, 2}       ->   {:{}, metadata, [1. 2]}
+~w[a b c]a   ->   {{:sigil, "w"}, metadata, ["a b c", 'a']}
+```
 
 ## License
 

@@ -10,7 +10,7 @@ defmodule SourcerorTest.CommentsTest do
         :a # B
         """)
 
-      assert {:__block__, meta, [:a]} = quoted
+      assert {:atom, meta, :a} = quoted
 
       assert [
                %{line: 1, text: "# A"},
@@ -31,9 +31,9 @@ defmodule SourcerorTest.CommentsTest do
               [
                 {:def, meta,
                  [
-                   {:a, _, _},
+                   {:var, _, :a},
                    [
-                     {{:__block__, _, [:do]}, {:__block__, _, [:ok]}}
+                     {{:atom, _, :do}, {:atom, _, :ok}}
                    ]
                  ]}
               ]} = quoted

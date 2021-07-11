@@ -160,7 +160,7 @@ defmodule SourcerorTest.RangeTest do
     end
 
     test "2-tuples from keyword lists" do
-      {_, _, [[tuple]]} = Sourceror.parse_string!(~S/[foo: :bar]/)
+      {[], _, [tuple]} = Sourceror.parse_string!(~S/[foo: :bar]/)
 
       assert Sourceror.Range.get_range(tuple) == %{
                start: [line: 1, column: 2],

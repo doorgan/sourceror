@@ -58,7 +58,7 @@ defmodule Sourceror.Range do
   end
 
   # Strings
-  defp do_get_range({:__block__, meta, [string]}) when is_binary(string) do
+  defp do_get_range({:string, meta, string}) when is_binary(string) do
     lines = split_on_newline(string)
 
     last_line = List.last(lines) || ""
@@ -92,7 +92,9 @@ defmodule Sourceror.Range do
   end
 
   # Integers, Floats
-  defp do_get_range({:__block__, meta, [number]}) when is_integer(number) or is_float(number) do
+  defp do_get_range({form, meta, number})
+       when form in [:int, :float]
+       when is_integer(number) or is_float(number) do
     %{
       start: Keyword.take(meta, [:line, :column]),
       end: [line: meta[:line], column: meta[:column] + String.length(meta[:token])]
@@ -100,7 +102,7 @@ defmodule Sourceror.Range do
   end
 
   # Atoms
-  defp do_get_range({:__block__, meta, [atom]}) when is_atom(atom) do
+  defp do_get_range({:atom, meta, atom}) when is_atom(atom) do
     start_pos = Keyword.take(meta, [:line, :column])
     string = Atom.to_string(atom)
 
@@ -151,12 +153,12 @@ defmodule Sourceror.Range do
   end
 
   # Variables
-  defp do_get_range({form, meta, context}) when is_atom(form) and is_atom(context) do
+  defp do_get_range({:var, meta, name}) when is_atom(name) do
     start_pos = Keyword.take(meta, [:line, :column])
 
     end_pos = [
       line: start_pos[:line],
-      column: start_pos[:column] + String.length(Atom.to_string(form))
+      column: start_pos[:column] + String.length(Atom.to_string(name))
     ]
 
     %{start: start_pos, end: end_pos}
@@ -168,6 +170,10 @@ defmodule Sourceror.Range do
     right_range = get_range(right)
 
     %{start: left_range.start, end: right_range.end}
+  end
+
+  defp do_get_range({[], _, _} = quoted) do
+    get_range_for_node_with_closing_line(quoted)
   end
 
   # Access syntax
@@ -267,50 +273,42 @@ defmodule Sourceror.Range do
   end
 
   # Sigils
-  defp do_get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]} = quoted)
-       when is_list(modifiers) do
-    case Atom.to_string(sigil) do
-      <<"sigil_", _name>> ->
-        # Congratulations, it's a sigil!
-        start_pos = Keyword.take(meta, [:line, :column])
+  defp do_get_range({{:sigil, _name}, meta, [{:<<>>, _, segments}, modifiers]}) do
+    start_pos = Keyword.take(meta, [:line, :column])
 
-        end_pos =
-          get_end_pos_for_interpolation_segments(segments, meta[:delimiter], start_pos)
-          |> Keyword.update!(:column, &(&1 + length(modifiers)))
+    end_pos =
+      get_end_pos_for_interpolation_segments(segments, meta[:delimiter], start_pos)
+      |> Keyword.update!(:column, &(&1 + length(modifiers)))
 
-        end_pos =
-          cond do
-            multiline_delimiter?(meta[:delimiter]) and !has_interpolations?(segments) ->
-              # If it has no interpolations and is a multiline sigil, then the first
-              # line will be incorrectly reported because the first string in the
-              # segments(which is the only one) won't have a leading newline, so
-              # we're compensating for that here. The end column will be at the same
-              # indentation as the start column, plus the length of the multiline
-              # delimiter
-              [line: end_pos[:line] + 1, column: start_pos[:column] + 3]
+    end_pos =
+      cond do
+        multiline_delimiter?(meta[:delimiter]) and !has_interpolations?(segments) ->
+          # If it has no interpolations and is a multiline sigil, then the first
+          # line will be incorrectly reported because the first string in the
+          # segments(which is the only one) won't have a leading newline, so
+          # we're compensating for that here. The end column will be at the same
+          # indentation as the start column, plus the length of the multiline
+          # delimiter
+          [line: end_pos[:line] + 1, column: start_pos[:column] + 3]
 
-            multiline_delimiter?(meta[:delimiter]) or has_interpolations?(segments) ->
-              # If it's a multiline sigil or has interpolations, then the positions
-              # will already be correctly calculated
-              end_pos
+        multiline_delimiter?(meta[:delimiter]) or has_interpolations?(segments) ->
+          # If it's a multiline sigil or has interpolations, then the positions
+          # will already be correctly calculated
+          end_pos
 
-            true ->
-              # If it's a single line sigil, add the offset for the ~x
-              Keyword.update!(end_pos, :column, &(&1 + 2))
-          end
+        true ->
+          # If it's a single line sigil, add the offset for the ~x
+          Keyword.update!(end_pos, :column, &(&1 + 2))
+      end
 
-        %{
-          start: start_pos,
-          end: end_pos
-        }
-
-      _ ->
-        get_range_for_unqualified_call(quoted)
-    end
+    %{
+      start: start_pos,
+      end: end_pos
+    }
   end
 
   # Unqualified calls
-  defp do_get_range({call, _, _} = quoted) when is_atom(call) do
+  defp do_get_range({call, _, args} = quoted) when is_atom(call) and is_list(args) do
     get_range_for_unqualified_call(quoted)
   end
 
@@ -370,7 +368,7 @@ defmodule Sourceror.Range do
             column: column
           ]
 
-        {:"::", _, [{_, meta, _}, {:binary, _, _}]}, _pos ->
+        {:"::", _, [{_, meta, _}, {_, _, :binary}]}, _pos ->
           meta
           |> Keyword.get(:closing)
           |> Keyword.take([:line, :column])
