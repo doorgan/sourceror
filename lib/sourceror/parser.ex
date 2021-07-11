@@ -68,7 +68,7 @@ defmodule Sourceror.Parser do
        when is_atom(sigil) and is_list(modifiers) do
     case Atom.to_string(sigil) do
       <<"sigil_", sigil>> when is_valid_sigil(sigil) ->
-        {{:sigil, <<sigil>>}, metadata, [args, modifiers]}
+        {:"~", metadata, [<<sigil>>, args, modifiers]}
 
       _ ->
         quoted
@@ -95,7 +95,7 @@ defmodule Sourceror.Parser do
       {[], meta, list} ->
         block(meta, list)
 
-      {{:sigil, name}, meta, [args, modifiers]} ->
+      {:"~", meta, [name, args, modifiers]} ->
         {:"sigil_#{name}", meta, [args, modifiers]}
 
       {:var, meta, name} ->

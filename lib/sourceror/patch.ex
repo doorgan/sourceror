@@ -38,7 +38,7 @@ defmodule Sourceror.Patch do
     [%{range: range, change: new_name}]
   end
 
-  def rename_call({{:sigil, _name}, meta, [_content, _modifiers]}, new_name) do
+  def rename_call({:"~", meta, [_name, _content, _modifiers]}, new_name) do
     new_name = to_string(new_name)
 
     unless new_name in @sigil_letters do

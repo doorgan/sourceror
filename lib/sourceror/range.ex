@@ -273,7 +273,7 @@ defmodule Sourceror.Range do
   end
 
   # Sigils
-  defp do_get_range({{:sigil, _name}, meta, [{:<<>>, _, segments}, modifiers]}) do
+  defp do_get_range({:"~", meta, [_name, {:<<>>, _, segments}, modifiers]}) do
     start_pos = Keyword.take(meta, [:line, :column])
 
     end_pos =

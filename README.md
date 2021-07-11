@@ -180,9 +180,10 @@ foo          ->   {:var, metadata, :foo}
 400_000      ->   {:int, [token: "400_000" | metadata], 400000}
 42.0         ->   {:float, [token: "42.0" | metadata], 42.0}
 :foo         ->   {:atom, metadata, :foo}
+"foo"        ->   {:string, metadata, "foo"}
 [1, 2]       ->   {[], metadata, [1, 2]}
 {1, 2}       ->   {:{}, metadata, [1. 2]}
-~w[a b c]a   ->   {{:sigil, "w"}, metadata, ["a b c", 'a']}
+~w[a b c]a   ->   {:"~", metadata, ["w", "a b c", 'a']}
 ```
 
 ## License
