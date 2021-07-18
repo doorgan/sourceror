@@ -10,6 +10,14 @@ defmodule Sourceror do
   # @start_fields ~w[line do]a
   @end_fields ~w[end closing end_of_expression]a
 
+  @type ast_node ::
+          {atom, map, list}
+          | {atom, map, atom | String.t() | integer | float}
+          | {[], map, list(ast_node)}
+          | {{:., map, list(ast_node)}, map, list(ast_node)}
+          | {ast_node, ast_node}
+          | list(ast_node)
+
   @type comment :: %{
           line: integer,
           previous_eol_count: integer,
@@ -17,7 +25,7 @@ defmodule Sourceror do
           text: String.t()
         }
 
-  @type position :: keyword
+  @type position :: %{line: integer, column: integer}
   @type range :: %{
           start: position,
           end: position
@@ -29,7 +37,7 @@ defmodule Sourceror do
           change: String.t() | (String.t() -> String.t())
         }
 
-  @type traversal_function :: (Macro.t(), TraversalState.t() -> {Macro.t(), TraversalState.t()})
+  @type traversal_function :: (ast_node(), TraversalState.t() -> {ast_node(), TraversalState.t()})
 
   @code_module (if Version.match?(System.version(), "~> 1.13.0-dev") do
                   Code
@@ -78,29 +86,17 @@ defmodule Sourceror do
 
   Comments are the same maps returned by `Code.string_to_quoted_with_comments/2`.
   """
-  @spec parse_string(String.t()) :: {:ok, Macro.t()} | {:error, term()}
+  @spec parse_string(String.t()) :: {:ok, ast_node()} | {:error, term()}
   def parse_string(source) do
-    with {:ok, quoted, comments} <- string_to_quoted(source, to_quoted_opts()) do
-      {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
-    end
+    Sourceror.Parser.parse(source)
   end
 
   @doc """
   Same as `parse_string/1` but raises on error.
   """
-  @spec parse_string!(String.t()) :: Macro.t()
+  @spec parse_string!(String.t()) :: ast_node()
   def parse_string!(source) do
-    Sourceror.Parser.parse(source)
-  end
-
-  defp to_quoted_opts do
-    [
-      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-      token_metadata: true,
-      unescape: false,
-      columns: true,
-      warn_on_unnecessary_quotes: false
-    ]
+    Sourceror.Parser.parse!(source)
   end
 
   @doc """
@@ -115,14 +111,14 @@ defmodule Sourceror do
       ...>
       ...> :ok
       ...> "\"" |> Sourceror.parse_expression()
-      {:ok, {:__block__, [trailing_comments: [], leading_comments: [],
-                          token: "42", line: 2, column: 1], [42]}, "\\n:ok"}
+      {:ok, {:int, %{trailing_comments: [], leading_comments: [],
+                          token: "42", line: 2, column: 1}, 42}, "\\n:ok"}
 
   ## Options
     * `:from_line` - The line at where the parsing should start. Defaults to `1`.
   """
   @spec parse_expression(String.t(), keyword) ::
-          {:ok, Macro.t(), String.t()} | {:error, String.t()}
+          {:ok, ast_node(), String.t()} | {:error, String.t()}
   def parse_expression(string, opts \\ []) do
     from_line = Keyword.get(opts, :from_line, 1)
 
@@ -171,7 +167,7 @@ defmodule Sourceror do
       will strip the square brackets. This is useful to print a single element
       of a keyword list.
   """
-  @spec to_string(Macro.t(), keyword) :: String.t()
+  @spec to_string(ast_node(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
     indent = Keyword.get(opts, :indent, 0)
     line_length = Keyword.get(opts, :line_length, 98)
@@ -210,11 +206,11 @@ defmodule Sourceror do
   using an accumulator.
   """
   @spec traverse(
-          Macro.t(),
+          ast_node(),
           any,
-          (Macro.t(), any -> {Macro.t(), any}),
-          (Macro.t(), any -> {Macro.t(), any})
-        ) :: {Macro.t(), any}
+          (ast_node(), any -> {ast_node(), any}),
+          (ast_node(), any -> {ast_node(), any})
+        ) :: {ast_node(), any}
   def traverse(ast, acc, pre, post) when is_function(pre, 2) and is_function(post, 2) do
     {ast, acc} = pre.(ast, acc)
     do_traverse(ast, acc, pre, post)
@@ -249,10 +245,6 @@ defmodule Sourceror do
     post.(x, acc)
   end
 
-  defp do_traverse_args(args, acc, _pre, _post) when is_atom(args) do
-    {args, acc}
-  end
-
   defp do_traverse_args(args, acc, pre, post) when is_list(args) do
     :lists.mapfoldl(
       fn x, acc ->
@@ -267,7 +259,7 @@ defmodule Sourceror do
   @doc """
   Performs a depth-first, pre-order traversal of quoted expressions.
   """
-  @spec prewalk(Macro.t(), (Macro.t() -> Macro.t())) :: Macro.t()
+  @spec prewalk(ast_node(), (ast_node() -> ast_node())) :: ast_node()
   def prewalk(ast, fun) when is_function(fun, 1) do
     elem(prewalk(ast, nil, fn x, nil -> {fun.(x), nil} end), 0)
   end
@@ -276,7 +268,7 @@ defmodule Sourceror do
   Performs a depth-first, pre-order traversal of quoted expressions
   using an accumulator.
   """
-  @spec prewalk(Macro.t(), any, (Macro.t(), any -> {Macro.t(), any})) :: {Macro.t(), any}
+  @spec prewalk(ast_node(), any, (ast_node(), any -> {ast_node(), any})) :: {ast_node(), any}
   def prewalk(ast, acc, fun) when is_function(fun, 2) do
     traverse(ast, acc, fun, fn x, a -> {x, a} end)
   end
@@ -284,7 +276,7 @@ defmodule Sourceror do
   @doc """
   Performs a depth-first, post-order traversal of quoted expressions.
   """
-  @spec postwalk(Macro.t(), (Macro.t() -> Macro.t())) :: Macro.t()
+  @spec postwalk(ast_node(), (ast_node() -> ast_node())) :: ast_node()
   def postwalk(ast, fun) when is_function(fun, 1) do
     elem(postwalk(ast, nil, fn x, nil -> {fun.(x), nil} end), 0)
   end
@@ -293,7 +285,7 @@ defmodule Sourceror do
   Performs a depth-first, post-order traversal of quoted expressions
   using an accumulator.
   """
-  @spec postwalk(Macro.t(), any, (Macro.t(), any -> {Macro.t(), any})) :: {Macro.t(), any}
+  @spec postwalk(ast_node(), any, (ast_node(), any -> {ast_node(), any})) :: {ast_node(), any}
   def postwalk(ast, acc, fun) when is_function(fun, 2) do
     traverse(ast, acc, fn x, a -> {x, a} end, fun)
   end
@@ -305,11 +297,11 @@ defmodule Sourceror do
   `:end_of_expression` line numbers of the node metadata if such fields are
   present.
   """
-  @spec correct_lines(Macro.t() | Macro.metadata(), integer, Macro.metadata()) ::
-          Macro.t() | Macro.metadata()
+  @spec correct_lines(ast_node() | Macro.metadata(), integer, Macro.metadata()) ::
+          ast_node() | Macro.metadata()
   def correct_lines(meta, line_correction, opts \\ [])
 
-  def correct_lines(meta, line_correction, opts) when is_list(meta) do
+  def correct_lines(meta, line_correction, opts) when is_map(meta) do
     skip = Keyword.get(opts, :skip, [])
 
     meta
@@ -318,12 +310,12 @@ defmodule Sourceror do
   end
 
   def correct_lines(quoted, line_correction, _opts) do
-    Macro.update_meta(quoted, &correct_lines(&1, line_correction))
+    Sourceror.update_meta(quoted, &correct_lines(&1, line_correction))
   end
 
   defp correct_line(meta, key, line_correction) do
-    case Keyword.get(meta, key, []) do
-      value when value != [] ->
+    case Map.get(meta, key, %{}) do
+      value when value != %{} ->
         value =
           if value[:line] do
             put_in(value, [:line], value[:line] + line_correction)
@@ -331,10 +323,10 @@ defmodule Sourceror do
             value
           end
 
-        [{key, value}]
+        %{key => value}
 
       _ ->
-        []
+        %{}
     end
   end
 
@@ -344,13 +336,13 @@ defmodule Sourceror do
     corrections = Enum.map(to_correct, &correct_line(meta, &1, line_correction))
 
     Enum.reduce(corrections, meta, fn correction, meta ->
-      Keyword.merge(meta, correction)
+      Map.merge(meta, correction)
     end)
   end
 
   defp maybe_correct_line(meta, line_correction, skip) do
-    if Keyword.has_key?(meta, :line) and :line not in skip do
-      Keyword.put(meta, :line, meta[:line] + line_correction)
+    if Map.has_key?(meta, :line) and :line not in skip do
+      Map.put(meta, :line, meta[:line] + line_correction)
     else
       meta
     end
@@ -359,21 +351,21 @@ defmodule Sourceror do
   @doc """
   Returns the metadata of the given node.
 
-      iex> Sourceror.get_meta({:foo, [line: 5], []})
-      [line: 5]
+      iex> Sourceror.get_meta({:foo, %{line: 5}, []})
+      %{line: 5}
   """
-  @spec get_meta(Macro.t()) :: Macro.metadata()
-  def get_meta({_, meta, _}) when is_list(meta) do
+  @spec get_meta(ast_node()) :: map
+  def get_meta({_, meta, _}) when is_map(meta) do
     meta
   end
 
   @doc """
   Returns the arguments of the node.
 
-      iex> Sourceror.get_args({:foo, [], [{:__block__, [], [:ok]}]})
-      [{:__block__, [], [:ok]}]
+      iex> Sourceror.get_args({:foo, %{}, [{:__block__, %{}, [:ok]}]})
+      [{:__block__, %{}, [:ok]}]
   """
-  @spec get_args(Macro.t()) :: [Macro.t()]
+  @spec get_args(ast_node()) :: [ast_node()]
   def get_args({_, _, args}) do
     args
   end
@@ -381,14 +373,18 @@ defmodule Sourceror do
   @doc """
   Updates the arguments for the given node.
 
-      iex> node = {:foo, [line: 1], [{:__block__, [line: 1], [2]}]}
+      iex> node = {:foo, %{line: 1}, [{:__block__, %{line: 1}, [2]}]}
       iex> updater = fn args -> Enum.map(args, &Sourceror.correct_lines(&1, 2)) end
       iex> Sourceror.update_args(node, updater)
-      {:foo, [line: 1], [{:__block__, [line: 3], [2]}]}
+      {:foo, %{line: 1}, [{:__block__, %{line: 3}, [2]}]}
   """
-  @spec update_args(Macro.t(), ([Macro.t()] -> [Macro.t()])) :: Macro.t()
+  @spec update_args(ast_node(), ([ast_node()] -> [ast_node()])) :: ast_node()
   def update_args({form, meta, args}, fun) when is_function(fun, 1) and is_list(args) do
     {form, meta, fun.(args)}
+  end
+
+  def update_meta({form, meta, args}, fun) when is_function(fun, 1) and is_map(meta) do
+    {form, fun.(meta), args}
   end
 
   @doc """
@@ -398,16 +394,16 @@ defmodule Sourceror do
   A default of `nil` may also be provided if the line number is meant to be
   coalesced with a value that is not known upfront.
 
-      iex> Sourceror.get_line({:foo, [line: 5], []})
+      iex> Sourceror.get_line({:foo, %{line: 5}, []})
       5
 
-      iex> Sourceror.get_line({:foo, [], []}, 3)
+      iex> Sourceror.get_line({:foo, %{}, []}, 3)
       3
   """
-  @spec get_line(Macro.t(), default :: integer | nil) :: integer | nil
+  @spec get_line(ast_node(), default :: integer | nil) :: integer | nil
   def get_line({_, meta, _}, default \\ 1)
-      when is_list(meta) and (is_integer(default) or is_nil(default)) do
-    Keyword.get(meta, :line, default)
+      when is_map(meta) and (is_integer(default) or is_nil(default)) do
+    meta[:line] || default
   end
 
   @doc """
@@ -417,16 +413,16 @@ defmodule Sourceror do
   A default of `nil` may also be provided if the column number is meant to be
   coalesced with a value that is not known upfront.
 
-      iex> Sourceror.get_column({:foo, [column: 5], []})
+      iex> Sourceror.get_column({:foo, %{column: 5}, []})
       5
 
-      iex> Sourceror.get_column({:foo, [], []}, 3)
+      iex> Sourceror.get_column({:foo, %{}, []}, 3)
       3
   """
-  @spec get_column(Macro.t(), default :: integer | nil) :: integer | nil
+  @spec get_column(ast_node(), default :: integer | nil) :: integer | nil
   def get_column({_, meta, _}, default \\ 1)
-      when is_list(meta) and (is_integer(default) or is_nil(default)) do
-    Keyword.get(meta, :column, default)
+      when is_map(meta) and (is_integer(default) or is_nil(default)) do
+    Map.get(meta, :column, default)
   end
 
   @doc """
@@ -434,16 +430,16 @@ defmodule Sourceror do
   `closing` and `end_of_expression` line numbers. If none is found, the default
   value is returned(defaults to 1).
 
-      iex> Sourceror.get_end_line({:foo, [end: [line: 4]], []})
+      iex> Sourceror.get_end_line({:foo, %{end: %{line: 4}}, []})
       4
 
-      iex> Sourceror.get_end_line({:foo, [closing: [line: 2]], []})
+      iex> Sourceror.get_end_line({:foo, %{closing: %{line: 2}}, []})
       2
 
-      iex> Sourceror.get_end_line({:foo, [end_of_expression: [line: 5]], []})
+      iex> Sourceror.get_end_line({:foo, %{end_of_expression: %{line: 5}}, []})
       5
 
-      iex> Sourceror.get_end_line({:foo, [closing: [line: 2], end: [line: 4]], []})
+      iex> Sourceror.get_end_line({:foo, %{closing: %{line: 2}, end: %{line: 4}}, []})
       4
 
       iex> "\""
@@ -453,9 +449,9 @@ defmodule Sourceror do
       ...> "\"" |> Sourceror.parse_string!() |> Sourceror.get_end_line()
       3
   """
-  @spec get_end_line(Macro.t(), integer) :: integer
+  @spec get_end_line(ast_node(), integer) :: integer
   def get_end_line(quoted, default \\ 1) when is_integer(default) do
-    get_end_position(quoted, line: default, column: 1)[:line]
+    get_end_position(quoted, %{line: default, column: 1}).line
   end
 
   @doc """
@@ -463,26 +459,26 @@ defmodule Sourceror do
 
       iex> quoted = Sourceror.parse_string!(" :foo")
       iex> Sourceror.get_start_position(quoted)
-      [line: 1, column: 2]
+      %{line: 1, column: 2}
 
       iex> quoted = Sourceror.parse_string!("\\n\\nfoo()")
       iex> Sourceror.get_start_position(quoted)
-      [line: 3, column: 1]
+      %{line: 3, column: 1}
 
       iex> quoted = Sourceror.parse_string!("Foo.{Bar}")
       iex> Sourceror.get_start_position(quoted)
-      [line: 1, column: 1]
+      %{line: 1, column: 1}
 
       iex> quoted = Sourceror.parse_string!("foo[:bar]")
       iex> Sourceror.get_start_position(quoted)
-      [line: 1, column: 1]
+      %{line: 1, column: 1}
 
       iex> quoted = Sourceror.parse_string!("foo(:bar)")
       iex> Sourceror.get_start_position(quoted)
-      [line: 1, column: 1]
+      %{line: 1, column: 1}
   """
-  @spec get_start_position(Macro.t(), position) :: position
-  def get_start_position(quoted, default \\ [line: 1, column: 1])
+  @spec get_start_position(ast_node(), position) :: position
+  def get_start_position(quoted, default \\ %{line: 1, column: 1})
 
   def get_start_position({{:., _, [Access, :get]}, _, [left | _]}, default) do
     get_start_position(left, default)
@@ -493,15 +489,15 @@ defmodule Sourceror do
   end
 
   def get_start_position({_, meta, _}, default) do
-    position = Keyword.take(meta, [:line, :column])
+    position = Map.take(meta, [:line, :column])
 
-    Keyword.merge(default, position)
+    Map.merge(default, position)
   end
 
   @doc """
   Returns the end position of the quoted expression. It recursively checks for
   `end`, `closing` and `end_of_expression` positions. If none is found, the
-  default value is returned(defaults to `[line: 1, column: 1]`).
+  default value is returned(defaults to `%{line: 1, column: 1}`).
 
       iex> quoted = ~S"\""
       ...> A.{
@@ -509,7 +505,7 @@ defmodule Sourceror do
       ...> }
       ...> "\"" |>  Sourceror.parse_string!()
       iex> Sourceror.get_end_position(quoted)
-      [line: 3, column: 1]
+      %{line: 3, column: 1}
 
       iex> quoted = ~S"\""
       ...> foo do
@@ -517,7 +513,7 @@ defmodule Sourceror do
       ...> end
       ...> "\"" |>  Sourceror.parse_string!()
       iex> Sourceror.get_end_position(quoted)
-      [line: 3, column: 1]
+      %{line: 3, column: 1}
 
       iex> quoted = ~S"\""
       ...> foo(
@@ -526,10 +522,10 @@ defmodule Sourceror do
       ...>    )
       ...> "\"" |>  Sourceror.parse_string!()
       iex> Sourceror.get_end_position(quoted)
-      [line: 4, column: 4]
+      %{line: 4, column: 4}
   """
-  @spec get_end_position(Macro.t(), position) :: position
-  def get_end_position(quoted, default \\ [line: 1, column: 1]) do
+  @spec get_end_position(ast_node(), position) :: position
+  def get_end_position(quoted, default \\ %{line: 1, column: 1}) do
     {_, position} =
       Sourceror.postwalk(quoted, default, fn
         {_, _, _} = quoted, end_position ->
@@ -554,15 +550,15 @@ defmodule Sourceror do
   defp get_node_end_position(quoted, default) do
     meta = get_meta(quoted)
 
-    start_position = [
-      line: meta[:line] || default[:line],
-      column: meta[:column] || default[:column]
-    ]
+    start_position = %{
+      line: Map.get(meta, :line, default.line),
+      column: Map.get(meta, :column, default.column)
+    }
 
     get_meta(quoted)
-    |> Keyword.take(@end_fields)
-    |> Keyword.values()
-    |> Enum.map(&Keyword.take(&1, [:line, :column]))
+    |> Map.take(@end_fields)
+    |> Map.values()
+    |> Enum.map(&Map.take(&1, [:line, :column]))
     |> Enum.concat([start_position])
     |> Enum.max_by(
       & &1,
@@ -606,7 +602,7 @@ defmodule Sourceror do
     line = position[:line] || 0
     column = position[:column] || 0
 
-    [line: line, column: column]
+    %{line: line, column: column}
   end
 
   @doc """
@@ -625,7 +621,7 @@ defmodule Sourceror do
       ...> end
       ...> "\"" |> Sourceror.parse_string!()
       iex> Sourceror.get_range(quoted)
-      %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+      %{start: %{line: 1, column: 1}, end: %{line: 3, column: 4}}
 
       iex> quoted = ~S"\""
       ...> Foo.{
@@ -633,9 +629,9 @@ defmodule Sourceror do
       ...> }
       ...> "\"" |> Sourceror.parse_string!()
       iex> Sourceror.get_range(quoted)
-      %{start: [line: 1, column: 1], end: [line: 3, column: 2]}
+      %{start: %{line: 1, column: 1}, end: %{line: 3, column: 2}}
   """
-  @spec get_range(Macro.t()) :: range
+  @spec get_range(ast_node()) :: range
   def get_range(quoted) do
     Sourceror.Range.get_range(quoted)
   end
@@ -644,10 +640,10 @@ defmodule Sourceror do
   Prepends comments to the leading or trailing comments of a node.
   """
   @spec prepend_comments(
-          quoted :: Macro.t(),
+          quoted :: ast_node(),
           comments :: [comment],
           position :: :leading | :trailing
-        ) :: Macro.t()
+        ) :: ast_node()
   def prepend_comments(quoted, comments, position \\ :leading)
       when position in [:leading, :trailing] do
     do_add_comments(quoted, comments, :prepend, position)
@@ -657,11 +653,11 @@ defmodule Sourceror do
   Appends comments to the leading or trailing comments of a node.
   """
   @spec append_comments(
-          quoted :: Macro.t(),
+          quoted :: ast_node(),
           comments :: [comment],
           position :: :leading | :trailing
         ) ::
-          Macro.t()
+          ast_node()
   def append_comments(quoted, comments, position \\ :leading)
       when position in [:leading, :trailing] do
     do_add_comments(quoted, comments, :append, position)
@@ -674,7 +670,7 @@ defmodule Sourceror do
         :trailing -> :trailing_comments
       end
 
-    current_comments = Keyword.get(meta, key, [])
+    current_comments = Map.get(meta, key, [])
 
     current_comments =
       case mode do
@@ -682,14 +678,14 @@ defmodule Sourceror do
         :prepend -> comments ++ current_comments
       end
 
-    Macro.update_meta(quoted, &Keyword.put(&1, key, current_comments))
+    Sourceror.update_meta(quoted, &Map.put(&1, key, current_comments))
   end
 
   @doc false
-  @spec has_closing_line?(Macro.t()) :: boolean
-  def has_closing_line?({_, meta, _}) do
+  @spec has_closing_line?(ast_node()) :: boolean
+  def has_closing_line?({_, meta, _}) when is_map(meta) do
     for field <- @end_fields do
-      Keyword.has_key?(meta, field)
+      Map.has_key?(meta, field)
     end
     |> Enum.any?()
   end
@@ -710,7 +706,7 @@ defmodule Sourceror do
       ...> "\""
       iex> patch = %{
       ...>   change: "unless allowed? do\\n  raise \\"Not allowed!\\"\\nend",
-      ...>   range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+      ...>   range: %{start: %{line: 1, column: 1}, end: %{line: 3, column: 4}}
       ...> }
       iex> Sourceror.patch_string(original, [patch])
       ~S"\""
@@ -727,7 +723,7 @@ defmodule Sourceror do
       ...> "\""
       iex> patch = %{
       ...>   change: &String.upcase/1,
-      ...>   range: %{start: [line: 1, column: 7], end: [line: 1, column: 13]}
+      ...>   range: %{start: %{line: 1, column: 7}, end: %{line: 1, column: 13}}
       ...> }
       iex> Sourceror.patch_string(original, [patch])
       ~S"\""
@@ -744,7 +740,7 @@ defmodule Sourceror do
       ...> "\""
       iex> patch = %{
       ...>   change: "baz do\\n  :not_ok\\nend",
-      ...>   range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
+      ...>   range: %{start: %{line: 1, column: 8}, end: %{line: 3, column: 6}}
       ...> }
       iex> Sourceror.patch_string(original, [patch])
       ~S"\""
@@ -763,7 +759,7 @@ defmodule Sourceror do
       ...> "\""
       iex> patch = %{
       ...>   change: "baz do\\n  :not_ok\\nend",
-      ...>   range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]},
+      ...>   range: %{start: %{line: 1, column: 8}, end: %{line: 3, column: 6}},
       ...>   preserve_indentation: false
       ...> }
       iex> Sourceror.patch_string(original, [patch])
@@ -775,7 +771,7 @@ defmodule Sourceror do
   """
   @spec patch_string(String.t(), [patch]) :: String.t()
   def patch_string(string, patches) do
-    patches = Enum.sort_by(patches, & &1.range.start[:line], &>=/2)
+    patches = Enum.sort_by(patches, & &1.range.start.line, &>=/2)
 
     lines =
       string
@@ -792,17 +788,17 @@ defmodule Sourceror do
 
   defp do_patch_string([line | rest], [patch | patches], seen, current_line) do
     cond do
-      current_line == patch.range.start[:line] and single_line_patch?(patch) ->
+      current_line == patch.range.start.line and single_line_patch?(patch) ->
         applicable_patches =
           Enum.filter([patch | patches], fn patch ->
-            current_line == patch.range.start[:line] and single_line_patch?(patch)
+            current_line == patch.range.start.line and single_line_patch?(patch)
           end)
 
         patched = apply_single_line_patches(line, applicable_patches)
 
         do_patch_string([patched | rest], patches -- applicable_patches, seen, current_line)
 
-      current_line == patch.range.start[:line] ->
+      current_line == patch.range.start.line ->
         seen = apply_multiline_patch([line | seen], patch)
         do_patch_string(rest, patches, seen, current_line - 1)
 
@@ -811,14 +807,14 @@ defmodule Sourceror do
     end
   end
 
-  defp single_line_patch?(patch), do: patch.range.start[:line] == patch.range.end[:line]
+  defp single_line_patch?(patch), do: patch.range.start.line == patch.range.end.line
 
   defp apply_single_line_patches(string, patches) do
     patches
-    |> Enum.sort_by(& &1.range.start[:column], &>=/2)
+    |> Enum.sort_by(& &1.range.start.column, &>=/2)
     |> Enum.reduce(string, fn patch, string ->
-      column_span = patch.range.end[:column] - patch.range.start[:column]
-      {start, middle} = String.split_at(string, patch.range.start[:column] - 1)
+      column_span = patch.range.end.column - patch.range.start.column
+      {start, middle} = String.split_at(string, patch.range.start.column - 1)
       {to_patch, ending} = String.split_at(middle, column_span)
 
       new_text =
@@ -833,14 +829,14 @@ defmodule Sourceror do
   end
 
   defp apply_multiline_patch(lines, patch) do
-    line_span = patch.range.end[:line] - patch.range.start[:line] + 1
+    line_span = patch.range.end.line - patch.range.start.line + 1
 
     [first | rest] = lines
-    {first, first_to_patch} = String.split_at(first, patch.range.start[:column] - 1)
+    {first, first_to_patch} = String.split_at(first, patch.range.start.column - 1)
 
     {to_patch, rest} = Enum.split(rest, line_span - 1)
     {last, _} = List.pop_at(to_patch, -1, "")
-    {_, last} = String.split_at(last, patch.range.end[:column] - 1)
+    {_, last} = String.split_at(last, patch.range.end.column - 1)
 
     patch_text =
       if is_binary(patch.change) do

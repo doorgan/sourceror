@@ -5,12 +5,20 @@ defmodule Sourceror.Parser do
 
   defguard is_valid_sigil(letter) when letter in ?a..?z or letter in ?A..?Z
 
+  def parse!(string) do
+    with {quoted, comments} <- Sourceror.string_to_quoted!(string, to_quoted_opts()) do
+      quoted = normalize_nodes(quoted)
+
+      Sourceror.Comments.merge_comments(quoted, comments)
+    end
+  end
+
   def parse(string) do
-    {quoted, comments} = Sourceror.string_to_quoted!(string, to_quoted_opts())
+    with {:ok, quoted, comments} <- Sourceror.string_to_quoted(string, to_quoted_opts()) do
+      quoted = normalize_nodes(quoted)
 
-    quoted = normalize_nodes(quoted)
-
-    Sourceror.Comments.merge_comments(quoted, comments)
+      {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
+    end
   end
 
   defp to_quoted_opts do
@@ -28,23 +36,23 @@ defmodule Sourceror.Parser do
   end
 
   defp handle_literal(string, metadata) when is_binary(string) do
-    {:ok, {:string, metadata, string}}
+    {:ok, {:string, normalize_metadata(metadata), string}}
   end
 
   defp handle_literal({left, right}, metadata) do
-    {:ok, {:{}, metadata, [left, right]}}
+    {:ok, {:{}, normalize_metadata(metadata), [left, right]}}
   end
 
   defp handle_literal(list, metadata) when is_list(list) do
-    {:ok, {[], metadata, list}}
+    {:ok, {[], normalize_metadata(metadata), list}}
   end
 
   defp handle_literal(integer, metadata) when is_integer(integer) do
-    {:ok, {:int, metadata, integer}}
+    {:ok, {:int, normalize_metadata(metadata), integer}}
   end
 
   defp handle_literal(float, metadata) when is_float(float) do
-    {:ok, {:float, metadata, float}}
+    {:ok, {:float, normalize_metadata(metadata), float}}
   end
 
   defp normalize_nodes(ast) do
@@ -53,27 +61,29 @@ defmodule Sourceror.Parser do
 
   defp normalize_node({:atom, metadata, atom}) when is_atom(atom) do
     if metadata[:__literal__] do
-      {:atom, Keyword.drop(metadata, [:__literal__]), atom}
+      {:atom, normalize_metadata(metadata), atom}
     else
-      {:var, metadata, atom}
+      {:var, normalize_metadata(metadata), atom}
     end
   end
 
   defp normalize_node({name, metadata, context})
        when is_atom(name) and is_atom(context) do
-    {:var, metadata, name}
+    {:var, normalize_metadata(metadata), name}
   end
 
-  defp normalize_node({sigil, metadata, [args, modifiers]} = quoted)
+  defp normalize_node({sigil, metadata, [args, modifiers]})
        when is_atom(sigil) and is_list(modifiers) do
     case Atom.to_string(sigil) do
       <<"sigil_", sigil>> when is_valid_sigil(sigil) ->
-        {:"~", metadata, [<<sigil>>, args, modifiers]}
+        {:"~", normalize_metadata(metadata), [<<sigil>>, args, modifiers]}
 
       _ ->
-        quoted
+        {sigil, normalize_metadata(metadata), [args, modifiers]}
     end
   end
+
+  defp normalize_node({form, metadata, args}), do: {form, normalize_metadata(metadata), args}
 
   defp normalize_node(quoted), do: quoted
 
@@ -81,28 +91,31 @@ defmodule Sourceror.Parser do
   def to_formatter_ast(quoted) do
     Sourceror.prewalk(quoted, fn
       {:atom, meta, atom} when is_atom(atom) ->
-        block(meta, atom)
+        block(to_formatter_meta(meta), atom)
 
       {:string, meta, string} when is_binary(string) ->
-        block(meta, string)
+        block(to_formatter_meta(meta), string)
 
       {:int, meta, int} when is_integer(int) ->
-        block(meta, int)
+        block(to_formatter_meta(meta), int)
 
       {:float, meta, float} when is_float(float) ->
-        block(meta, float)
+        block(to_formatter_meta(meta), float)
 
       {[], meta, list} ->
-        block(meta, list)
+        block(to_formatter_meta(meta), list)
 
       {:"~", meta, [name, args, modifiers]} ->
-        {:"sigil_#{name}", meta, [args, modifiers]}
+        {:"sigil_#{name}", to_formatter_meta(meta), [args, modifiers]}
 
       {:var, meta, name} ->
-        {name, meta, nil}
+        {name, to_formatter_meta(meta), nil}
 
       {:{}, meta, [left, right]} ->
-        block(meta, {left, right})
+        block(to_formatter_meta(meta), {left, right})
+
+      {form, meta, args} ->
+        {form, to_formatter_meta(meta), args}
 
       quoted ->
         quoted
@@ -110,4 +123,24 @@ defmodule Sourceror.Parser do
   end
 
   defp block(metadata, value), do: {:__block__, metadata, [value]}
+
+  defp normalize_metadata(metadata) do
+    meta = Map.new(metadata) |> Map.drop([:__literal__])
+
+    for key <- ~w[last end_of_expression closing do end]a,
+        meta[key] != nil,
+        into: meta,
+        do: {key, normalize_metadata(meta[key])}
+  end
+
+  defp to_formatter_meta(metadata) do
+    meta = Map.to_list(metadata)
+
+    extra =
+      for key <- ~w[last end_of_expression closing do end]a,
+          meta[key] != nil,
+          do: {key, to_formatter_meta(meta[key])}
+
+    Keyword.merge(meta, extra)
+  end
 end

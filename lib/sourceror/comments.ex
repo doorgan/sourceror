@@ -11,7 +11,7 @@ defmodule Sourceror.Comments do
   while comments that are right before an `end` keyword are inserted into the
   `:trailing_comments` field.
   """
-  @spec merge_comments(Macro.t(), list(map)) :: Macro.t()
+  @spec merge_comments(Sourceror.t(), list(map)) :: Sourceror.t()
   def merge_comments(quoted, comments) do
     {quoted, leftovers} =
       Sourceror.traverse(quoted, comments, &do_merge_comments/2, &merge_leftovers/2)
@@ -22,7 +22,7 @@ defmodule Sourceror.Comments do
 
       _ ->
         line = Sourceror.get_line(quoted)
-        {:__block__, [trailing_comments: leftovers, leading_comments: [], line: line], [quoted]}
+        {:__block__, %{trailing_comments: leftovers, leading_comments: [], line: line}, [quoted]}
     end
   end
 
@@ -89,14 +89,14 @@ defmodule Sourceror.Comments do
   end
 
   defp put_comments(quoted, key, comments) do
-    Macro.update_meta(quoted, &Keyword.put(&1, key, comments))
+    Sourceror.update_meta(quoted, &Map.put(&1, key, comments))
   end
 
   @doc """
   Does the opposite of `merge_comments/2`, it extracts the comments from the
   quoted expression and returns both as a `{quoted, comments}` tuple.
   """
-  @spec extract_comments(Macro.t()) :: {Macro.t(), list(map)}
+  @spec extract_comments(Sourceror.t()) :: {Sourceror.t(), list(map)}
   def extract_comments(quoted, opts \\ []) do
     collapse_comments = Keyword.get(opts, :collapse_comments, false)
     correct_lines = Keyword.get(opts, :correct_lines, false)
@@ -118,16 +118,16 @@ defmodule Sourceror.Comments do
   end
 
   defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments) do
-    leading_comments = Keyword.get(meta, :leading_comments, [])
+    leading_comments = meta[:leading_comments] || []
 
     leading_comments =
       if collapse_comments do
-        Enum.map(leading_comments, &%{&1 | line: meta[:line], previous_eol_count: 0})
+        Enum.map(leading_comments, &%{&1 | line: meta.line, previous_eol_count: 0})
       else
         leading_comments
       end
 
-    trailing_comments = Keyword.get(meta, :trailing_comments, [])
+    trailing_comments = meta[:trailing_comments] || []
 
     trailing_comments =
       if collapse_comments do
@@ -141,10 +141,9 @@ defmodule Sourceror.Comments do
       |> Enum.sort_by(& &1.line)
 
     quoted =
-      Macro.update_meta(quoted, fn meta ->
+      Sourceror.update_meta(quoted, fn meta ->
         meta
-        |> Keyword.delete(:leading_comments)
-        |> Keyword.delete(:trailing_comments)
+        |> Map.drop([:leading_comments, :trailing_comments])
       end)
 
     {quoted, acc}
@@ -155,7 +154,7 @@ defmodule Sourceror.Comments do
 
     comments =
       Enum.map(trailing_comments, fn comment ->
-        line = meta[:end_of_expression][:line] || meta[:line]
+        line = meta.end_of_expression.line || meta.line
 
         %{comment | line: line - 1, previous_eol_count: 1}
       end)

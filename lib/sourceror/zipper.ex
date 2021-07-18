@@ -24,7 +24,7 @@ defmodule Sourceror.Zipper do
 
   import Kernel, except: [node: 1]
 
-  @type tree :: Macro.t()
+  @type tree :: Sourceror.t()
   @type path :: %{
           l: [tree],
           ptree: zipper,

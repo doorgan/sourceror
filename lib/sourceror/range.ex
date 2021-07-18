@@ -7,13 +7,14 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
+  @spec get_range(Sourceror.ast_node(), keyword) :: Sourceror.range()
   def get_range(quoted, _opts \\ []) do
     range = do_get_range(quoted)
 
     comments =
       case quoted do
         {_, meta, _} ->
-          meta[:leading_comments] || []
+          meta.leading_comments || []
 
         _ ->
           []
@@ -24,22 +25,22 @@ defmodule Sourceror.Range do
 
     {start_line, start_column} =
       if first_comment do
-        {first_comment.line, min(range.start[:column], first_comment.column || 1)}
+        {first_comment.line, min(range.start.column, first_comment.column || 1)}
       else
-        {range.start[:line], range.start[:column]}
+        {range.start.line, range.start.column}
       end
 
     end_column =
-      if last_comment && last_comment.line == range.start[:line] do
+      if last_comment && last_comment.line == range.start.line do
         comment_length = String.length(last_comment.text)
-        max(range.end[:column], (last_comment.column || 1) + comment_length)
+        max(range.end.column, (last_comment.column || 1) + comment_length)
       else
-        range.end[:column]
+        range.end.column
       end
 
     %{
-      start: [line: start_line, column: start_column],
-      end: [line: range.end[:line], column: end_column]
+      start: %{line: start_line, column: start_column},
+      end: %{line: range.end.line, column: end_column}
     }
   end
 
@@ -48,11 +49,11 @@ defmodule Sourceror.Range do
 
   # Module aliases
   defp do_get_range({:__aliases__, meta, segments}) do
-    start_pos = Keyword.take(meta, [:line, :column])
+    start_pos = Map.take(meta, [:line, :column])
 
     last_segment_length = List.last(segments) |> to_string() |> String.length()
 
-    end_pos = meta[:last] |> Keyword.update!(:column, &(&1 + last_segment_length))
+    end_pos = meta.last |> Map.update!(:column, &(&1 + last_segment_length))
 
     %{start: start_pos, end: end_pos}
   end
@@ -63,22 +64,22 @@ defmodule Sourceror.Range do
 
     last_line = List.last(lines) || ""
 
-    end_line = meta[:line] + length(lines)
+    end_line = meta.line + length(lines)
 
     end_line =
-      if meta[:delimiter] in [~S/"""/, ~S/'''/] do
+      if meta.delimiter in [~S/"""/, ~S/'''/] do
         end_line
       else
         end_line - 1
       end
 
     end_column =
-      if meta[:delimiter] in [~S/"""/, ~S/'''/] do
-        meta[:column] + String.length(meta[:delimiter])
+      if meta.delimiter in [~S/"""/, ~S/'''/] do
+        meta.column + String.length(meta.delimiter)
       else
-        count = meta[:column] + String.length(last_line) + String.length(meta[:delimiter])
+        count = meta.column + String.length(last_line) + String.length(meta.delimiter)
 
-        if end_line == meta[:line] do
+        if end_line == meta.line do
           count + 1
         else
           count
@@ -86,8 +87,8 @@ defmodule Sourceror.Range do
       end
 
     %{
-      start: Keyword.take(meta, [:line, :column]),
-      end: [line: end_line, column: end_column]
+      start: Map.take(meta, [:line, :column]),
+      end: %{line: end_line, column: end_column}
     }
   end
 
@@ -96,14 +97,14 @@ defmodule Sourceror.Range do
        when form in [:int, :float]
        when is_integer(number) or is_float(number) do
     %{
-      start: Keyword.take(meta, [:line, :column]),
-      end: [line: meta[:line], column: meta[:column] + String.length(meta[:token])]
+      start: Map.take(meta, [:line, :column]),
+      end: %{line: meta.line, column: meta.column + String.length(meta.token)}
     }
   end
 
   # Atoms
   defp do_get_range({:atom, meta, atom}) when is_atom(atom) do
-    start_pos = Keyword.take(meta, [:line, :column])
+    start_pos = Map.take(meta, [:line, :column])
     string = Atom.to_string(atom)
 
     delimiter = meta[:delimiter] || ""
@@ -112,28 +113,28 @@ defmodule Sourceror.Range do
 
     last_line = List.last(lines) || ""
 
-    end_line = meta[:line] + length(lines) - 1
+    end_line = meta.line + length(lines) - 1
 
-    end_column = meta[:column] + String.length(last_line) + String.length(delimiter)
+    end_column = meta.column + String.length(last_line) + String.length(delimiter)
 
     end_column =
       cond do
-        end_line == meta[:line] && meta[:delimiter] ->
+        end_line == meta.line && meta[:delimiter] ->
           # Column and first delimiter
           end_column + 2
 
-        end_line == meta[:line] ->
+        end_line == meta.line ->
           # Just the colon
           end_column + 1
 
-        end_line != meta[:line] ->
+        end_line != meta.line ->
           # You're beautiful as you are, Courage
           end_column
       end
 
     %{
       start: start_pos,
-      end: [line: end_line, column: end_column]
+      end: %{line: end_line, column: end_column}
     }
   end
 
@@ -154,12 +155,12 @@ defmodule Sourceror.Range do
 
   # Variables
   defp do_get_range({:var, meta, name}) when is_atom(name) do
-    start_pos = Keyword.take(meta, [:line, :column])
+    start_pos = Map.take(meta, [:line, :column])
 
-    end_pos = [
-      line: start_pos[:line],
-      column: start_pos[:column] + String.length(Atom.to_string(name))
-    ]
+    end_pos = %{
+      line: start_pos.line,
+      column: start_pos.column + String.length(Atom.to_string(name))
+    }
 
     %{start: start_pos, end: end_pos}
   end
@@ -188,8 +189,7 @@ defmodule Sourceror.Range do
 
   # Interpolated atoms
   defp do_get_range({{:., _, [:erlang, :binary_to_atom]}, meta, [interpolation, :utf8]}) do
-    interpolation =
-      Macro.update_meta(interpolation, &Keyword.put(&1, :delimiter, meta[:delimiter]))
+    interpolation = Sourceror.update_meta(interpolation, &Map.put(&1, :delimiter, meta.delimiter))
 
     get_range_for_interpolation(interpolation)
   end
@@ -200,21 +200,21 @@ defmodule Sourceror.Range do
       get_range_for_node_with_closing_line(quoted)
     else
       start_pos = get_range(left).start
-      identifier_pos = Keyword.take(meta, [:line, :column])
+      identifier_pos = Map.take(meta, [:line, :column])
 
       parens_length =
-        if meta[:no_parens] do
+        if meta.no_parens do
           0
         else
           2
         end
 
-      end_pos = [
-        line: identifier_pos[:line],
+      end_pos = %{
+        line: identifier_pos.line,
         column:
-          identifier_pos[:column] + String.length(Atom.to_string(right)) +
+          identifier_pos.column + String.length(Atom.to_string(right)) +
             parens_length
-      ]
+      }
 
       %{start: start_pos, end: end_pos}
     end
@@ -234,17 +234,17 @@ defmodule Sourceror.Range do
 
   # Unary operators
   defp do_get_range({op, meta, [arg]}) when is_unary_op(op) do
-    start_pos = Keyword.take(meta, [:line, :column])
+    start_pos = Map.take(meta, [:line, :column])
     arg_range = get_range(arg)
 
     end_column =
-      if arg_range.end[:line] == meta[:line] do
-        arg_range.end[:column]
+      if arg_range.end.line == meta.line do
+        arg_range.end.column
       else
-        arg_range.end[:column] + String.length(to_string(op))
+        arg_range.end.column + String.length(to_string(op))
       end
 
-    %{start: start_pos, end: [line: arg_range.end[:line], column: end_column]}
+    %{start: start_pos, end: %{line: arg_range.end.line, column: end_column}}
   end
 
   # Binary operators
@@ -274,31 +274,31 @@ defmodule Sourceror.Range do
 
   # Sigils
   defp do_get_range({:"~", meta, [_name, {:<<>>, _, segments}, modifiers]}) do
-    start_pos = Keyword.take(meta, [:line, :column])
+    start_pos = Map.take(meta, [:line, :column])
 
     end_pos =
-      get_end_pos_for_interpolation_segments(segments, meta[:delimiter], start_pos)
-      |> Keyword.update!(:column, &(&1 + length(modifiers)))
+      get_end_pos_for_interpolation_segments(segments, meta.delimiter, start_pos)
+      |> Map.update!(:column, &(&1 + length(modifiers)))
 
     end_pos =
       cond do
-        multiline_delimiter?(meta[:delimiter]) and !has_interpolations?(segments) ->
+        multiline_delimiter?(meta.delimiter) and !has_interpolations?(segments) ->
           # If it has no interpolations and is a multiline sigil, then the first
           # line will be incorrectly reported because the first string in the
           # segments(which is the only one) won't have a leading newline, so
           # we're compensating for that here. The end column will be at the same
           # indentation as the start column, plus the length of the multiline
           # delimiter
-          [line: end_pos[:line] + 1, column: start_pos[:column] + 3]
+          %{line: end_pos[:line] + 1, column: start_pos[:column] + 3}
 
-        multiline_delimiter?(meta[:delimiter]) or has_interpolations?(segments) ->
+        multiline_delimiter?(meta.delimiter) or has_interpolations?(segments) ->
           # If it's a multiline sigil or has interpolations, then the positions
           # will already be correctly calculated
           end_pos
 
         true ->
           # If it's a single line sigil, add the offset for the ~x
-          Keyword.update!(end_pos, :column, &(&1 + 2))
+          Map.update!(end_pos, :column, &(&1 + 2))
       end
 
     %{
@@ -312,37 +312,37 @@ defmodule Sourceror.Range do
     get_range_for_unqualified_call(quoted)
   end
 
-  defp get_range_for_unqualified_call({_call, meta, args} = quoted) do
+  defp get_range_for_unqualified_call({_call, meta, args} = quoted)
+       when is_map(meta) and is_list(args) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
-      start_pos = Keyword.take(meta, [:line, :column])
+      start_pos = Map.take(meta, [:line, :column])
       end_pos = get_range(List.last(args)).end
 
       %{start: start_pos, end: end_pos}
     end
   end
 
-  defp get_range_for_node_with_closing_line({_, meta, _} = quoted) do
+  defp get_range_for_node_with_closing_line({_, meta, _} = quoted) when is_map(meta) do
     start_position = Sourceror.get_start_position(quoted)
     end_position = Sourceror.get_end_position(quoted)
 
     end_position =
-      if Keyword.has_key?(meta, :end) do
-        Keyword.update!(end_position, :column, &(&1 + 3))
+      if Map.has_key?(meta, :end) do
+        Map.update!(end_position, :column, &(&1 + 3))
       else
         # If it doesn't have an end token, then it has either a ), a ] or a }
-        Keyword.update!(end_position, :column, &(&1 + 1))
+        Map.update!(end_position, :column, &(&1 + 1))
       end
 
     %{start: start_position, end: end_position}
   end
 
   defp get_range_for_interpolation({:<<>>, meta, segments}) do
-    start_pos = Keyword.take(meta, [:line, :column])
+    start_pos = Map.take(meta, [:line, :column])
 
-    end_pos =
-      get_end_pos_for_interpolation_segments(segments, meta[:delimiter] || "\"", start_pos)
+    end_pos = get_end_pos_for_interpolation_segments(segments, meta.delimiter || "\"", start_pos)
 
     %{start: start_pos, end: end_pos}
   end
@@ -358,33 +358,32 @@ defmodule Sourceror.Range do
 
           column =
             if line_count > 0 do
-              start_pos[:column] + length
+              start_pos.column + length
             else
-              pos[:column] + length
+              pos.column + length
             end
 
-          [
-            line: pos[:line] + line_count,
+          %{
+            line: pos.line + line_count,
             column: column
-          ]
+          }
 
         {:"::", _, [{_, meta, _}, {_, _, :binary}]}, _pos ->
-          meta
-          |> Keyword.get(:closing)
-          |> Keyword.take([:line, :column])
+          meta.closing
+          |> Map.take([:line, :column])
           # Add the closing }
-          |> Keyword.update!(:column, &(&1 + 1))
+          |> Map.update!(:column, &(&1 + 1))
       end)
 
     cond do
       multiline_delimiter?(delimiter) and has_interpolations?(segments) ->
-        [line: end_pos[:line], column: String.length(delimiter) + 1]
+        %{line: end_pos.line, column: String.length(delimiter) + 1}
 
       has_interpolations?(segments) ->
-        Keyword.update!(end_pos, :column, &(&1 + 1))
+        Map.update!(end_pos, :column, &(&1 + 1))
 
       true ->
-        Keyword.update!(end_pos, :column, &(&1 + 2))
+        Map.update!(end_pos, :column, &(&1 + 2))
     end
   end
 

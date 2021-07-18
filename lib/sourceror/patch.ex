@@ -27,12 +27,12 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "~F(foo)"
   """
-  @spec rename_call(call :: Macro.t(), new_name :: atom | String.t()) :: [Sourceror.patch()]
+  @spec rename_call(call :: Sourceror.t(), new_name :: atom | String.t()) :: [Sourceror.patch()]
   def rename_call({{:., _, [_, call]}, meta, _}, new_name) do
     new_name = to_string(new_name)
 
-    start_pos = [line: meta[:line], column: meta[:column]]
-    end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(call))]
+    start_pos = %{line: meta[:line], column: meta[:column]}
+    end_pos = %{line: meta[:line], column: meta[:column] + String.length(to_string(call))}
     range = %{start: start_pos, end: end_pos}
 
     [%{range: range, change: new_name}]
@@ -45,16 +45,16 @@ defmodule Sourceror.Patch do
       raise ArgumentError, "The sigil name must be a single letter character"
     end
 
-    start_pos = [line: meta[:line], column: meta[:column] + 1]
-    end_pos = [line: meta[:line], column: meta[:column] + 2]
+    start_pos = %{line: meta[:line], column: meta[:column] + 1}
+    end_pos = %{line: meta[:line], column: meta[:column] + 2}
     range = %{start: start_pos, end: end_pos}
     [%{range: range, change: new_name}]
   end
 
   def rename_call({call, meta, args}, new_name) when is_atom(call) and is_list(args) do
     new_name = to_string(new_name)
-    start_pos = [line: meta[:line], column: meta[:column]]
-    end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(call))]
+    start_pos = %{line: meta[:line], column: meta[:column]}
+    end_pos = %{line: meta[:line], column: meta[:column] + String.length(to_string(call))}
     range = %{start: start_pos, end: end_pos}
     [%{range: range, change: new_name}]
   end
@@ -70,14 +70,14 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "bar"
   """
-  @spec rename_identifier(identifier :: Macro.t(), new_name :: atom | String.t()) :: [
+  @spec rename_identifier(identifier :: Sourceror.t(), new_name :: atom | String.t()) :: [
           Sourceror.patch()
         ]
   def rename_identifier({:var, meta, identifier}, new_name) when is_atom(identifier) do
     new_name = to_string(new_name)
 
-    start_pos = [line: meta[:line], column: meta[:column]]
-    end_pos = [line: meta[:line], column: meta[:column] + String.length(to_string(identifier))]
+    start_pos = %{line: meta[:line], column: meta[:column]}
+    end_pos = %{line: meta[:line], column: meta[:column] + String.length(to_string(identifier))}
     range = %{start: start_pos, end: end_pos}
 
     [%{range: range, change: new_name}]
@@ -97,15 +97,16 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "[foo: b, c: d, bar: f]"
   """
-  @spec rename_kw_keys(keyword :: Macro.t(), replacements :: keyword) :: [Sourceror.patch()]
+  @spec rename_kw_keys(keyword :: Sourceror.t(), replacements :: keyword) :: [Sourceror.patch()]
   def rename_kw_keys({[], _, items}, replacements) do
     for {{:atom, meta, key} = quoted, _} <- items,
         meta[:format] == :keyword,
         new_key = replacements[key],
-        new_key != nil,
+        not is_nil(new_key),
         do: patch_for_kw_key(quoted, new_key)
   end
 
+  @spec patch_for_kw_key(Sourceror.ast_node(), String.t() | atom) :: Sourceror.patch()
   defp patch_for_kw_key(quoted, new_key) do
     range =
       quoted

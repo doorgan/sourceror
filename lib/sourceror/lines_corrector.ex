@@ -21,7 +21,7 @@ defmodule Sourceror.LinesCorrector do
     {quoted, state} =
       cond do
         is_nil(meta[:line]) ->
-          meta = Keyword.put(meta, :line, state.last_line)
+          meta = Map.put(meta, :line, state.last_line)
           {{form, meta, args}, state}
 
         get_line(quoted) < state.last_line ->
@@ -69,13 +69,14 @@ defmodule Sourceror.LinesCorrector do
     {quoted, state}
   end
 
-  defp maybe_correct_end_of_expression({form, meta, args} = quoted, last_line) do
+  defp maybe_correct_end_of_expression({form, meta, args} = quoted, last_line)
+       when is_map(meta) do
     meta =
       if meta[:end_of_expression] || has_trailing_comments?(quoted) do
-        eoe = meta[:end_of_expression] || []
-        eoe = Keyword.put(eoe, :line, last_line)
+        eoe = meta[:end_of_expression] || %{}
+        eoe = Map.put(eoe, :line, last_line)
 
-        Keyword.put(meta, :end_of_expression, eoe)
+        Map.put(meta, :end_of_expression, eoe)
       else
         meta
       end

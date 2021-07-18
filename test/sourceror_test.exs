@@ -82,13 +82,13 @@ defmodule SourcerorTest do
         42
         """)
 
-      assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} = parsed
+      assert {:ok, {:foo, _, [[{{:atom, _, :do}, {:atom, _, :ok}}]]}, _} = parsed
     end
 
     test "does not success on empty strings" do
       assert {:error, _} = Sourceror.parse_expression("")
 
-      assert {:ok, {:__block__, _, [:ok]}, ""} =
+      assert {:ok, {:atom, _, :ok}, ""} =
                Sourceror.parse_expression(~S"""
 
                :ok
@@ -104,12 +104,12 @@ defmodule SourcerorTest do
       :c
       """
 
-      assert {:ok, {_, _, [:a]}, _} = Sourceror.parse_expression(source, from_line: 1)
+      assert {:ok, {:atom, _, :a}, _} = Sourceror.parse_expression(source, from_line: 1)
 
-      assert {:ok, {:foo, _, [[{{_, _, [:do]}, {_, _, [:ok]}}]]}, _} =
+      assert {:ok, {:foo, _, [[{{:atom, _, :do}, {:atom, _, :ok}}]]}, _} =
                Sourceror.parse_expression(source, from_line: 2)
 
-      assert {:ok, {_, _, [:c]}, _} = Sourceror.parse_expression(source, from_line: 5)
+      assert {:ok, {:atom, _, :c}, _} = Sourceror.parse_expression(source, from_line: 5)
     end
   end
 
@@ -202,7 +202,7 @@ defmodule SourcerorTest do
     end
 
     test "with format: :splicing" do
-      assert "a: b" == Sourceror.to_string([{:a, {:b, [], nil}}], format: :splicing)
+      assert "a: b" == Sourceror.to_string([{:a, {:b, %{}, nil}}], format: :splicing)
       assert "1, 2, 3" == Sourceror.to_string([1, 2, 3], format: :splicing)
       assert "{:foo, :bar}" == Sourceror.to_string({:foo, :bar}, format: :splicing)
     end
@@ -210,29 +210,29 @@ defmodule SourcerorTest do
 
   describe "correct_lines/2" do
     test "corrects all line fields" do
-      assert [line: 2] = Sourceror.correct_lines([line: 1], 1)
-      assert [closing: [line: 2]] = Sourceror.correct_lines([closing: [line: 1]], 1)
-      assert [do: [line: 2]] = Sourceror.correct_lines([do: [line: 1]], 1)
-      assert [end: [line: 2]] = Sourceror.correct_lines([end: [line: 1]], 1)
+      assert %{line: 2} = Sourceror.correct_lines(%{line: 1}, 1)
+      assert %{closing: %{line: 2}} = Sourceror.correct_lines(%{closing: %{line: 1}}, 1)
+      assert %{do: %{line: 2}} = Sourceror.correct_lines(%{do: %{line: 1}}, 1)
+      assert %{end: %{line: 2}} = Sourceror.correct_lines(%{end: %{line: 1}}, 1)
 
-      assert [end_of_expression: [line: 2]] =
-               Sourceror.correct_lines([end_of_expression: [line: 1]], 1)
+      assert %{end_of_expression: %{line: 2}} =
+               Sourceror.correct_lines(%{end_of_expression: %{line: 1}}, 1)
 
-      assert [
+      assert %{
                line: 2,
-               closing: [line: 2],
-               do: [line: 2],
-               end: [line: 2],
-               end_of_expression: [line: 2]
-             ] =
+               closing: %{line: 2},
+               do: %{line: 2},
+               end: %{line: 2},
+               end_of_expression: %{line: 2}
+             } =
                Sourceror.correct_lines(
-                 [
+                 %{
                    line: 1,
-                   closing: [line: 1],
-                   do: [line: 1],
-                   end: [line: 1],
-                   end_of_expression: [line: 1]
-                 ],
+                   closing: %{line: 1},
+                   do: %{line: 1},
+                   end: %{line: 1},
+                   end_of_expression: %{line: 1}
+                 },
                  1
                )
     end
@@ -241,19 +241,19 @@ defmodule SourcerorTest do
   describe "get_start_position/2" do
     test "returns the start position" do
       quoted = Sourceror.parse_string!(" :foo")
-      assert Sourceror.get_start_position(quoted) == [line: 1, column: 2]
+      assert Sourceror.get_start_position(quoted) == %{line: 1, column: 2}
 
       quoted = Sourceror.parse_string!("\n\nfoo()")
-      assert Sourceror.get_start_position(quoted) == [line: 3, column: 1]
+      assert Sourceror.get_start_position(quoted) == %{line: 3, column: 1}
 
       quoted = Sourceror.parse_string!("Foo.{Bar}")
-      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+      assert Sourceror.get_start_position(quoted) == %{line: 1, column: 1}
 
       quoted = Sourceror.parse_string!("foo[:bar]")
-      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+      assert Sourceror.get_start_position(quoted) == %{line: 1, column: 1}
 
       quoted = Sourceror.parse_string!("foo(:bar)")
-      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+      assert Sourceror.get_start_position(quoted) == %{line: 1, column: 1}
     end
   end
 
@@ -267,7 +267,7 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+      assert Sourceror.get_end_position(quoted) == %{line: 3, column: 1}
 
       quoted =
         ~S"""
@@ -277,7 +277,7 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+      assert Sourceror.get_end_position(quoted) == %{line: 3, column: 1}
 
       quoted =
         ~S"""
@@ -288,24 +288,27 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_end_position(quoted) == [line: 4, column: 4]
+      assert Sourceror.get_end_position(quoted) == %{line: 4, column: 4}
     end
   end
 
   describe "compare_positions/2" do
     test "correctly compares positions" do
-      assert Sourceror.compare_positions([line: 1, column: 1], line: 1, column: 1) == :eq
-      assert Sourceror.compare_positions([line: nil, column: nil], line: nil, column: nil) == :eq
-      assert Sourceror.compare_positions([line: 2, column: 1], line: 1, column: 1) == :gt
-      assert Sourceror.compare_positions([line: 1, column: 5], line: 1, column: 1) == :gt
-      assert Sourceror.compare_positions([line: 1, column: 1], line: 2, column: 1) == :lt
-      assert Sourceror.compare_positions([line: 1, column: 1], line: 1, column: 5) == :lt
-      assert Sourceror.compare_positions([line: 1, column: 1], line: 2, column: 2) == :lt
+      assert Sourceror.compare_positions(%{line: 1, column: 1}, %{line: 1, column: 1}) == :eq
+
+      assert Sourceror.compare_positions(%{line: nil, column: nil}, %{line: nil, column: nil}) ==
+               :eq
+
+      assert Sourceror.compare_positions(%{line: 2, column: 1}, %{line: 1, column: 1}) == :gt
+      assert Sourceror.compare_positions(%{line: 1, column: 5}, %{line: 1, column: 1}) == :gt
+      assert Sourceror.compare_positions(%{line: 1, column: 1}, %{line: 2, column: 1}) == :lt
+      assert Sourceror.compare_positions(%{line: 1, column: 1}, %{line: 1, column: 5}) == :lt
+      assert Sourceror.compare_positions(%{line: 1, column: 1}, %{line: 2, column: 2}) == :lt
     end
 
     test "nil is strictly less than integers" do
-      assert Sourceror.compare_positions([line: nil, column: nil], line: 1, column: 1) == :lt
-      assert Sourceror.compare_positions([line: 1, column: 1], line: nil, column: nil) == :gt
+      assert Sourceror.compare_positions(%{line: nil, column: nil}, %{line: 1, column: 1}) == :lt
+      assert Sourceror.compare_positions(%{line: 1, column: 1}, %{line: nil, column: nil}) == :gt
     end
   end
 
@@ -320,8 +323,8 @@ defmodule SourcerorTest do
         |> Sourceror.parse_string!()
 
       assert Sourceror.get_range(quoted) == %{
-               start: [line: 1, column: 1],
-               end: [line: 3, column: 4]
+               start: %{line: 1, column: 1},
+               end: %{line: 3, column: 4}
              }
 
       quoted =
@@ -333,8 +336,8 @@ defmodule SourcerorTest do
         |> Sourceror.parse_string!()
 
       assert Sourceror.get_range(quoted) == %{
-               start: [line: 1, column: 1],
-               end: [line: 3, column: 2]
+               start: %{line: 1, column: 1},
+               end: %{line: 3, column: 2}
              }
     end
   end
@@ -573,7 +576,7 @@ defmodule SourcerorTest do
 
       patch = %{
         change: "world",
-        range: %{start: [line: 1, column: 7], end: [line: 1, column: 10]}
+        range: %{start: %{line: 1, column: 7}, end: %{line: 1, column: 10}}
       }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
@@ -589,15 +592,15 @@ defmodule SourcerorTest do
       patches = [
         %{
           change: "a",
-          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
+          range: %{start: %{line: 1, column: 1}, end: %{line: 1, column: 4}}
         },
         %{
           change: "something long",
-          range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+          range: %{start: %{line: 1, column: 5}, end: %{line: 1, column: 8}}
         },
         %{
           change: "c",
-          range: %{start: [line: 1, column: 9], end: [line: 1, column: 12]}
+          range: %{start: %{line: 1, column: 9}, end: %{line: 1, column: 12}}
         }
       ]
 
@@ -621,7 +624,7 @@ defmodule SourcerorTest do
 
       patch = %{
         change: patch_text,
-        range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+        range: %{start: %{line: 1, column: 1}, end: %{line: 3, column: 4}}
       }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
@@ -648,7 +651,7 @@ defmodule SourcerorTest do
 
       patch = %{
         change: patch_text,
-        range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
+        range: %{start: %{line: 1, column: 8}, end: %{line: 3, column: 6}}
       }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
@@ -678,8 +681,8 @@ defmodule SourcerorTest do
           end
           """),
         range: %{
-          start: [line: 1, column: 1],
-          end: [line: 2, column: 4]
+          start: %{line: 1, column: 1},
+          end: %{line: 2, column: 4}
         }
       }
 
@@ -691,8 +694,8 @@ defmodule SourcerorTest do
           end
           """),
         range: %{
-          start: [line: 4, column: 1],
-          end: [line: 7, column: 4]
+          start: %{line: 4, column: 1},
+          end: %{line: 7, column: 4}
         }
       }
 
@@ -726,8 +729,8 @@ defmodule SourcerorTest do
           end
           """),
         range: %{
-          start: [line: 2, column: 3],
-          end: [line: 4, column: 6]
+          start: %{line: 2, column: 3},
+          end: %{line: 4, column: 6}
         },
         preserve_indentation: false
       }
@@ -750,7 +753,7 @@ defmodule SourcerorTest do
 
       patch = %{
         change: &String.upcase/1,
-        range: %{start: [line: 1, column: 7], end: [line: 1, column: 12]}
+        range: %{start: %{line: 1, column: 7}, end: %{line: 1, column: 12}}
       }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
@@ -770,8 +773,8 @@ defmodule SourcerorTest do
       patch = %{
         change: &String.upcase/1,
         range: %{
-          start: [line: 2, column: 3],
-          end: [line: 4, column: 6]
+          start: %{line: 2, column: 3},
+          end: %{line: 4, column: 6}
         }
       }
 
