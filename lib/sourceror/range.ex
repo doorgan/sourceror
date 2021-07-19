@@ -67,17 +67,18 @@ defmodule Sourceror.Range do
     end_line = meta.line + length(lines)
 
     end_line =
-      if meta.delimiter in [~S/"""/, ~S/'''/] do
+      if multiline_delimiter?(meta[:delimiter]) do
         end_line
       else
         end_line - 1
       end
 
     end_column =
-      if meta.delimiter in [~S/"""/, ~S/'''/] do
+      if multiline_delimiter?(meta[:delimiter]) do
         meta.column + String.length(meta.delimiter)
       else
-        count = meta.column + String.length(last_line) + String.length(meta.delimiter)
+        count =
+          meta.column + String.length(last_line) + String.length(Map.get(meta, :delimiter, ""))
 
         if end_line == meta.line do
           count + 1
@@ -188,10 +189,8 @@ defmodule Sourceror.Range do
   end
 
   # Interpolated atoms
-  defp do_get_range({{:., _, [:erlang, :binary_to_atom]}, meta, [interpolation, :utf8]}) do
-    interpolation = Sourceror.update_meta(interpolation, &Map.put(&1, :delimiter, meta.delimiter))
-
-    get_range_for_interpolation(interpolation)
+  defp do_get_range({{:<<>>, :atom}, meta, segments}) do
+    get_range_for_interpolation(segments, meta)
   end
 
   # Qualified call
@@ -264,46 +263,23 @@ defmodule Sourceror.Range do
   end
 
   # Bitstrings and interpolations
-  defp do_get_range({:<<>>, meta, _} = quoted) do
-    if meta[:delimiter] do
-      get_range_for_interpolation(quoted)
-    else
-      get_range_for_bitstring(quoted)
-    end
+  defp do_get_range({:<<>>, _, _} = quoted) do
+    get_range_for_bitstring(quoted)
+  end
+
+  defp do_get_range({{:<<>>, :string}, meta, segments}) do
+    get_range_for_interpolation(segments, meta)
   end
 
   # Sigils
-  defp do_get_range({:"~", meta, [_name, {:<<>>, _, segments}, modifiers]}) do
+  defp do_get_range({:"~", meta, [_name, segments, modifiers]}) do
     start_pos = Map.take(meta, [:line, :column])
 
-    end_pos =
-      get_end_pos_for_interpolation_segments(segments, meta.delimiter, start_pos)
-      |> Map.update!(:column, &(&1 + length(modifiers)))
-
-    end_pos =
-      cond do
-        multiline_delimiter?(meta.delimiter) and !has_interpolations?(segments) ->
-          # If it has no interpolations and is a multiline sigil, then the first
-          # line will be incorrectly reported because the first string in the
-          # segments(which is the only one) won't have a leading newline, so
-          # we're compensating for that here. The end column will be at the same
-          # indentation as the start column, plus the length of the multiline
-          # delimiter
-          %{line: end_pos[:line] + 1, column: start_pos[:column] + 3}
-
-        multiline_delimiter?(meta.delimiter) or has_interpolations?(segments) ->
-          # If it's a multiline sigil or has interpolations, then the positions
-          # will already be correctly calculated
-          end_pos
-
-        true ->
-          # If it's a single line sigil, add the offset for the ~x
-          Map.update!(end_pos, :column, &(&1 + 2))
-      end
+    end_pos = get_range_for_interpolation(segments, meta).end
 
     %{
       start: start_pos,
-      end: end_pos
+      end: %{end_pos | column: end_pos.column + length(modifiers)}
     }
   end
 
@@ -339,56 +315,42 @@ defmodule Sourceror.Range do
     %{start: start_position, end: end_position}
   end
 
-  defp get_range_for_interpolation({:<<>>, meta, segments}) do
+  defp get_range_for_interpolation(segments, meta) do
     start_pos = Map.take(meta, [:line, :column])
 
-    end_pos = get_end_pos_for_interpolation_segments(segments, meta.delimiter || "\"", start_pos)
-
-    %{start: start_pos, end: end_pos}
-  end
-
-  def get_end_pos_for_interpolation_segments(segments, delimiter, start_pos) do
     end_pos =
-      Enum.reduce(segments, start_pos, fn
-        string, pos when is_binary(string) ->
+      case List.last(segments) do
+        {:string, %{line: line, column: column}, string} ->
           lines = split_on_newline(string)
-          length = String.length(List.last(lines) || "")
-
-          line_count = length(lines) - 1
+          line = line + length(lines) - 1
 
           column =
-            if line_count > 0 do
-              start_pos.column + length
+            if length(lines) > 1 do
+              meta[:indentation] || 0 + (lines |> List.last() |> String.length()) + 1
             else
-              pos.column + length
+              column + (lines |> List.last() |> String.length())
             end
 
-          %{
-            line: pos.line + line_count,
-            column: column
-          }
+          %{line: line, column: column}
 
-        {:"::", _, [{_, meta, _}, {_, _, :binary}]}, _pos ->
-          meta.closing
-          |> Map.take([:line, :column])
-          # Add the closing }
-          |> Map.update!(:column, &(&1 + 1))
-      end)
+        quoted ->
+          get_range(quoted).end
+      end
 
-    cond do
-      multiline_delimiter?(delimiter) and has_interpolations?(segments) ->
-        %{line: end_pos.line, column: String.length(delimiter) + 1}
-
-      has_interpolations?(segments) ->
+    end_pos =
+      if multiline_delimiter?(meta.delimiter) do
+        # If it's a heredoc then the column is the heredoc indentation plus the
+        # columns from the triple quotes
+        %{line: end_pos[:line], column: meta[:indentation] + 4}
+      else
+        # If it's a single line sigil, add the offset for the closing delimiter
         Map.update!(end_pos, :column, &(&1 + 1))
+      end
 
-      true ->
-        Map.update!(end_pos, :column, &(&1 + 2))
-    end
-  end
-
-  defp has_interpolations?(segments) do
-    Enum.any?(segments, &match?({:"::", _, _}, &1))
+    %{
+      start: start_pos,
+      end: %{end_pos | column: end_pos.column}
+    }
   end
 
   defp multiline_delimiter?(delimiter) do

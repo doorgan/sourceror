@@ -1,7 +1,7 @@
-Code.require_file("../test_helper.exs", __DIR__)
-
 defmodule SourcerorTest.Code.Normalizer.FormatterASTTest do
   use ExUnit.Case, async: true
+
+  @moduletag :compatibility
 
   defmacro assert_same(good, opts \\ []) do
     quote bind_quoted: [good: good, opts: opts], location: :keep do

@@ -46,6 +46,7 @@ defmodule Sourceror.Zipper do
   """
   @spec children(tree) :: [tree]
   def children({form, _, args}) when is_atom(form) and is_list(args), do: args
+  def children({{:<<>>, _}, _, args}), do: args
   def children({[], _, args}), do: args
   def children({form, _, args}) when is_list(args), do: [form | args]
   def children({left, right}), do: [left, right]
@@ -57,6 +58,7 @@ defmodule Sourceror.Zipper do
   @spec make_node(tree, [tree]) :: tree
 
   def make_node({form, meta, _}, args) when is_atom(form), do: {form, meta, args}
+  def make_node({{:<<>>, type}, meta, _}, args), do: {{:<<>>, type}, meta, args}
   def make_node({[], meta, _}, args), do: {[], meta, args}
 
   def make_node({_form, meta, args}, [first | rest]) when is_list(args), do: {first, meta, rest}

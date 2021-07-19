@@ -1,7 +1,7 @@
-Code.require_file("../test_helper.exs", __DIR__)
-
 defmodule SourcerorTest.Code.Normalizer.QuotedASTTest do
   use ExUnit.Case, async: true
+
+  @moduletag :compatibility
 
   describe "quoted_to_algebra/2" do
     test "variable" do

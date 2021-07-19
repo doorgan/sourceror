@@ -130,7 +130,7 @@ defmodule SourcerorTest.RangeTest do
              :"foo#{
                2
                }
-             bar"
+             xar"
              ''') == %{
                start: %{line: 1, column: 1},
                end: %{line: 4, column: 5}

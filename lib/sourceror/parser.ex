@@ -55,8 +55,10 @@ defmodule Sourceror.Parser do
     {:ok, {:float, normalize_metadata(metadata), float}}
   end
 
-  defp normalize_nodes(ast) do
-    Sourceror.prewalk(ast, &normalize_node/1)
+  @doc false
+  @spec normalize_nodes(Sourceror.ast_node()) :: Sourceror.ast_node()
+  def normalize_nodes(ast) do
+    Sourceror.postwalk(ast, &normalize_node/1)
   end
 
   defp normalize_node({:atom, metadata, atom}) when is_atom(atom) do
@@ -72,11 +74,98 @@ defmodule Sourceror.Parser do
     {:var, normalize_metadata(metadata), name}
   end
 
+  defp normalize_node({:<<>>, metadata, segments}) do
+    metadata = normalize_metadata(metadata)
+
+    start_pos = Map.take(metadata, [:line, :column])
+
+    if metadata[:delimiter] do
+      metadata =
+        if metadata.delimiter in ~w[""" '''] do
+          Map.put(metadata, :indentation, metadata.indentation)
+        else
+          metadata
+        end
+
+      start_pos =
+        if metadata.delimiter in ~w[""" '''] do
+          %{
+            line: start_pos.line + 1,
+            column: metadata.indentation + 1
+          }
+        else
+          %{
+            line: start_pos.line,
+            column: start_pos.column + 2 + String.length(metadata.delimiter)
+          }
+        end
+
+      {{:<<>>, :string}, metadata, normalize_interpolation(segments, start_pos)}
+    else
+      {:<<>>, normalize_metadata(metadata), segments}
+    end
+  end
+
+  defp normalize_node(
+         {{:., _, [:erlang, :binary_to_atom]}, metadata, [{:<<>>, _, segments}, :utf8]}
+       ) do
+    metadata = normalize_metadata(metadata)
+    start_pos = Map.take(metadata, [:line, :column])
+
+    metadata =
+      if metadata.delimiter in ~w[""" '''] do
+        Map.put(metadata, :indentation, metadata.indentation)
+      else
+        metadata
+      end
+
+    start_pos =
+      if metadata.delimiter in ~w[""" '''] do
+        %{
+          line: start_pos.line + 1,
+          column: metadata.indentation + 1
+        }
+      else
+        %{
+          line: start_pos.line,
+          column: start_pos.column + 2 + String.length(metadata.delimiter)
+        }
+      end
+
+    {{:<<>>, :atom}, metadata, normalize_interpolation(segments, start_pos)}
+  end
+
   defp normalize_node({sigil, metadata, [args, modifiers]})
        when is_atom(sigil) and is_list(modifiers) do
     case Atom.to_string(sigil) do
       <<"sigil_", sigil>> when is_valid_sigil(sigil) ->
-        {:"~", normalize_metadata(metadata), [<<sigil>>, args, modifiers]}
+        {:<<>>, args_meta, args} = args
+
+        start_pos = Map.take(args_meta, [:line, :column])
+
+        metadata = normalize_metadata(metadata)
+
+        metadata =
+          if metadata.delimiter in ~w[""" '''] do
+            Map.put(metadata, :indentation, args_meta.indentation)
+          else
+            metadata
+          end
+
+        start_pos =
+          if metadata.delimiter in ~w[""" '''] do
+            %{
+              line: start_pos.line + 1,
+              column: args_meta.indentation + 1
+            }
+          else
+            %{
+              line: start_pos.line,
+              column: start_pos.column + 2 + String.length(metadata.delimiter)
+            }
+          end
+
+        {:"~", metadata, [<<sigil>>, normalize_interpolation(args, start_pos), modifiers]}
 
       _ ->
         {sigil, normalize_metadata(metadata), [args, modifiers]}
@@ -86,6 +175,45 @@ defmodule Sourceror.Parser do
   defp normalize_node({form, metadata, args}), do: {form, normalize_metadata(metadata), args}
 
   defp normalize_node(quoted), do: quoted
+
+  defp normalize_interpolation(segments, start_pos) do
+    {segments, _} =
+      Enum.reduce(segments, {[], start_pos}, fn
+        string, {segments, pos} when is_binary(string) ->
+          lines = split_on_newline(string)
+          length = String.length(List.last(lines) || "")
+
+          line_count = length(lines) - 1
+
+          column =
+            if line_count > 0 do
+              start_pos.column + length
+            else
+              pos.column + length
+            end
+
+          {[{:string, pos, string} | segments],
+           %{
+             line: pos.line + line_count,
+             column: column + 1
+           }}
+
+        {:"::", _, [{_, meta, _}, {_, _, :binary}]} = segment, {segments, _pos} ->
+          pos =
+            meta.closing
+            |> Map.take([:line, :column])
+            # Add the closing }
+            |> Map.update!(:column, &(&1 + 1))
+
+          {[segment | segments], pos}
+      end)
+
+    Enum.reverse(segments)
+  end
+
+  defp split_on_newline(string) do
+    String.split(string, ~r/\n|\r\n|\r/)
+  end
 
   @doc false
   def to_formatter_ast(quoted) do
@@ -106,7 +234,39 @@ defmodule Sourceror.Parser do
         block(to_formatter_meta(meta), list)
 
       {:"~", meta, [name, args, modifiers]} ->
-        {:"sigil_#{name}", to_formatter_meta(meta), [args, modifiers]}
+        args_meta = Map.take(meta, [:line, :column, :indentation])
+        meta = Map.drop(meta, [:indentation])
+
+        args =
+          Enum.map(args, fn
+            {:string, _, string} -> string
+            quoted -> quoted
+          end)
+
+        {:"sigil_#{name}", to_formatter_meta(meta), [{:<<>>, args_meta, args}, modifiers]}
+
+      {{:<<>>, :atom}, meta, segments} ->
+        meta = to_formatter_meta(meta)
+        dot_meta = Keyword.take(meta, [:line, :column])
+        args_meta = Keyword.take(meta, [:line, :column, :indentation])
+        meta = Keyword.drop(meta, [:indentation])
+
+        args =
+          Enum.map(segments, fn
+            {:string, _, string} -> string
+            quoted -> quoted
+          end)
+
+        {{:., dot_meta, [:erlang, :binary_to_atom]}, meta, [{:<<>>, args_meta, args}]}
+
+      {{:<<>>, :string}, meta, args} ->
+        args =
+          Enum.map(args, fn
+            {:string, _, string} -> string
+            quoted -> quoted
+          end)
+
+        {:<<>>, meta, args}
 
       {:var, meta, name} ->
         {name, to_formatter_meta(meta), nil}

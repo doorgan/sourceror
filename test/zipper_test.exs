@@ -25,6 +25,8 @@ defmodule SourcerorTest.ZipperTest do
       assert Z.children([1, 2, 3]) == [1, 2, 3]
       assert Z.children({:foo, [], [1, 2]}) == [1, 2]
 
+      assert Z.children({{:<<>>, :string}, [], ["foo"]}) == ["foo"]
+
       assert Z.children({{:., [], [:left, :right]}, [], [:arg]}) == [
                {:., [], [:left, :right]},
                :arg
@@ -53,6 +55,11 @@ defmodule SourcerorTest.ZipperTest do
 
     test "list nodes" do
       assert Z.make_node({[], [], [1, 2, 3]}, [:a, :b, :c]) == {[], [], [:a, :b, :c]}
+    end
+
+    test "interpolation" do
+      assert Z.make_node({{:<<>>, :atom}, [], ["foo"]}, ["foo", "bar"]) ==
+               {{:<<>>, :atom}, [], ["foo", "bar"]}
     end
 
     test "sigils" do

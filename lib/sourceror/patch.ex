@@ -97,7 +97,9 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "[foo: b, c: d, bar: f]"
   """
-  @spec rename_kw_keys(keyword :: Sourceror.t(), replacements :: keyword) :: [Sourceror.patch()]
+  @spec rename_kw_keys(keyword :: Sourceror.ast_node(), replacements :: keyword) :: [
+          Sourceror.patch()
+        ]
   def rename_kw_keys({[], _, items}, replacements) do
     for {{:atom, meta, key} = quoted, _} <- items,
         meta[:format] == :keyword,
@@ -106,7 +108,6 @@ defmodule Sourceror.Patch do
         do: patch_for_kw_key(quoted, new_key)
   end
 
-  @spec patch_for_kw_key(Sourceror.ast_node(), String.t() | atom) :: Sourceror.patch()
   defp patch_for_kw_key(quoted, new_key) do
     range =
       quoted
