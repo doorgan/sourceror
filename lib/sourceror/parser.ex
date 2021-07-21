@@ -44,7 +44,11 @@ defmodule Sourceror.Parser do
   end
 
   defp handle_literal(list, metadata) when is_list(list) do
-    {:ok, {[], normalize_metadata(metadata), list}}
+    if metadata[:delimiter] do
+      {:ok, {:charlist, metadata, List.to_string(list)}}
+    else
+      {:ok, {[], normalize_metadata(metadata), list}}
+    end
   end
 
   defp handle_literal(integer, metadata) when is_integer(integer) do
@@ -55,7 +59,9 @@ defmodule Sourceror.Parser do
     {:ok, {:float, normalize_metadata(metadata), float}}
   end
 
-  @doc false
+  @doc """
+  Converts regular AST nodes into Sourceror AST nodes.
+  """
   @spec normalize_nodes(Sourceror.ast_node()) :: Sourceror.ast_node()
   def normalize_nodes(ast) do
     Sourceror.postwalk(ast, &normalize_node/1)
@@ -215,7 +221,9 @@ defmodule Sourceror.Parser do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
-  @doc false
+  @doc """
+  Converts Sourceror AST back to regular Elixir AST for use with the formatter.
+  """
   def to_formatter_ast(quoted) do
     Sourceror.prewalk(quoted, fn
       {:atom, meta, atom} when is_atom(atom) ->
