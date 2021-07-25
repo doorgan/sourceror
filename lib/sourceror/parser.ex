@@ -24,6 +24,7 @@ defmodule Sourceror.Parser do
   defp to_quoted_opts do
     [
       literal_encoder: &handle_literal/2,
+      static_atoms_encoder: &encode_atom/2,
       token_metadata: true,
       unescape: false,
       columns: true,
@@ -31,9 +32,11 @@ defmodule Sourceror.Parser do
     ]
   end
 
-  defp handle_literal(atom, metadata) when is_atom(atom) do
-    {:ok, {:atom, metadata ++ [__literal__: true], atom}}
-  end
+  defp encode_atom(atom, metadata),
+    do: {:ok, {:atom, metadata ++ [__literal__: true], String.to_atom(atom)}}
+
+  defp handle_literal(atom, metadata) when is_atom(atom),
+    do: {:ok, {:atom, metadata ++ [__literal__: true], atom}}
 
   defp handle_literal(string, metadata) when is_binary(string) do
     {:ok, {:string, normalize_metadata(metadata), string}}
@@ -59,6 +62,9 @@ defmodule Sourceror.Parser do
     {:ok, {:float, normalize_metadata(metadata), float}}
   end
 
+  defp handle_literal({:atom, _, atom}, meta),
+    do: {:ok, {:atom, meta ++ [__literal__: true], atom}}
+
   @doc """
   Converts regular AST nodes into Sourceror AST nodes.
   """
@@ -79,6 +85,12 @@ defmodule Sourceror.Parser do
        when is_atom(name) and is_atom(context) do
     {:var, normalize_metadata(metadata), name}
   end
+
+  defp normalize_node({{:atom, _, form}, metadata, args}) when is_list(args),
+    do: {form, normalize_metadata(metadata), args}
+
+  defp normalize_node({{:atom, _, form}, metadata, context}) when is_atom(context),
+    do: {:var, normalize_metadata(metadata), form}
 
   defp normalize_node({:<<>>, metadata, segments}) do
     metadata = normalize_metadata(metadata)
@@ -178,7 +190,8 @@ defmodule Sourceror.Parser do
     end
   end
 
-  defp normalize_node({form, metadata, args}), do: {form, normalize_metadata(metadata), args}
+  defp normalize_node({form, metadata, args}),
+    do: {form, normalize_metadata(metadata), args}
 
   defp normalize_node(quoted), do: quoted
 
@@ -282,6 +295,12 @@ defmodule Sourceror.Parser do
       {:{}, meta, [left, right]} ->
         block(to_formatter_meta(meta), {left, right})
 
+      {:__aliases__, meta, segments} ->
+        {:__aliases__, to_formatter_meta(meta), Enum.map(segments, &elem(&1, 2))}
+
+      {:., meta, [left, {:atom, _, right}]} ->
+        {:., to_formatter_meta(meta), [left, right]}
+
       {form, meta, args} ->
         {form, to_formatter_meta(meta), args}
 
@@ -293,7 +312,7 @@ defmodule Sourceror.Parser do
   defp block(metadata, value), do: {:__block__, metadata, [value]}
 
   defp normalize_metadata(metadata) do
-    meta = Map.new(metadata) |> Map.drop([:__literal__])
+    meta = Map.new(metadata) |> Map.drop([:__literal__, :file])
 
     for key <- ~w[last end_of_expression closing do end]a,
         meta[key] != nil,

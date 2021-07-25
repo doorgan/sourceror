@@ -44,16 +44,14 @@ defmodule Sourceror.Range do
     }
   end
 
-  @spec get_range(Macro.t()) :: Sourceror.range()
+  @spec get_range(Sourceror.ast_node()) :: Sourceror.range()
   defp do_get_range(quoted)
 
   # Module aliases
   defp do_get_range({:__aliases__, meta, segments}) do
     start_pos = Map.take(meta, [:line, :column])
 
-    last_segment_length = List.last(segments) |> to_string() |> String.length()
-
-    end_pos = meta.last |> Map.update!(:column, &(&1 + last_segment_length))
+    end_pos = get_range(List.last(segments)).end |> Map.update!(:column, &(&1 - 1))
 
     %{start: start_pos, end: end_pos}
   end
@@ -194,12 +192,11 @@ defmodule Sourceror.Range do
   end
 
   # Qualified call
-  defp do_get_range({{:., _, [left, right]}, meta, []} = quoted) when is_atom(right) do
+  defp do_get_range({{:., _, [left, right]}, meta, []} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
       start_pos = get_range(left).start
-      identifier_pos = Map.take(meta, [:line, :column])
 
       parens_length =
         if meta.no_parens do
@@ -208,12 +205,9 @@ defmodule Sourceror.Range do
           2
         end
 
-      end_pos = %{
-        line: identifier_pos.line,
-        column:
-          identifier_pos.column + String.length(Atom.to_string(right)) +
-            parens_length
-      }
+      end_pos =
+        get_range(right).end
+        |> Map.update!(:column, &(&1 + parens_length - 1))
 
       %{start: start_pos, end: end_pos}
     end

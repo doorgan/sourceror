@@ -11,7 +11,7 @@ defmodule Sourceror.Comments do
   while comments that are right before an `end` keyword are inserted into the
   `:trailing_comments` field.
   """
-  @spec merge_comments(Sourceror.t(), list(map)) :: Sourceror.t()
+  @spec merge_comments(Sourceror.ast_node(), list(map)) :: Sourceror.ast_node()
   def merge_comments(quoted, comments) do
     {quoted, leftovers} =
       Sourceror.traverse(quoted, comments, &do_merge_comments/2, &merge_leftovers/2)
@@ -96,7 +96,7 @@ defmodule Sourceror.Comments do
   Does the opposite of `merge_comments/2`, it extracts the comments from the
   quoted expression and returns both as a `{quoted, comments}` tuple.
   """
-  @spec extract_comments(Sourceror.t()) :: {Sourceror.t(), list(map)}
+  @spec extract_comments(Sourceror.ast_node()) :: {Sourceror.ast_node(), list(map)}
   def extract_comments(quoted, opts \\ []) do
     collapse_comments = Keyword.get(opts, :collapse_comments, false)
     correct_lines = Keyword.get(opts, :correct_lines, false)

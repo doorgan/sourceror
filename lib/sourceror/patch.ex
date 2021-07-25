@@ -27,12 +27,14 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "~F(foo)"
   """
-  @spec rename_call(call :: Sourceror.t(), new_name :: atom | String.t()) :: [Sourceror.patch()]
+  @spec rename_call(call :: Sourceror.ast_node(), new_name :: atom | String.t()) :: [
+          Sourceror.patch()
+        ]
   def rename_call({{:., _, [_, call]}, meta, _}, new_name) do
     new_name = to_string(new_name)
 
     start_pos = %{line: meta[:line], column: meta[:column]}
-    end_pos = %{line: meta[:line], column: meta[:column] + String.length(to_string(call))}
+    end_pos = Sourceror.get_range(call).end |> Map.update!(:column, &(&1 - 1))
     range = %{start: start_pos, end: end_pos}
 
     [%{range: range, change: new_name}]
@@ -70,7 +72,7 @@ defmodule Sourceror.Patch do
       iex> Sourceror.patch_string(original, patches)
       "bar"
   """
-  @spec rename_identifier(identifier :: Sourceror.t(), new_name :: atom | String.t()) :: [
+  @spec rename_identifier(identifier :: Sourceror.ast_node(), new_name :: atom | String.t()) :: [
           Sourceror.patch()
         ]
   def rename_identifier({:var, meta, identifier}, new_name) when is_atom(identifier) do
