@@ -77,6 +77,11 @@ foo           ->    {:var, _, :foo}
                         {:string, _, "c"}]}
 ```
 
+### Module aliases
+```elixir
+Foo.Bar       ->    {:__aliases__, _, [{:atom, _, :Foo}, {:atom, _, :Bar}]}
+```
+
 ### Tuples
 ```elixir
 {1, 2, 3}     ->    {:{}, _, [1, 2, 3]}
@@ -122,6 +127,11 @@ end           ->    {:foo, _, [
                           }}
                         ]
                       ]}
+```
+
+### Qualified calls
+```elixir
+foo.bar :baz  ->    {{:., _, [{:var, _, :foo}, {:atom, _, :bar}]}, _, [{:atom, _, :baz}]}
 ```
 
 Every other node is kept as in the regular Elixir AST, except that the metadata
