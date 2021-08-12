@@ -103,6 +103,13 @@ defmodule Sourceror.Zipper do
   @spec down(zipper) :: zipper | nil
   def down({tree, meta}) do
     with true <- branch?(tree), [first | rest] <- children(tree) do
+      rest =
+        if rest == [] do
+          nil
+        else
+          rest
+        end
+
       {first, %{ptree: {tree, meta}, l: nil, r: rest}}
     else
       _ -> nil
