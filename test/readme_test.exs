@@ -12,7 +12,8 @@ defmodule SourcerorTest.ReadmeTest do
   @readme readme
 
   test "the version numbers match" do
-    assert @readme |> hd |> elem(0) =~ @project[:version]
+    [_, version] = Regex.run(~r/\{:sourceror, "~> (.*)"\}/, @readme |> hd |> elem(0))
+    assert @project[:version] =~ version
   end
 
   env = __ENV__
