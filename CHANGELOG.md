@@ -1,5 +1,12 @@
 # Changelog for Sourceror v0.8
 
+## v0.8.2
+
+### 1. Bug fixes
+
+- [Sourceror.Zipper] `down/1` now correctly uses `nil` as the right siblings if
+  the branch node has a single child.
+
 ## v0.8.1
 
 ### 1. Bug fixes
