@@ -168,6 +168,27 @@ defmodule SourcerorTest.RangeTest do
              }
     end
 
+    test "2-tuples from partial keyword lists" do
+      alias Sourceror.Zipper, as: Z
+
+      value =
+        Sourceror.parse_string!(~S"""
+        config :my_app, :some_key,
+          value: [
+            a: 1
+          ]
+        """)
+        |> Z.zip()
+        |> Z.down()
+        |> Z.rightmost()
+        |> Z.node()
+
+      assert Sourceror.Range.get_range(value) == %{
+               start: [line: 2, column: 3],
+               end: [line: 4, column: 4]
+             }
+    end
+
     test "qualified tuples" do
       assert to_range(~S/Foo.{Bar, Baz}/) == %{
                start: [line: 1, column: 1],
