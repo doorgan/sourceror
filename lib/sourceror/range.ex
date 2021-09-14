@@ -170,6 +170,11 @@ defmodule Sourceror.Range do
     %{start: left_range.start, end: right_range.end}
   end
 
+  # Handles cases like the `value:` tuple in `config :my_app, :some_key, value: :foo`
+  defp do_get_range([{{:__block__, _, [_]} = left, {:__block__, _, _} = right}]) do
+    do_get_range({left, right})
+  end
+
   # Access syntax
   defp do_get_range({{:., _, [Access, :get]}, _, _} = quoted) do
     get_range_for_node_with_closing_line(quoted)
