@@ -22,8 +22,6 @@ jobs:
             check_formatted: true
             run_dialyzer: true
             run_credo: true
-          - elixir: master
-            otp: 24.0
     steps:
     - uses: actions/checkout@v2
     - name: Set up Elixir
