@@ -170,9 +170,30 @@ defmodule Sourceror.Range do
     %{start: left_range.start, end: right_range.end}
   end
 
-  # Handles cases like the `value:` tuple in `config :my_app, :some_key, value: :foo`
-  defp do_get_range([{{:__block__, _, [_]} = left, {:__block__, _, _} = right}]) do
-    do_get_range({left, right})
+  # Handles arguments. Lists are always wrapped in `:__block__`, so the only case
+  # in which we can have a naked list is in partial keyword lists, as in `[:a, :b, c: d, e: f]`,
+  # or stabs like `:foo -> :bar`
+  defp do_get_range(list) when is_list(list) do
+    first_range = List.first(list) |> get_range()
+    start_pos = first_range.start
+
+    end_pos =
+      if last = List.last(list) do
+        get_range(last).end
+      else
+        first_range.end
+      end
+
+    %{start: start_pos, end: end_pos}
+  end
+
+  # Stabs
+  # a -> b
+  defp do_get_range({:->, _, [left_args, right]}) do
+    start_pos = get_range(left_args).start
+    end_pos = get_range(right).end
+
+    %{start: start_pos, end: end_pos}
   end
 
   # Access syntax

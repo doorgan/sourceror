@@ -174,9 +174,7 @@ defmodule SourcerorTest.RangeTest do
       value =
         Sourceror.parse_string!(~S"""
         config :my_app, :some_key,
-          value: [
-            a: 1
-          ]
+          a: b
         """)
         |> Z.zip()
         |> Z.down()
@@ -185,7 +183,44 @@ defmodule SourcerorTest.RangeTest do
 
       assert Sourceror.Range.get_range(value) == %{
                start: [line: 2, column: 3],
-               end: [line: 4, column: 4]
+               end: [line: 2, column: 7]
+             }
+
+      value =
+        Sourceror.parse_string!(~S"""
+        config :my_app, :some_key,
+          a: b,
+          c:
+            d
+        """)
+        |> Z.zip()
+        |> Z.down()
+        |> Z.rightmost()
+        |> Z.node()
+
+      assert Sourceror.Range.get_range(value) == %{
+               start: [line: 2, column: 3],
+               end: [line: 4, column: 6]
+             }
+    end
+
+    test "stabs" do
+      alias Sourceror.Zipper, as: Z
+
+      [{_, stabs}] =
+        Sourceror.parse_string!(~S"""
+        case do
+          a -> b
+          c, d -> e
+        end
+        """)
+        |> Z.zip()
+        |> Z.down()
+        |> Z.node()
+
+      assert Sourceror.Range.get_range(stabs) == %{
+               start: [line: 2, column: 3],
+               end: [line: 3, column: 12]
              }
     end
 
