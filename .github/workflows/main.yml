@@ -15,13 +15,13 @@ jobs:
             otp: 23.2
           - elixir: 1.12.0
             otp: 23.2
+            check_formatted: true
+            run_dialyzer: true
+            run_credo: true
           - elixir: 1.12.0
             otp: 24.0
           - elixir: master
             otp: 23.2
-            check_formatted: true
-            run_dialyzer: true
-            run_credo: false
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
