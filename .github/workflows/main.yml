@@ -21,53 +21,53 @@ jobs:
             otp: 23.2
             check_formatted: true
             run_dialyzer: true
-            run_credo: true
+            run_credo: false
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Elixir
-      uses: actions/setup-elixir@v1
-      with:
-        elixir-version: ${{ matrix.elixir }}
-        otp-version: ${{ matrix.otp }}
+      - uses: actions/checkout@v2
+      - name: Set up Elixir
+        uses: actions/setup-elixir@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
 
-    - name: Restore dependencies cache
-      uses: actions/cache@v2
-      with:
-        path: deps
-        key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('**/mix.lock') }}
-        restore-keys: |
+      - name: Restore dependencies cache
+        uses: actions/cache@v2
+        with:
+          path: deps
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('**/mix.lock') }}
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix
 
-    - name: Restore Dialyzer PLT cache
-      uses: actions/cache@v2
-      with:
-        path: priv/plts
-        key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
-          ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt
+      - name: Restore Dialyzer PLT cache
+        uses: actions/cache@v2
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
+            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt
 
-    - name: Install dependencies
-      run: mix deps.get
+      - name: Install dependencies
+        run: mix deps.get
 
-    - name: Check formatting
-      run: mix format --check-formatted
-      if: matrix.check_formatted
+      - name: Check formatting
+        run: mix format --check-formatted
+        if: matrix.check_formatted
 
-    - name: Run dialyzer
-      run: mix dialyzer
-      if: matrix.run_dialyzer
+      - name: Run dialyzer
+        run: mix dialyzer
+        if: matrix.run_dialyzer
 
-    - name: Run credo
-      run: mix credo
-      if: matrix.run_credo
-    
-    - name: Run tests
-      run: mix test
+      - name: Run credo
+        run: mix credo
+        if: matrix.run_credo
 
-    - name: Coveralls
-      run: mix coveralls.github
-      env:
-        MIX_ENV: test
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run tests
+        run: mix test
+
+      - name: Coveralls
+        run: mix coveralls.github
+        env:
+          MIX_ENV: test
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
