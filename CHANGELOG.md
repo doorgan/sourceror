@@ -1,5 +1,12 @@
 # Changelog for Sourceror v0.8
 
+## v0.8.4
+
+### 1. Bug fixes
+
+- [Sourceror] `get_range/1` now properly handles naked AST lists, like the ones
+  coming from partial keyword lists, or stabs like `a -> b`.
+
 ## v0.8.3
 
 ### 1. Bug fixes
