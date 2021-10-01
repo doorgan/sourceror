@@ -27,7 +27,7 @@ end
 quoted = Sourceror.parse_string!(source)
 ```
 
-We need to traverse the ast to find any ocurrence of a qualified tuple call(ie.
+We need to traverse the ast to find any occurrence of a qualified tuple call(ie.
 calls with the form `{:., meta, [left, :{}]}` as their first element) that is an argument
 to an `:alias` call. Then for each module inside of the curly brackets, we need to join
 the module segments from the left hand side with the ones in the right hand side, and

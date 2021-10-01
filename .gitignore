@@ -22,15 +22,12 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 sourceror-*.tar
 
-# Temporary files for e.g. tests
-/tmp
+# Temporary files, for example, from tests.
+/tmp/
 
-# Compiled parser
+# Compiled parser.
 /src/*_parser.erl
 
-# Elixir LS files
-/.elixir_ls
-
-# Dialyzer plts
+# Dialyzer plts.
 /priv/plts/*
 !/priv/plts/.gitkeep

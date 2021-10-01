@@ -1,14 +1,13 @@
 defmodule Sourceror.MixProject do
   use Mix.Project
 
-  @version "0.8.4"
   @repo_url "https://github.com/doorgan/sourceror"
+  @version "0.8.4"
 
   def project do
     [
       app: :sourceror,
       name: "Sourceror",
-      description: description(),
       version: @version,
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
@@ -54,18 +53,15 @@ defmodule Sourceror.MixProject do
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.1", only: [:dev], runtime: false},
       {:ex_check, "~> 0.14.0", only: [:dev], runtime: false},
-      {:ex_doc, "~> 0.24.2", only: :dev, runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.10", only: [:test]},
       {:sobelow, "~> 0.8", only: :dev}
     ]
   end
 
-  defp description do
-    "Utilities to work with Elixir source code."
-  end
-
   defp package do
     [
+      description: "Utilities to work with Elixir source code.",
       licenses: ["Apache-2.0"],
       links: %{
         "GitHub" => @repo_url
@@ -75,11 +71,17 @@ defmodule Sourceror.MixProject do
 
   defp docs do
     [
-      main: "Sourceror",
+      extras: [
+        "CHANGELOG.md": [title: "Changelog"],
+        "CONTRIBUTING.md": [title: "Contributing"],
+        "LICENSE": [title: "License"],
+        "README.md": [title: "Overview"]
+      ],
+      main: "readme",
+      homepage_url: @repo_url,
       source_ref: @version,
       source_url: @repo_url,
-      homepage_url: @repo_url,
-      extras: ["README.md"]
+      formatters: ["html"]
     ]
   end
 end
