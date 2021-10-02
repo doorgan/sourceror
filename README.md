@@ -1,39 +1,19 @@
+# Sourceror 🧙
+
 ![Github Actions](https://github.com/doorgan/sourceror/actions/workflows/main.yml/badge.svg?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/doorgan/sourceror/badge.svg?branch=main)](https://coveralls.io/github/doorgan/sourceror?branch=main)
-[![Hex.pm version](https://img.shields.io/hexpm/v/sourceror)](https://hex.pm/packages/sourceror)
+[![Module Version](https://img.shields.io/hexpm/v/sourceror.svg)](https://hex.pm/packages/sourceror)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/sourceror/)
+[![Total Download](https://img.shields.io/hexpm/dt/sourceror.svg)](https://hex.pm/packages/sourceror)
+[![License](https://img.shields.io/hexpm/l/sourceror.svg)](https://github.com/doorgan/sourceror/blob/master/LICENSE)
+[![Last Updated](https://img.shields.io/github/last-commit/doorgan/sourceror.svg)](https://github.com/doorgan/sourceror/commits/master)
 
-# Sourceror 🧙
+<!-- MDOC !-->
 
 Utilities to work with Elixir source code.
 
 **NOTICE:** This library is under heavy development. Expect frequent breaking
 changes until the first stable v1.0 release is out.
-
-## Documentation
-
-You can find Sourceror documentation on [Hex Docs](https://hexdocs.pm/sourceror/readme.html).
-
-## Examples
-
-You can find usage examples in the `examples` folder. You can run them by
-cloning the repo and running `elixir examples/<example_file>.exs`.
-
-You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
-in the `notebooks` folder.
-
-## Contributing
-
-If you want to contribute to Sourceror, please check our
-[Contributing](https://github.com/doorgan/sourceror/blob/master/CONTRIBUTING.md)
-section for pointers.
-
-## Getting assistance
-
-If you have any questions about Sourceror or need assistance, please open a
-thread in the [Discussions](https://github.com/doorgan/sourceror/discussions)
-section.
-
-<!-- MDOC !-->
 
 ## Installation
 
@@ -119,7 +99,7 @@ formatter do the rest.
 
 Having the AST and comments as separate entities allows Elixir to expose the
 code formatting utilities without making any changes to it's AST, but also
-delegates the task of figuring out what's the most appropiate way to work with
+delegates the task of figuring out what's the most appropriate way to work with
 them to us.
 
 Sourceror's take is to use the node metadata to store the comments. This allows
@@ -166,19 +146,45 @@ Two metadata fields are added to the regular Elixir AST:
   ```
 
 Note that Sourceror considers leading comments to the ones that are found in the
-same line as a node, and trailing coments to the ones that are found before the
+same line as a node, and trailing comments to the ones that are found before the
 ending line of a node, based on the `end`, `closing` or `end_of_expression`
 line. This also makes the Sourceror AST consistent with the way the Elixir
 formatter works, making it easier to reason about how a given AST would be
 formatted.
 
-## License
+<!-- MDOC !-->
+
+## Documentation
+
+You can find Sourceror documentation on [Hex Docs](https://hexdocs.pm/sourceror/readme.html).
+
+## Examples
+
+You can find usage examples in the `examples` folder. You can run them by
+cloning the repo and running `elixir examples/<example_file>.exs`.
+
+You can also find documented examples you can run with [Livebook](https://github.com/elixir-nx/livebook)
+in the `notebooks` folder.
+
+## Contributing
+
+If you want to contribute to Sourceror, please check our
+[Contributing](https://github.com/doorgan/sourceror/blob/master/CONTRIBUTING.md)
+section for pointers.
+
+## Getting assistance
+
+If you have any questions about Sourceror or need assistance, please open a
+thread in the [Discussions](https://github.com/doorgan/sourceror/discussions)
+section.
+
+## Copyright and License
 
 Copyright (c) 2021 dorgandash@gmail.com
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
 Unless required by applicable law or agreed to in writing, software distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
