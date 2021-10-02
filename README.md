@@ -2,7 +2,6 @@
 
 ![Github Actions](https://github.com/doorgan/sourceror/actions/workflows/main.yml/badge.svg?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/doorgan/sourceror/badge.svg?branch=main)](https://coveralls.io/github/doorgan/sourceror?branch=main)
-[![Hex.pm version](https://img.shields.io/hexpm/v/sourceror)](https://hex.pm/packages/sourceror)
 [![Module Version](https://img.shields.io/hexpm/v/sourceror.svg)](https://hex.pm/packages/sourceror)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/sourceror/)
 [![Total Download](https://img.shields.io/hexpm/dt/sourceror.svg)](https://hex.pm/packages/sourceror)
