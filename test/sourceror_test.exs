@@ -203,6 +203,22 @@ defmodule SourcerorTest do
       assert "1, 2, 3" == Sourceror.to_string([1, 2, 3], format: :splicing)
       assert "{:foo, :bar}" == Sourceror.to_string({:foo, :bar}, format: :splicing)
     end
+
+    test "last tuple element as keyword list must keep its format" do
+      code = ~S({:wrapped, [opt1: true, opt2: false]})
+      assert code |> Sourceror.parse_string!() |> Sourceror.to_string() == code
+
+      code = ~S({:unwrapped, opt1: true, opt2: false})
+      assert code |> Sourceror.parse_string!() |> Sourceror.to_string() == code
+    end
+
+    test "last tuple element as keyword list must keep its format (2-tuples)" do
+      code = ~S({:wrapped, 1, [opt1: true, opt2: false]})
+      assert code |> Sourceror.parse_string!() |> Sourceror.to_string() == code
+
+      code = ~S({:unwrapped, 1, opt1: true, opt2: false})
+      assert code |> Sourceror.parse_string!() |> Sourceror.to_string() == code
+    end
   end
 
   describe "correct_lines/2" do
