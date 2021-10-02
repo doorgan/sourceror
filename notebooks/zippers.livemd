@@ -39,7 +39,7 @@ If we wanted to move to the right, we would perform the same operation, but popp
 and prepending to the left. Such movements are performed in constant time, making zippers an
 attractive option when a lot of movements over a list are required, but things start to get more
 interesting when we use zippers with trees. When moving across a list, we are constrained to
-horizonal movements(left and right), but in trees we have an extra dimension to move around(up and
+horizontal movements(left and right), but in trees we have an extra dimension to move around(up and
 down). So we need to encode at least four things: the focus, the left and right siblings, and the
 parent nodes in the tree.
 
@@ -121,7 +121,7 @@ other kinds of movements to traverse it. For zippers, we have `Z.next/1` and `Z.
 one step forward or backwards in depth-first pre-order, and `Z.traverse/2-3` to perform a depth-first
 pre-order traversal while calling a function at each location.
 
-To demonstrate the ability of zippers to look arount at the rest of the tree, we will traverse a tree
+To demonstrate the ability of zippers to look around at the rest of the tree, we will traverse a tree
 of lists and integers, multiplying each integer by the integer at it's right, or removing it if it's
 already the rightmost sibling, or the following element is another list:
 
@@ -148,5 +148,5 @@ the traversal ended, preventing subsequent calls to `Z.next/1` from going down t
 `Z.node/1` function just extracts the current node from the zipper, so we can look at the final result
 instead of a zipper.
 
-That wraps up the introduction to zippers. We'll see them in action in the "Multi alias exapansion"
-livebook, where we use them to simplify the traversal and tranformations.
+That wraps up the introduction to zippers. We'll see them in action in the "Multi alias expansion"
+livebook, where we use them to simplify the traversal and transformations.
