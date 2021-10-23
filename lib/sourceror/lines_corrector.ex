@@ -3,17 +3,27 @@ defmodule Sourceror.LinesCorrector do
 
   import Sourceror, only: [get_line: 1, correct_lines: 2]
 
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
+
   @doc """
   Corrects the line numbers of AST nodes such that they are correctly ordered.
 
-  * If a node has no line number, it's assumed to be in the same line as the previous one.
+  * If a node has no line number, it's assumed to be in the same line as the
+    previous one.
   * If a node has a line number higher than the one before, it's kept as is.
-  * If a node has a line number lower than the one before, it's incremented to be one line higher than it's predecessor
-  * If a node has leading comments, it's line number is incremented by the length of the comments list
-  * If a node has trailing comments, it's end_of_expression and end line metadata are set to the line of their last child plus the trailing comments list length
+  * If a node has a line number lower than the one before, it's incremented to
+    be one line higher than it's predecessor only if it's not a pipeline
+    operator
+  * If a node has leading comments, it's line number is incremented by the
+    length of the comments list
+  * If a node has trailing comments, it's end_of_expression and end line
+    metadata are set to the line of their last child plus the trailing comments
+    list length
   """
   def correct(quoted) do
-    {ast, _} = Macro.traverse(quoted, %{last_line: 1}, &pre_correct/2, &post_correct/2)
+    {ast, _} =
+      Macro.traverse(quoted, %{last_line: 1, last_form: nil}, &pre_correct/2, &post_correct/2)
+
     ast
   end
 
@@ -22,15 +32,15 @@ defmodule Sourceror.LinesCorrector do
       cond do
         is_nil(meta[:line]) ->
           meta = Keyword.put(meta, :line, state.last_line)
-          {{form, meta, args}, state}
+          {{form, meta, args}, %{state | last_form: form}}
 
-        get_line(quoted) < state.last_line ->
+        get_line(quoted) < state.last_line and state.last_form not in @pipeline_operators ->
           correction = state.last_line + 1 - get_line(quoted)
           quoted = recursive_correct_lines(quoted, correction)
-          {quoted, %{state | last_line: get_line(quoted)}}
+          {quoted, %{state | last_line: get_line(quoted), last_form: form}}
 
         true ->
-          {quoted, %{state | last_line: get_line(quoted)}}
+          {quoted, %{state | last_line: get_line(quoted), last_form: form}}
       end
 
     if has_leading_comments?(quoted) do

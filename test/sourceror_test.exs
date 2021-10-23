@@ -54,6 +54,14 @@ defmodule SourcerorTest do
 
     # 6
     """)
+
+    # comments and pipeline operator
+    assert_same(~S"""
+    big
+    |> long()
+    # comment after long and before chain
+    |> chain()
+    """)
   end
 
   describe "parse_string!/2" do
