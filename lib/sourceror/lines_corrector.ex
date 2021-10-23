@@ -61,7 +61,7 @@ defmodule Sourceror.LinesCorrector do
 
     last_line =
       if has_trailing_comments?(quoted) do
-        last_line + length(meta[:trailing_comments] || []) + 1
+        last_line + length(meta[:trailing_comments] || []) + 2
       else
         last_line
       end

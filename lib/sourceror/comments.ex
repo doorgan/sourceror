@@ -122,7 +122,10 @@ defmodule Sourceror.Comments do
 
     leading_comments =
       if collapse_comments do
-        Enum.map(leading_comments, &%{&1 | line: meta[:line], previous_eol_count: 0})
+        Enum.map(
+          leading_comments,
+          &%{&1 | line: meta[:line] - 1}
+        )
       else
         leading_comments
       end
@@ -157,7 +160,7 @@ defmodule Sourceror.Comments do
       Enum.map(trailing_comments, fn comment ->
         line = meta[:end_of_expression][:line] || meta[:line]
 
-        %{comment | line: line - 1, previous_eol_count: 1}
+        %{comment | line: line - 2, previous_eol_count: 1}
       end)
 
     comments =
