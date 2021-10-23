@@ -125,8 +125,8 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} = Sourceror.Comments.extract_comments(quoted, collapse_comments: true)
 
       assert [
-               %{line: 2, text: "# A"},
-               %{line: 2, text: "# B"}
+               %{line: 1, text: "# A"},
+               %{line: 1, text: "# B"}
              ] = comments
 
       quoted =
@@ -142,7 +142,7 @@ defmodule SourcerorTest.CommentsTest do
 
       assert [
                %{line: 5, text: "# A"},
-               %{line: 7, text: "# B"}
+               %{line: 8, text: "# B"}
              ] = comments
 
       quoted =
@@ -158,7 +158,7 @@ defmodule SourcerorTest.CommentsTest do
 
       assert [
                %{line: 5, text: "# A"},
-               %{line: 7, text: "# B"}
+               %{line: 8, text: "# B"}
              ] = comments
 
       assert Sourceror.to_string(quoted, collapse_comments: true, correct_lines: true) ==
