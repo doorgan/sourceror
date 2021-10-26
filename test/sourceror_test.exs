@@ -55,8 +55,9 @@ defmodule SourcerorTest do
     # 6
     """)
 
-    # comments and pipeline operator
+    # comments and pipeline operator (see #27)
     assert_same(~S"""
+    # Some function call
     function_call()
 
     # comment for big
@@ -64,6 +65,7 @@ defmodule SourcerorTest do
     # comment for long
     |> long()
     # comment for chain
+    # second comment for chain
     |> chain()
     """)
 
