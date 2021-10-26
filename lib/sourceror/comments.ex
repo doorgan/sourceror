@@ -3,6 +3,8 @@ defmodule Sourceror.Comments do
   Utilities to merge an un-merge comments and quoted expressions.
   """
 
+  import Sourceror.Identifier, only: [is_pipeline_op: 1]
+
   @doc """
   Merges the comments into the given quoted expression.
 
@@ -26,7 +28,7 @@ defmodule Sourceror.Comments do
     end
   end
 
-  defp do_merge_comments({_, _, _} = quoted, comments) do
+  defp do_merge_comments({form, _, _} = quoted, comments) when not is_pipeline_op(form) do
     {comments, rest} = gather_leading_comments_for_node(quoted, comments)
 
     quoted = put_comments(quoted, :leading_comments, comments)

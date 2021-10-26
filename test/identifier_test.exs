@@ -1,4 +1,5 @@
 defmodule SourcerorTest.IdentifierTest do
   use ExUnit.Case, async: true
-  doctest Sourceror.Identifier
+
+  doctest Sourceror.Identifier, import: true
 end

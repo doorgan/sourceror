@@ -2,8 +2,7 @@ defmodule Sourceror.LinesCorrector do
   @moduledoc false
 
   import Sourceror, only: [get_line: 1, correct_lines: 2]
-
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
+  import Sourceror.Identifier, only: [is_pipeline_op: 1]
 
   @doc """
   Corrects the line numbers of AST nodes such that they are correctly ordered.
@@ -34,7 +33,7 @@ defmodule Sourceror.LinesCorrector do
           meta = Keyword.put(meta, :line, state.last_line)
           {{form, meta, args}, %{state | last_form: form}}
 
-        get_line(quoted) < state.last_line and state.last_form not in @pipeline_operators ->
+        get_line(quoted) < state.last_line and not is_pipeline_op(state.last_form) ->
           correction = state.last_line + 1 - get_line(quoted)
           quoted = recursive_correct_lines(quoted, correction)
           {quoted, %{state | last_line: get_line(quoted), last_form: form}}

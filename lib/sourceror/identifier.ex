@@ -48,15 +48,17 @@ defmodule Sourceror.Identifier do
   ]
 
   @binary_ops (if Version.match?(System.version(), "~> 1.12") do
-                 binary_ops ++ Enum.map(~w[+++ ---], &String.to_existing_atom/1)
+                 binary_ops ++ Enum.map(~w[+++ ---], &String.to_atom/1)
                else
                  binary_ops
                end)
 
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
+
   @doc """
   Checks if the given identifier is an unary op.
   ## Examples
-      iex> Sourceror.Identifier.is_unary_op(:+)
+      iex> is_unary_op(:+)
       true
   """
   @spec is_unary_op(Macro.t()) :: Macro.t()
@@ -65,18 +67,26 @@ defmodule Sourceror.Identifier do
   @doc """
   Checks if the given identifier is a binary op.
   ## Examples
-      iex> Sourceror.Identifier.is_binary_op(:+)
+      iex> is_binary_op(:+)
       true
   """
   @spec is_binary_op(Macro.t()) :: Macro.t()
   defguard is_binary_op(op) when is_atom(op) and op in @binary_ops
 
   @doc """
+  Checks if the given identifier is a pipeline operator.
+  ## Examples
+      iex> is_pipeline_op(:|>)
+      true
+  """
+  defguard is_pipeline_op(op) when is_atom(op) and op in @pipeline_operators
+
+  @doc """
   Checks if the given atom is a valid module alias.
   ## Examples
-      iex> Sourceror.Identifier.valid_alias?(Foo)
+      iex> valid_alias?(Foo)
       true
-      iex> Sourceror.Identifier.valid_alias?(:foo)
+      iex> valid_alias?(:foo)
       false
   """
   def valid_alias?(atom) when is_atom(atom) do
