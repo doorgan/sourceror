@@ -57,7 +57,11 @@ defmodule SourcerorTest do
 
     # comments and pipeline operator (see #27)
     assert_same(~S"""
-    # Some function call
+    # a comment for foo
+    # a second comment for foo
+    foo |> bar.baz()
+
+    # comment for function call
     function_call()
 
     # comment for big
