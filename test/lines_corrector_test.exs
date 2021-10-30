@@ -33,8 +33,8 @@ defmodule SourcerorTest.LinesCorrectorTest do
 
       # kept as it
       assert foo_meta[:line] == 1
-      # incremented
-      assert bar_meta[:line] == 2
+      # set to the same as the previous one
+      assert bar_meta[:line] == 1
 
       assert Sourceror.to_string(corrected) ==
                ~S"""

@@ -10,9 +10,9 @@ defmodule Sourceror.LinesCorrector do
   * If a node has no line number, it's assumed to be in the same line as the
     previous one.
   * If a node has a line number higher than the one before, it's kept as is.
-  * If a node has a line number lower than the one before, it's incremented to
-    be one line higher than it's predecessor only if it's not a pipeline
-    operator
+  * If a node has a line number lower than the one before, its line number is
+    recursively incremented by the line number difference, if it's not a
+    pipeline operator.
   * If a node has leading comments, it's line number is incremented by the
     length of the comments list
   * If a node has trailing comments, it's end_of_expression and end line
@@ -34,7 +34,7 @@ defmodule Sourceror.LinesCorrector do
           {{form, meta, args}, %{state | last_form: form}}
 
         get_line(quoted) < state.last_line and not is_pipeline_op(state.last_form) ->
-          correction = state.last_line + 1 - get_line(quoted)
+          correction = state.last_line - get_line(quoted)
           quoted = recursive_correct_lines(quoted, correction)
           {quoted, %{state | last_line: get_line(quoted), last_form: form}}
 
