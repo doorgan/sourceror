@@ -191,7 +191,11 @@ defmodule Sourceror do
 
     text =
       quoted
-      |> quoted_to_algebra(comments: comments, escape: false)
+      |> quoted_to_algebra(
+        comments: comments,
+        escape: false,
+        locals_without_parens: Keyword.get(opts, :locals_without_parens, [])
+      )
       |> Inspect.Algebra.format(line_length)
       |> IO.iodata_to_binary()
       |> String.split("\n")

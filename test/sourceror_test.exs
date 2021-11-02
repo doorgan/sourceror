@@ -249,6 +249,17 @@ defmodule SourcerorTest do
       code = ~S({:unwrapped, 1, opt1: true, opt2: false})
       assert code |> Sourceror.parse_string!() |> Sourceror.to_string() == code
     end
+
+    test "supports locals_without_parens" do
+      opts = [locals_without_parens: [defparsec: :*]]
+
+      code = ~S"defparsec :do_parse, parser"
+
+      assert code |> Sourceror.parse_string!() |> Sourceror.to_string() ==
+               ~S"defparsec(:do_parse, parser)"
+
+      assert code |> Sourceror.parse_string!() |> Sourceror.to_string(opts) == code
+    end
   end
 
   describe "correct_lines/2" do
