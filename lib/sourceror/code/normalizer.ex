@@ -52,18 +52,16 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   # Ranges
-  if Version.match?(System.version(), "~> 1.12") do
-    defp do_normalize(left..right//step, state) do
-      left = do_normalize(left, state)
-      right = do_normalize(right, state)
-      meta = meta_line(state)
+  defp do_normalize(left..right//step, state) do
+    left = do_normalize(left, state)
+    right = do_normalize(right, state)
+    meta = meta_line(state)
 
-      if step == 1 do
-        {:.., meta, [left, right]}
-      else
-        step = do_normalize(step, state)
-        {:"..//", meta, [left, right, step]}
-      end
+    if step == 1 do
+      {:.., meta, [left, right]}
+    else
+      step = do_normalize(step, state)
+      {:"..//", meta, [left, right, step]}
     end
   end
 
@@ -128,7 +126,7 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   # A list of left to right arrows is not considered as a list literal, so it's not wrapped
-  defp do_normalize([{:->, _, _} | _] = quoted, state) do
+  defp do_normalize([{:->, _, [_ | _]} | _] = quoted, state) do
     normalize_args(quoted, state)
   end
 
@@ -142,7 +140,7 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   # Maps
-  defp do_normalize({:%{}, meta, args}, state) do
+  defp do_normalize({:%{}, meta, args}, state) when is_list(args) do
     meta =
       if meta == [] do
         line = state.parent_meta[:line]
@@ -188,8 +186,17 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   # Tuples
-  defp do_normalize({:{}, _, args} = quoted, state) when is_list(args) do
-    normalize_literal(quoted, [], state)
+  defp do_normalize({:{}, meta, args} = quoted, state) do
+    {last_arg, args} = List.pop_at(args, -1)
+
+    with [{{:__block__, key_meta, _}, _} | _] <- last_arg, :keyword <- key_meta[:format] do
+      args = normalize_kw_args(args, state)
+      kw_list = normalize_kw_args(last_arg, state)
+      {:{}, meta, args ++ kw_list}
+    else
+      _ ->
+        normalize_call(quoted, state)
+    end
   end
 
   # Calls
@@ -237,25 +244,13 @@ defmodule Sourceror.Code.Normalizer do
     end
   end
 
-  # Tuples
-  defp normalize_literal({:{}, _, args} = quoted, meta, state) do
-    last_arg = List.last(args)
-
-    with [{{:__block__, key_meta, _}, _} | _] <- last_arg, :keyword <- key_meta[:format] do
-      {:__block__, meta, [quoted]}
-    else
-      _ ->
-        normalize_call(quoted, state)
-    end
-  end
-
   # 2-tuples
   defp normalize_literal({left, right}, meta, state) do
     meta = patch_meta_line(meta, state.parent_meta)
     state = %{state | parent_meta: meta}
 
     with [{{:__block__, key_meta, _}, _} | _] <- right, :keyword <- key_meta[:format] do
-      {:__block__, meta, [{do_normalize(left, state), right}]}
+      {:__block__, meta, [{do_normalize(left, state), normalize_kw_args(right, state)}]}
     else
       _ ->
         {:__block__, meta, [{do_normalize(left, state), do_normalize(right, state)}]}
@@ -341,7 +336,7 @@ defmodule Sourceror.Code.Normalizer do
 
         last_args =
           case last_arg do
-            {:__block__, _, [[{{:__block__, key_meta, _}, _}] | _] = last_args} ->
+            {:__block__, _, [[{{:__block__, key_meta, _}, _} | _]] = last_args} ->
               if key_meta[:format] == :keyword do
                 last_args
               else
@@ -365,9 +360,7 @@ defmodule Sourceror.Code.Normalizer do
 
   defp allow_keyword?(:when, 2), do: true
   defp allow_keyword?(:{}, _), do: false
-  defp allow_keyword?(op, 1), do: Code.Identifier.unary_op(op) == :error
-  defp allow_keyword?(op, 2), do: Code.Identifier.binary_op(op) == :error
-  defp allow_keyword?(_, _), do: true
+  defp allow_keyword?(op, arity), do: not is_atom(op) or not Macro.operator?(op, arity)
 
   defp normalize_bitstring({:<<>>, meta, parts} = quoted, state, escape_interpolation \\ false) do
     meta = patch_meta_line(meta, state.parent_meta)
