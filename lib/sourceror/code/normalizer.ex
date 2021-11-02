@@ -52,16 +52,18 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   # Ranges
-  defp do_normalize(left..right//step, state) do
-    left = do_normalize(left, state)
-    right = do_normalize(right, state)
-    meta = meta_line(state)
+  if Version.match?(System.version(), "~> 1.12") do
+    defp do_normalize(left..right//step, state) do
+      left = do_normalize(left, state)
+      right = do_normalize(right, state)
+      meta = meta_line(state)
 
-    if step == 1 do
-      {:.., meta, [left, right]}
-    else
-      step = do_normalize(step, state)
-      {:"..//", meta, [left, right, step]}
+      if step == 1 do
+        {:.., meta, [left, right]}
+      else
+        step = do_normalize(step, state)
+        {:"..//", meta, [left, right, step]}
+      end
     end
   end
 
