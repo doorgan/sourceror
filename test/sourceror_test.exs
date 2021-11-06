@@ -76,6 +76,13 @@ defmodule SourcerorTest do
     """)
 
     assert_same(~S"""
+    # foo
+    %{
+      a: a
+    } = x
+    """)
+
+    assert_same(~S"""
     # a comment
     # a comment for baz
     foo |> baz()
