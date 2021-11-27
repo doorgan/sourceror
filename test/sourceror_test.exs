@@ -59,10 +59,12 @@ defmodule SourcerorTest do
     assert_same(~S"""
     # a comment for foo
     # a second comment for foo
-    foo |> bar.baz()
+    foo |> bar.baz(args: 2)
 
     # comment for function call
-    function_call()
+    function_call
+    # comment for bop
+    |> bop()
 
     # comment for big
     big
@@ -71,6 +73,23 @@ defmodule SourcerorTest do
     # comment for chain
     # second comment for chain
     |> chain()
+    """)
+
+    assert_same(~S"""
+    # foo
+    %{
+      a: a
+    } = x
+    """)
+
+    assert_same(~S"""
+    # a comment
+    # a comment for baz
+    foo |> baz()
+    # comment for bar
+    bar
+    # comment for bop
+    |> bop()
     """)
 
     assert_same(~S"""
