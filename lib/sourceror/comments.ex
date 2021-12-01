@@ -123,12 +123,14 @@ defmodule Sourceror.Comments do
   defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments) do
     leading_comments = Keyword.get(meta, :leading_comments, [])
 
+    leading_comments_count = length(leading_comments)
+
     leading_comments =
       if collapse_comments do
-        Enum.map(
-          leading_comments,
-          &%{&1 | line: meta[:line] - 1}
-        )
+        for {comment, i} <- Enum.with_index(leading_comments, 0) do
+          line = max(1, meta[:line] - (leading_comments_count - i))
+          %{comment | line: line}
+        end
       else
         leading_comments
       end
