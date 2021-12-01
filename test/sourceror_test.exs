@@ -76,6 +76,15 @@ defmodule SourcerorTest do
     """)
 
     assert_same(~S"""
+    [
+      1,
+      # a
+      # b
+      2
+    ]
+    """)
+
+    assert_same(~S"""
     # foo
     %{
       a: a
