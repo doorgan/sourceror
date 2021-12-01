@@ -342,6 +342,13 @@ defmodule SourcerorTest.Code.Normalizer.FormatterASTTest do
       @type foo :: a when b: :c
       """)
     end
+
+    test "keyword literals with variable values" do
+      assert_same(~S"""
+      foo = foo()
+      [foo: foo]
+      """)
+    end
   end
 
   describe "preserves formatting for sigils" do
