@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.8.9 (2021-12-02)
+
+### Enhancements
+
+- [Sourceror] Updated internal normalizer to match latest Elixir 1.13 version
+
+### 1. Bug fixes
+
+- [Sourceror] Fixed an issue that caused comments in lists to be misplaced
+
 ## v0.8.8 (2021-11-27)
 
 ### 1. Bug fixes
