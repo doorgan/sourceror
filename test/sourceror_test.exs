@@ -112,6 +112,12 @@ defmodule SourcerorTest do
     # of this file so it overrides the configuration defined above.
     import_config "#{config_env()}.exs"
     """)
+
+    assert_same(~S"""
+    "a long string a long string a long string a long string a long string a long string a long string a long string #{
+      a.long.inter.pol.a.tion.that_just_keeps_on_going_for_a_long_time
+    }"
+    """)
   end
 
   describe "parse_string!/2" do
