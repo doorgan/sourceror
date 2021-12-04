@@ -608,8 +608,8 @@ defmodule Sourceror do
       %{start: [line: 1, column: 1], end: [line: 3, column: 2]}
   """
   @spec get_range(Macro.t()) :: range
-  def get_range(quoted) do
-    Sourceror.Range.get_range(quoted)
+  def get_range(quoted, opts \\ []) do
+    Sourceror.Range.get_range(quoted, opts)
   end
 
   @doc """

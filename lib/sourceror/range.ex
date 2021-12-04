@@ -7,9 +7,17 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
-  def get_range(quoted, _opts \\ []) do
+  def get_range(quoted, opts \\ []) do
     range = do_get_range(quoted)
 
+    if Keyword.get(opts, :include_comments, false) do
+      add_comments_to_range(range, quoted)
+    else
+      range
+    end
+  end
+
+  defp add_comments_to_range(range, quoted) do
     comments =
       case quoted do
         {_, meta, _} ->

@@ -2,10 +2,10 @@ defmodule SourcerorTest.RangeTest do
   use ExUnit.Case, async: true
   doctest Sourceror.Range
 
-  defp to_range(string) do
+  defp to_range(string, opts \\ []) do
     string
     |> Sourceror.parse_string!()
-    |> Sourceror.Range.get_range()
+    |> Sourceror.Range.get_range(opts)
   end
 
   describe "get_range/1" do
@@ -13,22 +13,54 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S"""
              # Foo
              :bar
-             """) == %{start: [line: 1, column: 1], end: [line: 2, column: 5]}
+             """) == %{start: [line: 2, column: 1], end: [line: 2, column: 5]}
+
+      assert to_range(
+               ~S"""
+               # Foo
+               :bar
+               """,
+               include_comments: true
+             ) == %{start: [line: 1, column: 1], end: [line: 2, column: 5]}
 
       assert to_range(~S"""
              # Foo
              # Bar
              :baz
-             """) == %{start: [line: 1, column: 1], end: [line: 3, column: 5]}
+             """) == %{start: [line: 3, column: 1], end: [line: 3, column: 5]}
+
+      assert to_range(
+               ~S"""
+               # Foo
+               # Bar
+               :baz
+               """,
+               include_comments: true
+             ) == %{start: [line: 1, column: 1], end: [line: 3, column: 5]}
 
       assert to_range(~S"""
              :baz # Foo
-             """) == %{start: [line: 1, column: 1], end: [line: 1, column: 11]}
+             """) == %{start: [line: 1, column: 1], end: [line: 1, column: 5]}
+
+      assert to_range(
+               ~S"""
+               :baz # Foo
+               """,
+               include_comments: true
+             ) == %{start: [line: 1, column: 1], end: [line: 1, column: 11]}
 
       assert to_range(~S"""
              # Foo
              :baz # Bar
-             """) == %{start: [line: 1, column: 1], end: [line: 2, column: 11]}
+             """) == %{start: [line: 2, column: 1], end: [line: 2, column: 5]}
+
+      assert to_range(
+               ~S"""
+               # Foo
+               :baz # Bar
+               """,
+               include_comments: true
+             ) == %{start: [line: 1, column: 1], end: [line: 2, column: 11]}
     end
 
     test "numbers" do
