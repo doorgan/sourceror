@@ -1,5 +1,7 @@
 defmodule Sourceror.Identifier do
-  @moduledoc false
+  @moduledoc """
+  Functions to identify an classify forms and quoted expressions.
+  """
 
   @unary_ops [:&, :!, :^, :not, :+, :-, :~~~, :@]
   binary_ops = [
