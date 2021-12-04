@@ -9,116 +9,132 @@ defmodule SourcerorTest do
     end
   end
 
-  test "parse_string!/2 and to_string/2 idempotency" do
-    assert_same(~S"""
-    foo()
+  describe "parse_string!/2 and to_string/2 comment position preservation" do
+    test "blocks" do
+      assert_same(~S"""
+      foo()
 
-    # Bar
-    """)
-
-    assert_same(~S"""
-    # A
-    foo do
-      # B
-      :ok
-
-      # C
+      # Bar
+      """)
     end
 
-    # D
-    """)
+    test "do blocks" do
+      assert_same(~S"""
+      # A
+      foo do
+        # B
+        :ok
 
-    assert_same(~S"""
-    # 1
-    A.{
-      # 2
-      B,
-      C,
-      # 3
-      D
+        # C
+      end
 
-      # 4
-    }
+      # D
+      """)
+    end
 
-    # 5
-    """)
+    test "qualified tuples" do
+      assert_same(~S"""
+      # 1
+      A.{
+        # 2
+        B,
+        C,
+        # 3
+        D
 
-    assert_same(~S"""
-    # 1
-    a.b c do
-      # 4
-      d
+        # 4
+      }
 
       # 5
+      """)
     end
 
-    # 6
-    """)
+    test "dot call and do block" do
+      assert_same(~S"""
+      # 1
+      a.b c do
+        # 4
+        d
 
-    # comments and pipeline operator (see #27)
-    assert_same(~S"""
-    # a comment for foo
-    # a second comment for foo
-    foo |> bar.baz(args: 2)
+        # 5
+      end
 
-    # comment for function call
-    function_call
-    # comment for bop
-    |> bop()
+      # 6
+      """)
+    end
 
-    # comment for big
-    big
-    # comment for long
-    |> long()
-    # comment for chain
-    # second comment for chain
-    |> chain()
-    """)
+    test "pipelines" do
+      # see https://github.com/doorgan/sourceror/issues/27
+      assert_same(~S"""
+      # a comment for foo
+      # a second comment for foo
+      foo |> bar.baz(args: 2)
 
-    assert_same(~S"""
-    # a
+      # comment for function call
+      function_call
+      # comment for bop
+      |> bop()
 
-    # b
-    foo = bar()
-    """)
+      # comment for big
+      big
+      # comment for long
+      |> long()
+      # comment for chain
+      # second comment for chain
+      |> chain()
+      """)
 
-    assert_same(~S"""
-    [
-      1,
+      assert_same(~S"""
+      # a comment
+      # a comment for baz
+      foo |> baz()
+      # comment for bar
+      bar
+      # comment for bop
+      |> bop()
+      """)
+    end
+
+    test "spacing" do
+      assert_same(~S"""
       # a
+
       # b
-      2
-    ]
-    """)
+      foo = bar()
+      """)
 
-    assert_same(~S"""
-    # foo
-    %{
-      a: a
-    } = x
-    """)
+      assert_same(~S"""
+      # General application configuration
+      import Config
 
-    assert_same(~S"""
-    # a comment
-    # a comment for baz
-    foo |> baz()
-    # comment for bar
-    bar
-    # comment for bop
-    |> bop()
-    """)
+      # Use Jason for JSON parsing in Phoenix
+      config :phoenix, :json_library, Jason
 
-    assert_same(~S"""
-    # General application configuration
-    import Config
+      # Import environment specific config. This must remain at the bottom
+      # of this file so it overrides the configuration defined above.
+      import_config "#{config_env()}.exs"
+      """)
+    end
 
-    # Use Jason for JSON parsing in Phoenix
-    config :phoenix, :json_library, Jason
+    test "lists" do
+      assert_same(~S"""
+      [
+        1,
+        # a
+        # b
+        2
+      ]
+      """)
+    end
 
-    # Import environment specific config. This must remain at the bottom
-    # of this file so it overrides the configuration defined above.
-    import_config "#{config_env()}.exs"
-    """)
+    test "binary ops" do
+      assert_same(~S"""
+      # foo
+      %{
+        a: a
+      } = x
+      """)
+    end
   end
 
   describe "parse_string!/2" do
