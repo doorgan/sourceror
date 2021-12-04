@@ -21,8 +21,8 @@ jobs:
             run_coveralls: true
           - elixir: 1.12.0
             otp: 24.0
-          - elixir: master
-            otp: 23.2
+          - elixir: 1.13.0
+            otp: 24.0
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
