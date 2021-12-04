@@ -606,6 +606,18 @@ defmodule Sourceror do
       ...> "\"" |> Sourceror.parse_string!()
       iex> Sourceror.get_range(quoted)
       %{start: [line: 1, column: 1], end: [line: 3, column: 2]}
+
+  ## Options
+
+        - `:include_comments` - When `true`, it includes the comments into the range. Defaults to `false`.
+
+        iex> ~S"\""
+        ...> # Foo
+        ...> :baz # Bar
+        ...> "\""
+        ...> |> Sourceror.parse_string!()
+        ...> |> Sourceror.get_range(include_comments: true)
+        %{start: [line: 1, column: 1], end: [line: 2, column: 11]}
   """
   @spec get_range(Macro.t()) :: range
   def get_range(quoted, opts \\ []) do
