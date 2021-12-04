@@ -160,8 +160,6 @@ defmodule Sourceror do
   node will be used when formatting the code.
 
   ## Options
-    * `:line_length` - The max line length for the formatted code.
-
     * `:indent` - how many indentations to insert at the start of each line.
       Note that this only prepends the indents without checking the indentation
       of nested blocks. Defaults to `0`.
@@ -172,6 +170,8 @@ defmodule Sourceror do
     * `:format` - if set to `:splicing`, if the quoted expression is a list, it
       will strip the square brackets. This is useful to print a single element
       of a keyword list.
+
+  For more options see `Code.format_string!/1` and `Code.quoted_to_algebra/2`.
   """
   @spec to_string(Macro.t(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
@@ -189,13 +189,11 @@ defmodule Sourceror do
 
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
 
+    to_algebra_opts = Keyword.merge(opts, comments: comments, escape: false)
+
     text =
       quoted
-      |> quoted_to_algebra(
-        comments: comments,
-        escape: false,
-        locals_without_parens: Keyword.get(opts, :locals_without_parens, [])
-      )
+      |> quoted_to_algebra(to_algebra_opts)
       |> Inspect.Algebra.format(line_length)
       |> IO.iodata_to_binary()
       |> String.split("\n")
