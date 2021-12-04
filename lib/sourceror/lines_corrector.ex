@@ -3,6 +3,8 @@ defmodule Sourceror.LinesCorrector do
 
   import Sourceror, only: [get_line: 1, correct_lines: 2]
 
+  import Sourceror.Identifier, only: [is_binary_op: 1]
+
   @doc """
   Corrects the line numbers of AST nodes such that they are correctly ordered.
 
@@ -32,7 +34,7 @@ defmodule Sourceror.LinesCorrector do
           meta = Keyword.put(meta, :line, state.last_line)
           {{form, meta, args}, %{state | last_form: form}}
 
-        get_line(quoted) <= state.last_line ->
+        get_line(quoted) <= state.last_line and not is_binary_op(form) ->
           correction = state.last_line - get_line(quoted)
           quoted = recursive_correct_lines(quoted, correction)
           {quoted, %{state | last_line: get_line(quoted), last_form: form}}
@@ -55,6 +57,20 @@ defmodule Sourceror.LinesCorrector do
   end
 
   defp post_correct({_, meta, _} = quoted, state) do
+    quoted =
+      with {form, meta, [{_, _, _} = left, right]} when is_binary_op(form) <- quoted do
+        # We must ensure that, for binary operators, the operator line number is
+        # not greater than the left operand. Otherwise the comment eol counts
+        # will be ignored by the formatter
+        left_line = get_line(left)
+
+        if left_line > get_line(quoted) do
+          {form, Keyword.put(meta, :line, left_line), [left, right]}
+        else
+          quoted
+        end
+      end
+
     last_line = Sourceror.get_end_line(quoted, state.last_line)
 
     last_line =
