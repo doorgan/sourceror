@@ -72,10 +72,15 @@ defmodule Sourceror.MixProject do
   defp docs do
     [
       extras: [
+        "notebooks/zippers.livemd",
+        "notebooks/expand_multi_alias.livemd",
         "CHANGELOG.md": [title: "Changelog"],
         "CONTRIBUTING.md": [title: "Contributing"],
         LICENSE: [title: "License"],
         "README.md": [title: "Overview"]
+      ],
+      groups_for_extras: [
+        Guides: ~r/notebooks/
       ],
       main: "readme",
       homepage_url: @repo_url,
