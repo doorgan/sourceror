@@ -205,10 +205,15 @@ defmodule Sourceror.Code.Normalizer do
   # Module attributes
   defp do_normalize({:@, meta, [{name, name_meta, [value]}]}, state) do
     value =
-      if is_list(value) do
-        normalize_kw_args(value, state, false)
-      else
-        do_normalize(value, state)
+      cond do
+        keyword?(value) ->
+          normalize_kw_args(value, state, true)
+
+        is_list(value) ->
+          normalize_literal(value, meta, state)
+
+        true ->
+          do_normalize(value, state)
       end
 
     {:@, meta, [{name, name_meta, [value]}]}
