@@ -129,7 +129,7 @@ defmodule Sourceror.Comments do
       if collapse_comments do
         for {comment, i} <- Enum.with_index(leading_comments, 0) do
           next_eol_correction = max(0, comment.next_eol_count - 1)
-          line = max(1, meta[:line] - (leading_comments_count - i - next_eol_correction))
+          line = max(1, meta[:line] - (leading_comments_count - i + next_eol_correction))
           %{comment | line: line}
         end
       else

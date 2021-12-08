@@ -144,6 +144,27 @@ defmodule SourcerorTest do
       } = x
       """)
     end
+
+    test "function definitions in large comments" do
+      assert_same(~S"""
+      # large
+      # comment
+      # block
+
+      # large
+      # comment
+      # block
+
+      def request(%S3{http_method: :head} = op), do: head_object(op)
+
+      ###
+      ### ListObjectVersions request (see Core.Storage.list_object_versions/2)
+      ###
+
+      # A request error
+      def request(%S3{http_method: :head} = op), do: head_object(op)
+      """)
+    end
   end
 
   describe "parse_string!/2" do
