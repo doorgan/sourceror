@@ -63,6 +63,15 @@ defmodule SourcerorTest do
       """)
     end
 
+    test "newlines between comments and function calls" do
+      assert_same(~S"""
+      # a
+      # paragraph
+
+      fun()
+      """)
+    end
+
     test "pipelines" do
       # see https://github.com/doorgan/sourceror/issues/27
       assert_same(~S"""
