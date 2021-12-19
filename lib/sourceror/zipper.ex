@@ -338,17 +338,31 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Traverses the tree in depth-first pre-order calling the given function for
-  each node. Returns a zipper to the root node.
+  each node.
+
+  If the zipper is not at the top, just the subtree will be traversed.
+
 
   The function must return a zipper.
   """
   @spec traverse(zipper, (zipper -> zipper)) :: zipper
   def traverse({tree, :end}, _), do: {tree, :end}
 
-  def traverse(zipper, fun) do
+  def traverse({_tree, nil} = zipper, fun) do
+    do_traverse(zipper, fun)
+  end
+
+  def traverse({tree, meta}, fun) do
+    {updated, _meta} = do_traverse({tree, nil}, fun)
+    {updated, meta}
+  end
+
+  defp do_traverse({tree, :end}, _), do: {tree, :end}
+
+  defp do_traverse(zipper, fun) do
     fun.(zipper)
     |> next()
-    |> traverse(fun)
+    |> do_traverse(fun)
   end
 
   @doc """
@@ -359,10 +373,21 @@ defmodule Sourceror.Zipper do
   @spec traverse(zipper, term, (zipper, term -> {zipper, term})) :: {zipper, term}
   def traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
 
-  def traverse(zipper, acc, fun) do
+  def traverse({_tree, nil} = zipper, acc, fun) do
+    do_traverse(zipper, acc, fun)
+  end
+
+  def traverse({tree, meta}, acc, fun) do
+    {{updated, _meta}, acc} = do_traverse({tree, nil}, acc, fun)
+    {{updated, meta}, acc}
+  end
+
+  def do_traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
+
+  def do_traverse(zipper, acc, fun) do
     {zipper, acc} = fun.(zipper, acc)
 
-    traverse(next(zipper), acc, fun)
+    do_traverse(next(zipper), acc, fun)
   end
 
   @doc """

@@ -237,6 +237,19 @@ defmodule SourcerorTest.ZipperTest do
              end)
              |> Z.node() == [2, [4, [6, 8], 10], [12, 14]]
     end
+
+    test "traverses a subtree in depth-first pre-order" do
+      zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
+
+      assert zipper
+             |> Z.down()
+             |> Z.right()
+             |> Z.traverse(fn
+               {x, m} when is_integer(x) -> {x + 10, m}
+               z -> z
+             end)
+             |> Z.root() == [1, [12, [13, 14], 15], [6, 7]]
+    end
   end
 
   describe "traverse/3" do
@@ -258,6 +271,18 @@ defmodule SourcerorTest.ZipperTest do
                6,
                7
              ] == Enum.reverse(acc)
+    end
+
+    test "traverses a subtree in depth-first pre-order" do
+      zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
+
+      {_, acc} =
+        zipper
+        |> Z.down()
+        |> Z.right()
+        |> Z.traverse([], &{&1, [Z.node(&1) | &2]})
+
+      assert [[2, [3, 4], 5], 2, [3, 4], 3, 4, 5] == Enum.reverse(acc)
     end
   end
 
