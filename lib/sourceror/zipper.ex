@@ -396,7 +396,7 @@ defmodule Sourceror.Zipper do
 
   The function must return a zipper.
   """
-  @spec traverse(
+  @spec traverse_while(
           zipper,
           (zipper ->
              {:cont, zipper} | {:halt, zipper} | {:skip, zipper})
@@ -432,7 +432,7 @@ defmodule Sourceror.Zipper do
 
   If the zipper is not at the top, just the subtree will be traversed.
   """
-  @spec traverse(
+  @spec traverse_while(
           zipper,
           term,
           (zipper, term -> {:cont, zipper, term} | {:halt, zipper, term} | {:skip, zipper, term})
