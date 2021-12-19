@@ -237,6 +237,19 @@ defmodule SourcerorTest.ZipperTest do
              end)
              |> Z.node() == [2, [4, [6, 8], 10], [12, 14]]
     end
+
+    test "traverses a subtree in depth-first pre-order" do
+      zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
+
+      assert zipper
+             |> Z.down()
+             |> Z.right()
+             |> Z.traverse(fn
+               {x, m} when is_integer(x) -> {x + 10, m}
+               z -> z
+             end)
+             |> Z.root() == [1, [12, [13, 14], 15], [6, 7]]
+    end
   end
 
   describe "traverse/3" do
@@ -258,6 +271,74 @@ defmodule SourcerorTest.ZipperTest do
                6,
                7
              ] == Enum.reverse(acc)
+    end
+
+    test "traverses a subtree in depth-first pre-order" do
+      zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
+
+      {_, acc} =
+        zipper
+        |> Z.down()
+        |> Z.right()
+        |> Z.traverse([], &{&1, [Z.node(&1) | &2]})
+
+      assert [[2, [3, 4], 5], 2, [3, 4], 3, 4, 5] == Enum.reverse(acc)
+    end
+  end
+
+  describe "traverse_while/2" do
+    test "traverses in depth-first pre-order and skips branch" do
+      zipper = Z.zip([10, [20, [30, 31], [21, [32, 33]], [22, 23]]])
+
+      assert zipper
+             |> Z.traverse_while(fn
+               {[x | _], _} = z when rem(x, 2) != 0 -> {:skip, z}
+               {[_ | _], _} = z -> {:cont, z}
+               {x, m} -> {:cont, {x + 100, m}}
+             end)
+             |> Z.node() == [110, [120, [130, 131], [21, [32, 33]], [122, 123]]]
+    end
+
+    test "traverses in depth-first pre-order and halts on halt" do
+      zipper = Z.zip([10, [20, [30, 31], [21, [32, 33]], [22, 23]]])
+
+      assert zipper
+             |> Z.traverse_while(fn
+               {[x | _], _} = z when rem(x, 2) != 0 -> {:halt, z}
+               {[_ | _], _} = z -> {:cont, z}
+               {x, m} -> {:cont, {x + 100, m}}
+             end)
+             |> Z.node() == [110, [120, [130, 131], [21, [32, 33]], [22, 23]]]
+    end
+  end
+
+  describe "traverse_while/3" do
+    test "traverses in depth-first pre-order and skips branch" do
+      zipper = Z.zip([10, [20, [30, 31], [21, [32, 33]], [22, 23]]])
+
+      {_zipper, acc} =
+        zipper
+        |> Z.traverse_while([], fn
+          {[x | _], _} = z, acc when rem(x, 2) != 0 -> {:skip, z, acc}
+          {[_ | _], _} = z, acc -> {:cont, z, acc}
+          {x, _} = z, acc -> {:cont, z, [x + 100 | acc]}
+        end)
+
+      assert acc == [123, 122, 131, 130, 120, 110]
+    end
+
+    test "traverses in depth-first pre-order and halts on halt" do
+      zipper = Z.zip([10, [20, [30, 31], [21, [32, 33]], [22, 23]]])
+
+      {_zipper, acc} =
+        zipper
+        |> Z.traverse_while([], fn
+          {[x | _], _} = z, acc when rem(x, 2) != 0 -> {:halt, z, acc}
+          {[_ | _], _} = z, acc -> {:cont, z, acc}
+          {x, _} = z, acc -> {:cont, z, [x + 100 | acc]}
+        end)
+
+      assert acc == [131, 130, 120, 110]
     end
   end
 
