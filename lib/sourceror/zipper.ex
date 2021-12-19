@@ -292,16 +292,11 @@ defmodule Sourceror.Zipper do
   def next({_, :end} = zipper), do: zipper
 
   def next({tree, _} = zipper) do
-    cond do
-      branch?(tree) && down(zipper) ->
-        down(zipper)
+    if branch?(tree) && down(zipper), do: down(zipper), else: next_right(zipper)
+  end
 
-      next = right(zipper) ->
-        next
-
-      true ->
-        next_up(zipper)
-    end
+  defp next_right(zipper) do
+    if next = right(zipper), do: next, else: next_up(zipper)
   end
 
   defp next_up(zipper) do
@@ -342,7 +337,6 @@ defmodule Sourceror.Zipper do
 
   If the zipper is not at the top, just the subtree will be traversed.
 
-
   The function must return a zipper.
   """
   @spec traverse(zipper, (zipper -> zipper)) :: zipper
@@ -367,8 +361,9 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Traverses the tree in depth-first pre-order calling the given function for
-  each node with an accumulator. Returns a zipper to the root node and the
-  accumulator.
+  each node with an accumulator.
+
+  If the zipper is not at the top, just the subtree will be traversed.
   """
   @spec traverse(zipper, term, (zipper, term -> {zipper, term})) :: {zipper, term}
   def traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
@@ -382,12 +377,85 @@ defmodule Sourceror.Zipper do
     {{updated, meta}, acc}
   end
 
-  def do_traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
+  defp do_traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
 
-  def do_traverse(zipper, acc, fun) do
+  defp do_traverse(zipper, acc, fun) do
     {zipper, acc} = fun.(zipper, acc)
 
     do_traverse(next(zipper), acc, fun)
+  end
+
+  @doc """
+  Traverses the tree in depth-first pre-order calling the given function for
+  each node.
+
+  The traversing will continue if the function returns `{:cont, zipper}`,
+  skipped for `{:skip, zipper}` and halted for `{:halt, zipper}`
+
+  If the zipper is not at the top, just the subtree will be traversed.
+
+  The function must return a zipper.
+  """
+  @spec traverse(
+          zipper,
+          (zipper ->
+             {:cont, zipper} | {:halt, zipper} | {:skip, zipper})
+        ) ::
+          zipper
+  def traverse_while({tree, :end}, _), do: {tree, :end}
+
+  def traverse_while({_tree, nil} = zipper, fun) do
+    do_traverse_while(zipper, fun)
+  end
+
+  def traverse_while({tree, meta}, fun) do
+    {updated, _meta} = do_traverse({tree, nil}, fun)
+    {updated, meta}
+  end
+
+  defp do_traverse_while({tree, :end}, _), do: {tree, :end}
+
+  defp do_traverse_while(zipper, fun) do
+    case fun.(zipper) do
+      {:cont, zipper} -> zipper |> next() |> do_traverse_while(fun)
+      {:skip, zipper} -> zipper |> next_right() |> do_traverse_while(fun)
+      {:halt, zipper} -> top(zipper)
+    end
+  end
+
+  @doc """
+  Traverses the tree in depth-first pre-order calling the given function for
+  each node with an accumulator.
+
+  The traversing will continue if the function returns `{:cont, zipper, acc}`,
+  skipped for `{:skip, zipper, acc}` and halted for `{:halt, zipper, acc}`
+
+  If the zipper is not at the top, just the subtree will be traversed.
+  """
+  @spec traverse(
+          zipper,
+          term,
+          (zipper, term -> {:cont, zipper, term} | {:halt, zipper, term} | {:skip, zipper, term})
+        ) :: {zipper, term}
+  def traverse_while({tree, :end}, _, _), do: {tree, :end}
+
+  def traverse_while({_tree, nil} = zipper, acc, fun) do
+    do_traverse_while(zipper, acc, fun)
+  end
+
+  def traverse_while({tree, meta}, acc, fun) do
+    {{updated, _meta}, acc} = do_traverse({tree, nil}, acc, fun)
+    {{updated, meta}, acc}
+  end
+
+  defp do_traverse_while({tree, :end}, acc, _), do: {{tree, :end}, acc}
+
+  defp do_traverse_while(zipper, acc, fun) do
+    case fun.(zipper, acc) do
+      {:cont, zipper, acc} -> zipper |> next() |> do_traverse_while(acc, fun)
+      {:skip, zipper, acc} -> zipper |> next_right() |> do_traverse_while(acc, fun)
+      {:halt, zipper, acc} -> {top(zipper), acc}
+    end
   end
 
   @doc """
