@@ -32,7 +32,7 @@ defmodule Sourceror do
 
   @type traversal_function :: (Macro.t(), TraversalState.t() -> {Macro.t(), TraversalState.t()})
 
-  @code_module (if Version.match?(System.version(), "~> 1.13.0") do
+  @code_module (if Version.match?(System.version(), "~> 1.13") do
                   Code
                 else
                   Sourceror.Code
