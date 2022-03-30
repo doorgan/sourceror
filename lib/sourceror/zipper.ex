@@ -163,7 +163,7 @@ defmodule Sourceror.Zipper do
   end
 
   @doc """
-  "Returns the zipper of the right sibling of the node at this zipper, or nil.
+  Returns the zipper of the right sibling of the node at this zipper, or nil.
   """
   @spec right(zipper) :: zipper | nil
   def right({_, nil}), do: nil
@@ -292,11 +292,33 @@ defmodule Sourceror.Zipper do
   def next({_, :end} = zipper), do: zipper
 
   def next({tree, _} = zipper) do
-    if branch?(tree) && down(zipper), do: down(zipper), else: next_right(zipper)
+    if branch?(tree) && down(zipper), do: down(zipper), else: skip(zipper)
   end
 
-  defp next_right(zipper) do
+  @doc """
+  Returns the zipper of the right sibling of the node at this zipper, or the
+  next zipper when no right sibling is available.
+
+  This allows to skip subtrees while traversing the siblings of a node.
+
+  If no right sibling is available, this function returns the same value as
+  `next/1`.
+
+  The optional second parameters specifies the `direction`, defaults to
+  `:next`.
+
+  The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
+  `traverse_while/3`.
+  """
+  @spec skip(zipper, direction :: :next | :prev) :: zipper
+  def skip(zipper, direction \\ :next)
+
+  def skip(zipper, :next) do
     if next = right(zipper), do: next, else: next_up(zipper)
+  end
+
+  def skip(zipper, :prev) do
+    if prev = left(zipper), do: prev, else: prev_up(zipper)
   end
 
   defp next_up(zipper) do
@@ -304,6 +326,16 @@ defmodule Sourceror.Zipper do
 
     if parent do
       right(parent) || next_up(parent)
+    else
+      {node(zipper), :end}
+    end
+  end
+
+  defp prev_up(zipper) do
+    parent = up(zipper)
+
+    if parent do
+      left(parent) || prev_up(parent)
     else
       {node(zipper), :end}
     end
@@ -418,7 +450,7 @@ defmodule Sourceror.Zipper do
   defp do_traverse_while(zipper, fun) do
     case fun.(zipper) do
       {:cont, zipper} -> zipper |> next() |> do_traverse_while(fun)
-      {:skip, zipper} -> zipper |> next_right() |> do_traverse_while(fun)
+      {:skip, zipper} -> zipper |> skip() |> do_traverse_while(fun)
       {:halt, zipper} -> top(zipper)
     end
   end
@@ -453,7 +485,7 @@ defmodule Sourceror.Zipper do
   defp do_traverse_while(zipper, acc, fun) do
     case fun.(zipper, acc) do
       {:cont, zipper, acc} -> zipper |> next() |> do_traverse_while(acc, fun)
-      {:skip, zipper, acc} -> zipper |> next_right() |> do_traverse_while(acc, fun)
+      {:skip, zipper, acc} -> zipper |> skip() |> do_traverse_while(acc, fun)
       {:halt, zipper, acc} -> {top(zipper), acc}
     end
   end

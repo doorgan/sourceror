@@ -220,6 +220,24 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "skip/2" do
+    test "returns a zipper to the next sibling while skipping subtrees" do
+      zipper =
+        Z.zip([
+          {:foo, [], [1, 2, 3]},
+          {:bar, [], [1, 2, 3]},
+          {:baz, [], [1, 2, 3]}
+        ])
+
+      zipper = Z.down(zipper)
+
+      assert Z.node(zipper) == {:foo, [], [1, 2, 3]}
+      assert zipper |> Z.skip() |> Z.node() == {:bar, [], [1, 2, 3]}
+      assert zipper |> Z.skip(:next) |> Z.node() == {:bar, [], [1, 2, 3]}
+      assert zipper |> Z.skip() |> Z.skip(:prev) |> Z.node() == {:foo, [], [1, 2, 3]}
+    end
+  end
+
   describe "end?/1" do
     test "returns true if it's an end zipper" do
       assert Z.end?({42, nil}) == false
