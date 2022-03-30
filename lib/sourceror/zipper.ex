@@ -302,7 +302,7 @@ defmodule Sourceror.Zipper do
   If no right sibling is available, this function returns the same value as
   `next/1`.
 
-  The optional seconde parameters specifies the `direction`, defaults to
+  The optional second parameters specifies the `direction`, defaults to
   `:next`.
 
   The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
