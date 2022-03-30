@@ -298,6 +298,8 @@ defmodule Sourceror.Zipper do
   @doc """
   Returns the zipper of the right sibling of the node at this zipper, or the
   next zipper when no right sibling is available.
+  
+  This allows to skip subtrees while traversing the siblings of a node.
 
   If no right sibling is available, this function returns the same value as
   `next/1`.
