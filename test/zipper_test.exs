@@ -466,11 +466,43 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
-  describe "find/2" do
+  describe "find/3" do
     test "finds a zipper with a predicate" do
       zipper = Z.zip([1, [2, [3, 4], 5]])
 
       assert Z.find(zipper, fn x -> x == 4 end) |> Z.node() == 4
+      assert Z.find(zipper, :next, fn x -> x == 4 end) |> Z.node() == 4
+    end
+
+    test "returns nil if nothing was found" do
+      zipper = Z.zip([1, [2, [3, 4], 5]])
+
+      assert Z.find(zipper, fn x -> x == 9 end) == nil
+      assert Z.find(zipper, :prev, fn x -> x == 9 end) == nil
+    end
+
+    test "finds a zipper with a predicate in direction :prev" do
+      zipper =
+        [1, [2, [3, 4], 5]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.find(zipper, :prev, fn x -> x == 2 end) |> Z.node() == 2
+    end
+
+    test "retruns nil if nothing was found in direction :prev" do
+      zipper =
+        [1, [2, [3, 4], 5]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.find(zipper, :prev, fn x -> x == 9 end) == nil
     end
   end
 end
