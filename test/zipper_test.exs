@@ -221,7 +221,7 @@ defmodule SourcerorTest.ZipperTest do
   end
 
   describe "skip/2" do
-    test "adsf" do
+    test "returns a zipper to the next sibling while skipping subtrees" do
       zipper =
         Z.zip([
           {:foo, [], [1, 2, 3]},
