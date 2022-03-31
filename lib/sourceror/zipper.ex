@@ -493,14 +493,30 @@ defmodule Sourceror.Zipper do
   @doc """
   Returns a zipper to the node that satisfies the predicate function, or `nil`
   if none is found.
-  """
-  def find({_, :end}, _), do: nil
 
-  def find({tree, _} = zipper, predicate) do
+  The optional second parameters specifies the `direction`, defaults to
+  `:next`.
+  """
+  @spec find(zipper, direction :: :prev | :next, predicate :: (tree -> any)) ::
+          zipper | nil
+  def find(zipper, direction \\ :next, predicate)
+
+  def find(nil, _direction, _predicate), do: nil
+
+  def find({_, :end}, :next, _predicate), do: nil
+
+  def find({tree, _} = zipper, direction, predicate)
+      when direction in [:next, :prev] and is_function(predicate) do
     if predicate.(tree) do
       zipper
     else
-      find(next(zipper), predicate)
+      zipper =
+        case direction do
+          :next -> next(zipper)
+          :prev -> prev(zipper)
+        end
+
+      find(zipper, direction, predicate)
     end
   end
 
