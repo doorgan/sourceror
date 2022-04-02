@@ -101,7 +101,8 @@ defmodule Sourceror do
       token_metadata: true,
       unescape: false,
       columns: true,
-      warn_on_unnecessary_quotes: false
+      warn_on_unnecessary_quotes: false,
+      emit_warnings: false
     ]
   end
 
