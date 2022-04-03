@@ -23,8 +23,31 @@ defmodule Sourceror.Comments do
         quoted
 
       _ ->
-        line = Sourceror.get_line(quoted)
-        {:__block__, [trailing_comments: leftovers, leading_comments: [], line: line], [quoted]}
+        if match?({:__block__, _, _}, quoted) and not Sourceror.Identifier.do_block?(quoted) do
+          {last, args} = Sourceror.get_args(quoted) |> List.pop_at(-1)
+          line = Sourceror.get_line(last)
+
+          last =
+            {:__block__,
+             [
+               __sourceror__: %{trailing_block: true},
+               trailing_comments: leftovers,
+               leading_comments: [],
+               line: line
+             ], [last]}
+
+          {:__block__, Sourceror.get_meta(quoted), args ++ [last]}
+        else
+          line = Sourceror.get_line(quoted)
+
+          {:__block__,
+           [
+             __sourceror__: %{trailing_block: true},
+             trailing_comments: leftovers,
+             leading_comments: [],
+             line: line
+           ], [quoted]}
+        end
     end
   end
 
@@ -150,6 +173,14 @@ defmodule Sourceror.Comments do
       |> Enum.sort_by(& &1.line)
 
     quoted =
+      if meta[:__sourceror__][:trailing_block] do
+        {_, _, [quoted]} = quoted
+        quoted
+      else
+        quoted
+      end
+
+    quoted =
       Macro.update_meta(quoted, fn meta ->
         meta
         |> Keyword.delete(:leading_comments)
@@ -161,18 +192,21 @@ defmodule Sourceror.Comments do
 
   defp collapse_trailing_comments(quoted, trailing_comments) do
     meta = Sourceror.get_meta(quoted)
+    trailing_block? = meta[:__sourceror__][:trailing_block]
 
     comments =
       Enum.map(trailing_comments, fn comment ->
         line = meta[:end_of_expression][:line] || meta[:line]
 
-        %{comment | line: line - 2, previous_eol_count: 1}
+        %{comment | line: line - 1}
       end)
 
     comments =
       case comments do
         [first | rest] ->
-          [%{first | previous_eol_count: 0} | rest]
+          prev_eol_count = if trailing_block?, do: first.previous_eol_count, else: 0
+
+          [%{first | previous_eol_count: prev_eol_count} | rest]
 
         _ ->
           comments
@@ -180,7 +214,7 @@ defmodule Sourceror.Comments do
 
     case List.pop_at(comments, -1) do
       {last, rest} when is_map(last) ->
-        rest ++ [%{last | next_eol_count: 2}]
+        rest ++ [%{last | next_eol_count: 0}]
 
       _ ->
         comments

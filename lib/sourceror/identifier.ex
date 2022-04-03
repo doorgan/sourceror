@@ -115,4 +115,11 @@ defmodule Sourceror.Identifier do
   defp trim_leading_while_valid_identifier(other) do
     other
   end
+
+  @doc false
+  def do_block?({:__block__, _, args}) do
+    not is_nil(args[:do])
+  end
+
+  def do_block?(_), do: false
 end
