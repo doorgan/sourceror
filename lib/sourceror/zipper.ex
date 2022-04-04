@@ -311,8 +311,8 @@ defmodule Sourceror.Zipper do
   The optional second parameters specifies the `direction`, defaults to
   `:next`.
 
-  If no right sibling is available, this function returns the same value as
-  `next/1` or `prev/1`.
+  If no right/left sibling is available, this function returns the same value as
+  `next/1`/`prev/1`.
 
   The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
   `traverse_while/3`.
