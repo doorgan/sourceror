@@ -101,6 +101,8 @@ defmodule Sourceror.Zipper do
   nil if no there's no children.
   """
   @spec down(zipper) :: zipper | nil
+  def down({_, :end}), do: nil
+
   def down({tree, meta}) do
     with true <- branch?(tree), [first | rest] <- children(tree) do
       rest =
@@ -122,6 +124,7 @@ defmodule Sourceror.Zipper do
   """
   @spec up(zipper) :: zipper | nil
   def up({_, nil}), do: nil
+  def up({_, :end}), do: nil
 
   def up({tree, meta}) do
     children = Enum.reverse(meta.l || []) ++ [tree] ++ (meta.r || [])
@@ -134,6 +137,7 @@ defmodule Sourceror.Zipper do
   """
   @spec left(zipper) :: zipper | nil
   def left({_, nil}), do: nil
+  def left({_, :end}), do: nil
   def left({_, %{l: nil}}), do: nil
 
   def left({tree, meta}) do
@@ -153,6 +157,7 @@ defmodule Sourceror.Zipper do
   """
   @spec leftmost(zipper) :: zipper
   def leftmost({_, nil} = zipper), do: zipper
+  def leftmost({_, :end} = zipper), do: zipper
   def leftmost({_, %{l: nil}} = zipper), do: zipper
 
   def leftmost({tree, meta}) do
@@ -167,6 +172,7 @@ defmodule Sourceror.Zipper do
   """
   @spec right(zipper) :: zipper | nil
   def right({_, nil}), do: nil
+  def right({_, :end}), do: nil
   def right({_, %{r: nil}}), do: nil
 
   def right({tree, meta}) do
@@ -186,6 +192,7 @@ defmodule Sourceror.Zipper do
   """
   @spec rightmost(zipper) :: zipper
   def rightmost({_, nil} = zipper), do: zipper
+  def rightmost({_, :end} = zipper), do: zipper
   def rightmost({_, %{r: nil}} = zipper), do: zipper
 
   def rightmost({tree, meta}) do
@@ -301,17 +308,21 @@ defmodule Sourceror.Zipper do
 
   This allows to skip subtrees while traversing the siblings of a node.
 
-  If no right sibling is available, this function returns the same value as
-  `next/1`.
-
   The optional second parameters specifies the `direction`, defaults to
   `:next`.
+
+  If no right sibling is available, this function returns the same value as
+  `next/1` or `prev/1`.
 
   The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
   `traverse_while/3`.
   """
   @spec skip(zipper, direction :: :next | :prev) :: zipper
   def skip(zipper, direction \\ :next)
+
+  def skip({_, :end} = zipper, :next), do: zipper
+  def skip({_, :end}, :prev), do: nil
+  def skip({_, nil}, :prev), do: nil
 
   def skip(zipper, :next) do
     if next = right(zipper), do: next, else: next_up(zipper)
