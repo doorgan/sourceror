@@ -75,6 +75,12 @@ defmodule SourcerorTest.ZipperTest do
                {{:., [], [:a, :b]},
                 %{l: nil, r: [1, 2], ptree: {{{:., [], [:a, :b]}, [], [1, 2]}, nil}}}
     end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.down(zipper) == nil
+    end
   end
 
   describe "up/1" do
@@ -89,6 +95,12 @@ defmodule SourcerorTest.ZipperTest do
 
     test "returns nil at the top level" do
       assert Z.zip(42) |> Z.up() == nil
+    end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.up(zipper) == nil
     end
   end
 
@@ -105,6 +117,13 @@ defmodule SourcerorTest.ZipperTest do
 
       assert zipper |> Z.down() |> Z.left() == nil
       assert zipper |> Z.down() |> Z.right() |> Z.right() == nil
+    end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.left(zipper) == nil
+      assert Z.right(zipper) == nil
     end
   end
 
@@ -125,6 +144,12 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.rightmost()
              |> Z.rightmost()
              |> Z.node() == [1, 2, 3]
+    end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.rightmost(zipper) == zipper
     end
   end
 
@@ -150,6 +175,12 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.leftmost()
              |> Z.leftmost()
              |> Z.node() == [1, 2, 3]
+    end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.leftmost(zipper) == zipper
     end
   end
 
@@ -186,6 +217,12 @@ defmodule SourcerorTest.ZipperTest do
 
       assert {42, :end} |> Z.next() == {42, :end}
     end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.next(zipper) == zipper
+    end
   end
 
   describe "prev/1" do
@@ -218,6 +255,12 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.prev()
              |> Z.prev() == nil
     end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.prev(zipper) == nil
+    end
   end
 
   describe "skip/2" do
@@ -235,6 +278,36 @@ defmodule SourcerorTest.ZipperTest do
       assert zipper |> Z.skip() |> Z.node() == {:bar, [], [1, 2, 3]}
       assert zipper |> Z.skip(:next) |> Z.node() == {:bar, [], [1, 2, 3]}
       assert zipper |> Z.skip() |> Z.skip(:prev) |> Z.node() == {:foo, [], [1, 2, 3]}
+    end
+
+    test "returns nil if no previous sibling is available" do
+      zipper =
+        Z.zip([
+          {:foo, [], [1, 2, 3]}
+        ])
+
+      zipper = Z.down(zipper)
+
+      assert zipper |> Z.skip(:prev) |> Z.skip(:prev) == nil
+      assert [7] |> Z.zip() |> Z.skip(:prev) == nil
+    end
+
+    test "returns an ended zipper if no next sibling is available" do
+      zipper =
+        Z.zip([
+          {:foo, [], [1, 2, 3]}
+        ])
+
+      zipper = Z.down(zipper)
+
+      assert zipper |> Z.skip() |> Z.skip() |> Z.end?()
+    end
+
+    test "works with an ended zipper" do
+      zipper = Z.zip([7]) |> Z.next() |> Z.next()
+
+      assert Z.skip(zipper) == zipper
+      assert Z.skip(zipper, :prev) == nil
     end
   end
 
@@ -328,6 +401,10 @@ defmodule SourcerorTest.ZipperTest do
              end)
              |> Z.node() == [110, [120, [130, 131], [21, [32, 33]], [22, 23]]]
     end
+
+    test "traverses until end while always skip" do
+      assert [1] |> Z.zip() |> Z.traverse_while(fn z -> {:skip, z} end) |> Z.end?()
+    end
   end
 
   describe "traverse_while/3" do
@@ -357,6 +434,14 @@ defmodule SourcerorTest.ZipperTest do
         end)
 
       assert acc == [131, 130, 120, 110]
+    end
+
+    test "traverses until end while always skip" do
+      assert [1]
+             |> Z.zip()
+             |> Z.traverse_while(nil, fn z, acc -> {:skip, z, acc} end)
+             |> elem(0)
+             |> Z.end?()
     end
   end
 
