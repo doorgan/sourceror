@@ -2,7 +2,7 @@ defmodule Sourceror.MixProject do
   use Mix.Project
 
   @repo_url "https://github.com/doorgan/sourceror"
-  @version "0.11.0"
+  @version "0.11.1"
 
   def project do
     [
@@ -84,7 +84,7 @@ defmodule Sourceror.MixProject do
       ],
       main: "readme",
       homepage_url: @repo_url,
-      source_ref: @version,
+      source_ref: "v#{@version}",
       source_url: @repo_url,
       formatters: ["html"]
     ]

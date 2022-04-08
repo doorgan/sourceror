@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.11.0 (2022-04-07)
+
+### 1. Bug fixes
+  [Sourceror.Zipper] Zipper functions to work with ended zippers (Thanks to @NickNeck)
+
+
 ## v0.11.0 (2022-04-03)
 
 ### 1. Enhancements
@@ -22,4 +28,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.10.0 (2022-02-06)
 
 The changelog for v0.10 releases can be found [in the 0.10
-branch](https://github.com/doorgan/sourceror/blob/0.10/CHANGELOG.md).
+branch](https://github.com/doorgan/sourceror/blob/v0.10/CHANGELOG.md).
