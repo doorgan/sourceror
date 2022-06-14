@@ -23,7 +23,7 @@ defmodule Sourceror.Comments do
         quoted
 
       _ ->
-        if match?({:__block__, _, _}, quoted) and not Sourceror.Identifier.do_block?(quoted) do
+        if match?({:__block__, _, [_ | _]}, quoted) and not Sourceror.Identifier.do_block?(quoted) do
           {last, args} = Sourceror.get_args(quoted) |> List.pop_at(-1)
           line = Sourceror.get_line(last)
 

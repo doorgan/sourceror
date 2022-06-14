@@ -10,6 +10,14 @@ defmodule SourcerorTest do
   end
 
   describe "parse_string!/2 and to_string/2 comment position preservation" do
+    test "just some comments" do
+      assert_same(~S"""
+      # comment
+
+      # another comment
+      """)
+    end
+
     test "blocks" do
       assert_same(~S"""
       foo()
