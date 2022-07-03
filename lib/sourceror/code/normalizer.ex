@@ -287,7 +287,7 @@ defmodule Sourceror.Code.Normalizer do
       # It's a charlist
       list =
         if state.escape do
-          {string, _} = Code.Identifier.escape(IO.chardata_to_string(list), 0)
+          {string, _} = Code.Identifier.escape(IO.chardata_to_string(list), 48)
           IO.iodata_to_binary(string) |> to_charlist()
         else
           list
@@ -525,7 +525,7 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   defp maybe_escape_literal(string, %{escape: true}) when is_binary(string) do
-    {string, _} = Code.Identifier.escape(string, 0)
+    {string, _} = Code.Identifier.escape(string, 48)
     IO.iodata_to_binary(string)
   end
 

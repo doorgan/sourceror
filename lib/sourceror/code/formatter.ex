@@ -24,7 +24,7 @@ defmodule Sourceror.Code.Formatter do
   @no_newline_binary_operators [:\\, :in]
 
   # Left associative operators that start on the next line in case of breaks (always pipes)
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :"<|>"]
 
   # Right associative operators that start on the next line in case of breaks
   @right_new_line_before_binary_operators [:|, :when]
@@ -45,8 +45,8 @@ defmodule Sourceror.Code.Formatter do
     :<<~,
     :~>>,
     :<~>,
-    :<|>,
-    :^^^,
+    :"<|>",
+    :"^^^",
     :in,
     :++,
     :--,
@@ -549,7 +549,14 @@ defmodule Sourceror.Code.Formatter do
             {:__block__, _, [atom]} when is_atom(atom) ->
               key =
                 case Sourceror.Code.classify_atom(atom) do
-                  type when type in [:callable_local, :callable_operator, :not_callable, :identifier, :unquoted] ->
+                  type
+                  when type in [
+                         :callable_local,
+                         :callable_operator,
+                         :not_callable,
+                         :identifier,
+                         :unquoted
+                       ] ->
                     IO.iodata_to_binary([Atom.to_string(atom), ?:])
 
                   _ ->
@@ -1541,7 +1548,8 @@ defmodule Sourceror.Code.Formatter do
 
     iodata =
       case Sourceror.Code.classify_atom(atom) do
-        type when type in [:callable_local, :callable_operator, :not_callable, :identifier, :unquoted] ->
+        type
+        when type in [:callable_local, :callable_operator, :not_callable, :identifier, :unquoted] ->
           [?:, string]
 
         _ ->
