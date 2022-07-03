@@ -36,7 +36,7 @@ defmodule Sourceror.Identifier do
     :<~>,
     :<|>,
     :in,
-    :"^^^",
+    :^^^,
     :"//",
     :++,
     :--,
