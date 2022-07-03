@@ -3,7 +3,7 @@ defmodule Sourceror.Identifier do
   Functions to identify an classify forms and quoted expressions.
   """
 
-  @unary_ops [:&, :!, :^, :not, :+, :-, :"~~~", :@]
+  @unary_ops [:&, :!, :^, :not, :+, :-, :~~~, :@]
   binary_ops = [
     :<-,
     :\\,
