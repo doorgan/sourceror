@@ -856,9 +856,7 @@ defmodule Sourceror do
             indent
           end
 
-        middle_patch
-        |> Enum.map(&(String.duplicate("\s\s", indent) <> &1))
-        |> Enum.join("\n")
+        Enum.map_join(middle_patch, "\n", &(String.duplicate("\s\s", indent) <> &1))
       else
         middle_patch
         |> Enum.join("\n")
