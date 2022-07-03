@@ -254,7 +254,7 @@ defmodule Sourceror.Code.Normalizer do
     meta = patch_meta_line(meta, state.parent_meta)
     literal = maybe_escape_literal(literal, state)
 
-    if is_atom(literal) and Code.Identifier.classify(literal) == :alias and
+    if is_atom(literal) and Sourceror.Code.classify_atom(literal) == :alias and
          is_nil(meta[:delimiter]) do
       "Elixir." <> segments = Atom.to_string(literal)
 
@@ -287,7 +287,7 @@ defmodule Sourceror.Code.Normalizer do
       # It's a charlist
       list =
         if state.escape do
-          {string, _} = Code.Identifier.escape(IO.chardata_to_string(list), -1)
+          {string, _} = Code.Identifier.escape(IO.chardata_to_string(list), 0)
           IO.iodata_to_binary(string) |> to_charlist()
         else
           list
@@ -525,7 +525,7 @@ defmodule Sourceror.Code.Normalizer do
   end
 
   defp maybe_escape_literal(string, %{escape: true}) when is_binary(string) do
-    {string, _} = Code.Identifier.escape(string, -1)
+    {string, _} = Code.Identifier.escape(string, 0)
     IO.iodata_to_binary(string)
   end
 
