@@ -55,7 +55,7 @@ defmodule Sourceror.Identifier do
                  binary_ops
                end)
 
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :"<|>"]
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
 
   @doc """
   Checks if the given identifier is an unary op.
