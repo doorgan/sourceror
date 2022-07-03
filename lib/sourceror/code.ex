@@ -74,22 +74,18 @@ defmodule Sourceror.Code do
   if Version.match?(System.version(), "~> 1.14 or 1.14.0-dev") do
     def classify_atom(atom) do
       apply(Macro, :classify_atom, [atom])
-      |> IO.inspect(label: :classify_atom)
     end
 
     def inspect_atom(type, atom) do
       apply(Macro, :inspect_atom, [type, atom])
-      |> IO.inspect(label: :inspect_atom)
     end
   else
     def classify_atom(atom) do
       apply(Code.Identifier, :classify, [atom])
-      |> IO.inspect(label: :classify_atom)
     end
 
     def inspect_atom(:remote_call, atom) do
       apply(Code.Identifier, :inspect_as_function, [atom])
-      |> IO.inspect(label: :inspect_atom)
     end
   end
 end
