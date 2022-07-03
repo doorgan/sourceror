@@ -24,7 +24,7 @@ defmodule Sourceror.Code.Formatter do
   @no_newline_binary_operators [:\\, :in]
 
   # Left associative operators that start on the next line in case of breaks (always pipes)
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :"<|>"]
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
 
   # Right associative operators that start on the next line in case of breaks
   @right_new_line_before_binary_operators [:|, :when]
@@ -45,8 +45,8 @@ defmodule Sourceror.Code.Formatter do
     :<<~,
     :~>>,
     :<~>,
-    :"<|>",
-    :"^^^",
+    :<|>,
+    :^^^,
     :in,
     :++,
     :--,
