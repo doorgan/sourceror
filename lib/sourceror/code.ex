@@ -70,4 +70,22 @@ defmodule Sourceror.Code do
     |> Normalizer.normalize(opts)
     |> Formatter.to_algebra(opts)
   end
+
+  if Version.match?(System.version(), "~> 1.14 or 1.14.0-dev") do
+    def classify_atom(atom) do
+      apply(Macro, :classify_atom, [atom])
+    end
+
+    def inspect_atom(type, atom) do
+      apply(Macro, :inspect_atom, [type, atom])
+    end
+  else
+    def classify_atom(atom) do
+      apply(Code.Identifier, :classify, [atom])
+    end
+
+    def inspect_atom(:remote_call, atom) do
+      apply(Code.Identifier, :inspect_as_function, [atom])
+    end
+  end
 end
