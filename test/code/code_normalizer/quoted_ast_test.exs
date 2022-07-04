@@ -580,7 +580,7 @@ defmodule SourcerorTest.Code.Normalizer.QuotedASTTest do
     end
 
     test "strings with non printable characters" do
-      # assert quoted_to_string(quote(do: "\x00\x01\x10"), escape: false) == ~s/"\x00\x01\x10"/
+      assert quoted_to_string(quote(do: "\x00\x01\x10"), escape: false) == ~s/"\x00\x01\x10"/
       assert quoted_to_string(quote(do: "\x00\x01\x10")) == ~S/"\0\x01\x10"/
     end
 
