@@ -806,14 +806,49 @@ defmodule Sourceror do
       {start, middle} = String.split_at(string, patch.range.start[:column] - 1)
       {to_patch, ending} = String.split_at(middle, column_span)
 
-      new_text =
+      patch_text =
         if is_binary(patch.change) do
           patch.change
         else
           patch.change.(to_patch)
         end
 
-      Enum.join([start, new_text, ending])
+      patch_text =
+        case String.split(patch_text, ~r/\n|\r\n|\r/) do
+          [first_patch] ->
+            first_patch
+
+          [first_patch | middle_patch] ->
+            middle_patch =
+              if is_binary(patch.change) and Map.get(patch, :preserve_indentation, true) do
+                indent = get_indent(to_patch)
+
+                indent =
+                  if String.trim(to_patch) != "" and
+                       get_indent(List.first(middle_patch) || "") > 0 do
+                    # If the patch does not start at the start of the line and the next
+                    # lines have an additional indentation, then we need to add it to
+                    # prevent the "flattening" of the indentations, essentially to
+                    # avoid this:
+                    #     foo do bar do
+                    #       :ok
+                    #     end
+                    #     end
+                    indent + 1
+                  else
+                    indent
+                  end
+
+                Enum.map_join(middle_patch, "\n", &(String.duplicate("\s\s", indent) <> &1))
+              else
+                middle_patch
+                |> Enum.join("\n")
+              end
+
+            first_patch <> "\n" <> middle_patch
+        end
+
+      start <> patch_text <> ending
     end)
   end
 

@@ -733,35 +733,6 @@ defmodule SourcerorTest do
              """
     end
 
-    test "patches single line range with multiple lines" do
-      original = ~S"""
-      hello world do
-        :ok
-      end
-      """
-
-      patch = %{
-        change: """
-        [
-          1,
-          2,
-          3
-        ]\
-        """,
-        range: %{start: [line: 2, column: 3], end: [line: 2, column: 6]}
-      }
-
-      assert Sourceror.patch_string(original, [patch]) == ~S"""
-             hello world do
-               [
-                 1,
-                 2,
-                 3
-               ]
-             end
-             """
-    end
-
     test "multiple patches in single line" do
       original = ~S"foo bar baz"
 
@@ -834,6 +805,65 @@ defmodule SourcerorTest do
              foo do baz do
                  :not_ok
                end end
+             """
+    end
+
+    test "patches single line range with multiple lines" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 3], end: [line: 2, column: 6]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello world do
+               [
+                 1,
+                 2,
+                 3
+               ]
+             end
+             """
+    end
+
+    test "patches single line range with multiple lines allowing user to skip indentation fixes" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 3], end: [line: 2, column: 6]},
+        preserve_indentation: false
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello world do
+               [
+               1,
+               2,
+               3
+             ]
+             end
              """
     end
 
