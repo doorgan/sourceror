@@ -733,6 +733,35 @@ defmodule SourcerorTest do
              """
     end
 
+    test "patches single line range with multiple lines" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 3], end: [line: 2, column: 6]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello world do
+               [
+                 1,
+                 2,
+                 3
+               ]
+             end
+             """
+    end
+
     test "multiple patches in single line" do
       original = ~S"foo bar baz"
 
