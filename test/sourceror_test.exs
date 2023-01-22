@@ -808,6 +808,37 @@ defmodule SourcerorTest do
              """
     end
 
+    test "patches multiline ranges" do
+      original = ~S"""
+      foo do
+        some_call(bar do
+          :baz
+          end)
+      end
+      """
+
+      patch_text =
+        ~S"""
+        whatever do
+          :inner
+        end
+        """
+        |> String.trim()
+
+      patch = %{
+        change: patch_text,
+        range: %{start: [line: 2, column: 13], end: [line: 4, column: 8]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             foo do
+               some_call(whatever do
+                 :inner
+               end)
+             end
+             """
+    end
+
     test "patches single line range with multiple lines" do
       original = ~S"""
       hello world do
