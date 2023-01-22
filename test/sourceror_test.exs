@@ -733,17 +733,17 @@ defmodule SourcerorTest do
              """
     end
 
-    test "multiple patches in single line" do
+    test "patches multiple ranges in a single line" do
       original = ~S"foo bar baz"
 
       patches = [
         %{
-          change: "a",
-          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
-        },
-        %{
           change: "something long",
           range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+        },
+        %{
+          change: "a",
+          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
         },
         %{
           change: "c",
@@ -752,6 +752,35 @@ defmodule SourcerorTest do
       ]
 
       assert Sourceror.patch_string(original, patches) == ~S"a something long c"
+    end
+
+    test "patches multiple ranges in a single line with single and multiline changes" do
+      original = ~S"foo bar baz"
+
+      patches = [
+        %{
+          change: "something long",
+          range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+        },
+        %{
+          change: "a",
+          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
+        },
+        %{
+          change: """
+          [
+            next
+          ]
+          """,
+          range: %{start: [line: 1, column: 9], end: [line: 1, column: 12]}
+        }
+      ]
+
+      assert Sourceror.patch_string(original, patches) == ~S"""
+             a something long [
+               next
+             ]
+             """
     end
 
     test "patches multiple line ranges" do

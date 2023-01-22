@@ -707,6 +707,11 @@ defmodule Sourceror do
 
   Ranges are usually derived from parsed AST nodes. See `get_range/2` for more.
 
+  Patches are applied bottom-up, such that patches to the beginning of the
+  string do not interfere with the line/column of patches that come later.
+  However, no checks are done for overlapping ranges, so take care to pass in
+  non-overlapping patches.
+
   ## Examples
 
       iex> original = ~S"\""
@@ -789,7 +794,7 @@ defmodule Sourceror do
   """
   @spec patch_string(String.t(), [patch]) :: String.t()
   def patch_string(string, patches) do
-    patches = Enum.sort_by(patches, & &1.range.start[:line], &>=/2)
+    patches = Enum.sort_by(patches, &{&1.range.start[:line], &1.range.start[:column]}, &>=/2)
 
     lines =
       string
@@ -804,62 +809,28 @@ defmodule Sourceror do
 
   defp do_patch_string([], _, seen, _), do: seen
 
-  defp do_patch_string([line | rest], [patch | patches], seen, current_line) do
-    cond do
-      current_line == patch.range.start[:line] and single_line_patch?(patch) ->
-        applicable_patches =
-          Enum.filter([patch | patches], fn patch ->
-            current_line == patch.range.start[:line] and single_line_patch?(patch)
-          end)
-
-        patched = apply_single_line_patches(line, applicable_patches)
-
-        do_patch_string([patched | rest], patches -- applicable_patches, seen, current_line)
-
-      current_line == patch.range.start[:line] ->
-        seen = apply_patch_to_lines(patch, [line | seen])
-        do_patch_string(rest, patches, seen, current_line - 1)
-
-      true ->
-        do_patch_string(rest, [patch | patches], [line | seen], current_line - 1)
-    end
+  defp do_patch_string([line | rest], patches, seen, current_line) do
+    {applicable, patches} = split_applicable_patches(patches, current_line)
+    seen = Enum.reduce(applicable, [line | seen], &apply_patch_to_lines/2)
+    do_patch_string(rest, patches, seen, current_line - 1)
   end
 
-  defp single_line_patch?(patch), do: patch.range.start[:line] == patch.range.end[:line]
-
-  defp apply_single_line_patches(line, patches) do
-    patches
-    |> Enum.sort_by(& &1.range.start[:column], &>=/2)
-    |> Enum.reduce([line], &apply_patch_to_lines/2)
-  end
-
-  defp patch_span(%{range: range}, lines) do
-    case range.end[:line] - range.start[:line] + 1 do
-      1 ->
-        [line | rest] = lines
-        {prefix, rest_line} = String.split_at(line, range.start[:column] - 1)
-
-        {to_patch, suffix} =
-          String.split_at(rest_line, range.end[:column] - String.length(prefix) - 1)
-
-        {{prefix, to_patch}, [], {"", suffix}, rest}
-
-      line_span ->
-        {[first_line | rest_to_patch], rest} = Enum.split(lines, line_span)
-        {last_line, rest_to_patch} = List.pop_at(rest_to_patch, -1, "")
-        {prefix, first_to_patch} = String.split_at(first_line, range.start[:column] - 1)
-        {last_to_patch, suffix} = String.split_at(last_line, range.end[:column] - 1)
-
-        {{prefix, first_to_patch}, rest_to_patch, {last_to_patch, suffix}, rest}
-    end
+  defp split_applicable_patches(patches, current_line) do
+    Enum.split_while(patches, &(&1.range.start[:line] == current_line))
   end
 
   defp apply_patch_to_lines(patch, lines) do
-    # Collect first, last, and middle relevant lines
-    {{prefix, first_line}, middle_lines, {last_line, suffix}, rest} = patch_span(patch, lines)
+    {{prefix, first_line}, middle_lines, {last_line, suffix}, rest} =
+      relevant_patch_lines(patch, lines)
 
     to_patch = IO.iodata_to_binary([first_line, middle_lines, last_line])
-    patch_text = get_patch_change(patch, to_patch)
+
+    patch_text =
+      if is_binary(patch.change) do
+        patch.change
+      else
+        patch.change.(to_patch)
+      end
 
     patched =
       case split_lines(patch_text) do
@@ -883,11 +854,24 @@ defmodule Sourceror do
     |> split_lines()
   end
 
-  defp get_patch_change(patch, to_patch) do
-    if is_binary(patch.change) do
-      patch.change
-    else
-      patch.change.(to_patch)
+  defp relevant_patch_lines(%{range: range}, lines) do
+    case range.end[:line] - range.start[:line] + 1 do
+      1 ->
+        [line | rest] = lines
+        {prefix, rest_line} = String.split_at(line, range.start[:column] - 1)
+
+        {to_patch, suffix} =
+          String.split_at(rest_line, range.end[:column] - String.length(prefix) - 1)
+
+        {{prefix, to_patch}, [], {"", suffix}, rest}
+
+      line_span ->
+        {[first_line | rest_to_patch], rest} = Enum.split(lines, line_span)
+        {last_line, rest_to_patch} = List.pop_at(rest_to_patch, -1, "")
+        {prefix, first_to_patch} = String.split_at(first_line, range.start[:column] - 1)
+        {last_to_patch, suffix} = String.split_at(last_line, range.end[:column] - 1)
+
+        {{prefix, first_to_patch}, rest_to_patch, {last_to_patch, suffix}, rest}
     end
   end
 
