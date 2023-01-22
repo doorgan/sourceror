@@ -781,33 +781,6 @@ defmodule SourcerorTest do
              """
     end
 
-    test "patches multiline ranges without beaking indentation" do
-      original = ~S"""
-      foo do bar do
-        :ok
-        end end
-      """
-
-      patch_text =
-        ~S"""
-        baz do
-          :not_ok
-        end
-        """
-        |> String.trim()
-
-      patch = %{
-        change: patch_text,
-        range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
-      }
-
-      assert Sourceror.patch_string(original, [patch]) == ~S"""
-             foo do baz do
-                 :not_ok
-               end end
-             """
-    end
-
     test "patches multiline ranges" do
       original = ~S"""
       foo do
