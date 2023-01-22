@@ -684,11 +684,30 @@ defmodule Sourceror do
   @doc """
   Applies one or more patches to the given string.
 
-  This functions limits itself to apply the patches in order, but it does not
-  check for overlapping ranges, so make sure to pass non-overlapping patches.
+  A patch is a map containing the following values:
 
-  A patch is a map containing at least the range that it should patch, and the
-  change to be applied in the range, for example:
+    * `:range` - a map containing `:start` and `:end` keys, whose values are
+      keyword lists containing the `:line` and `:column` representing the
+      boundary of the patch.
+    * `:change` - the string being patched in or a function that takes the
+      text of the patch range and returns the replacement.
+    * `:preserve_indentation` (default `true`) - whether to automatically
+      correct the indentation of the patch string to preserve the indentation
+      level of the patch range (see examples below)
+
+  Note that `:line` and `:column` start at 1 and represent a cursor positioned
+  before the targeted position. For instance, here's how you would select the
+  string `"ToBePatched"` in the following example:
+
+      defmodule ToBePatched do
+      #         ^          ^
+      # col     11         22
+
+      %{range: %{start: [line: 1, column: 11], end: [line: 1, column: 22]}}
+
+  Ranges are usually derived from parsed AST nodes. See `get_range/2` for more.
+
+  ## Examples
 
       iex> original = ~S"\""
       ...> if not allowed? do
@@ -722,7 +741,7 @@ defmodule Sourceror do
       "\""
 
   By default, lines after the first line of the patch will be indented relative to
-  the indentation level of the patched first line:
+  the indentation level at the start of the range:
 
       iex> original = ~S"\""
       ...> outer do
