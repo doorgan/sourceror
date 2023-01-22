@@ -839,6 +839,33 @@ defmodule SourcerorTest do
                ]
              end
              """
+
+      original = """
+      outer do
+        inner :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 9], end: [line: 2, column: 12]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             outer do
+               inner [
+                 1,
+                 2,
+                 3
+               ]
+             end
+             """
     end
 
     test "patches single line range with multiple lines allowing user to skip indentation fixes" do
