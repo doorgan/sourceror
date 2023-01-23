@@ -487,6 +487,27 @@ defmodule SourcerorTest do
                end: [line: 3, column: 2]
              }
     end
+
+    test "returns the correct column for nested blocks" do
+      quoted =
+        ~S"""
+        bar 1
+        bar
+        """
+        |> Sourceror.parse_string!()
+
+      {_, _, [bar1, bar]} = quoted
+
+      assert Sourceror.get_range(bar) == %{
+               start: [line: 2, column: 1],
+               end: [line: 2, column: 4]
+             }
+
+      assert Sourceror.get_range(bar1) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 6]
+             }
+    end
   end
 
   describe "prepend_comments/3" do
