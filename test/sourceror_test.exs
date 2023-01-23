@@ -439,6 +439,21 @@ defmodule SourcerorTest do
         |> Sourceror.parse_string!()
 
       assert Sourceror.get_end_position(quoted) == [line: 4, column: 4]
+
+      quoted =
+        ~S"""
+        foo(1)
+        foo 1
+        foo bar()
+        _
+        """
+        |> Sourceror.parse_string!()
+
+      {_, _, [parens, without_parens, nested, _]} = quoted
+
+      assert Sourceror.get_end_position(parens) == [line: 1, column: 6]
+      assert Sourceror.get_end_position(without_parens) == [line: 2, column: 5]
+      assert Sourceror.get_end_position(nested) == [line: 3, column: 9]
     end
   end
 
@@ -485,6 +500,34 @@ defmodule SourcerorTest do
       assert Sourceror.get_range(quoted) == %{
                start: [line: 1, column: 1],
                end: [line: 3, column: 2]
+             }
+    end
+
+    test "returns the correct column for calls with and without parens" do
+      quoted =
+        ~S"""
+        foo(1)
+        foo 1
+        foo bar()
+        _
+        """
+        |> Sourceror.parse_string!()
+
+      {_, _, [parens, without_parens, nested_without_parens, _]} = quoted
+
+      assert Sourceror.get_range(parens) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 7]
+             }
+
+      assert Sourceror.get_range(without_parens) == %{
+               start: [line: 2, column: 1],
+               end: [line: 2, column: 6]
+             }
+
+      assert Sourceror.get_range(nested_without_parens) == %{
+               start: [line: 3, column: 1],
+               end: [line: 3, column: 10]
              }
     end
   end

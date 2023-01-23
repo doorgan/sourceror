@@ -537,7 +537,18 @@ defmodule Sourceror do
     get_meta(quoted)
     |> Keyword.take(@end_fields)
     |> Keyword.values()
-    |> Enum.map(&Keyword.take(&1, [:line, :column]))
+    |> Enum.map(fn end_field ->
+      position = Keyword.take(end_field, [:line, :column])
+
+      # If the node contains newlines, a newline is included in the
+      # column count. We subtract it so that the column represents the
+      # last non-whitespace character.
+      if Keyword.has_key?(end_field, :newlines) do
+        Keyword.update(position, :column, nil, &(&1 - 1))
+      else
+        position
+      end
+    end)
     |> Enum.concat([start_position])
     |> Enum.max_by(
       & &1,
