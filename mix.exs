@@ -12,6 +12,7 @@ defmodule Sourceror.MixProject do
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      erlc_paths: erlc_paths(Mix.env()),
       deps: deps(),
       docs: docs(),
       package: package(),
@@ -37,10 +38,18 @@ defmodule Sourceror.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
+  defp erlc_paths(_) do
+    if Version.match?(System.version(), ">= 1.13.0") do
+      ["src"]
+    else
+      ["src", "src_vendored"]
+    end
+  end
+
   defp dialyzer do
     [
       plt_add_apps: [:mix, :erts, :kernel, :stdlib],
-      flags: ["-Wunmatched_returns", "-Werror_handling", "-Wrace_conditions", "-Wno_opaque"],
+      flags: ["-Wunmatched_returns", "-Werror_handling", "-Wno_opaque"],
       plt_core_path: "priv/plts",
       plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
       ignore_warnings: ".dialyzer_ignore.exs"
@@ -50,12 +59,12 @@ defmodule Sourceror.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.1", only: [:dev], runtime: false},
-      {:ex_check, "~> 0.14.0", only: [:dev], runtime: false},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.2", only: [:dev], runtime: false},
+      {:ex_check, "~> 0.15.0", only: [:dev], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.10", only: [:test]},
-      {:sobelow, "~> 0.8", only: :dev}
+      {:excoveralls, "~> 0.15", only: [:test]},
+      {:sobelow, "~> 0.11", only: :dev}
     ]
   end
 

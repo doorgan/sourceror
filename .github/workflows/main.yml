@@ -16,13 +16,13 @@ jobs:
           - elixir: 1.12.3
             otp: 24.3
           - elixir: 1.13.4
-            otp: 23.3
+            otp: 24.3
+          - elixir: 1.14.2
+            otp: 25.1.2
             run_dialyzer: true
             check_formatted: true
             run_credo: true
             run_coveralls: true
-          - elixir: 1.13.4
-            otp: 24.3
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
