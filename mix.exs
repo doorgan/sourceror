@@ -34,9 +34,15 @@ defmodule Sourceror.MixProject do
     ]
   end
 
-  defp elixirc_paths(:dev), do: ["lib"]
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  if Version.match?(System.version(), ">= 1.13.0") do
+    defp elixirc_paths(:dev), do: ["lib"]
+    defp elixirc_paths(:test), do: ["lib", "test/support"]
+    defp elixirc_paths(_), do: ["lib"]
+  else
+    defp elixirc_paths(:dev), do: ["lib", "lib_vendored"]
+    defp elixirc_paths(:test), do: ["lib", "lib_vendored", "test/support"]
+    defp elixirc_paths(_), do: ["lib", "lib_vendored"]
+  end
 
   defp erlc_paths(_) do
     if Version.match?(System.version(), ">= 1.13.0") do
