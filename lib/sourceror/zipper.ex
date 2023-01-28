@@ -8,8 +8,7 @@ defmodule Sourceror.Zipper do
   A zipper is a data structure that represents a location in a tree from the
   perspective of the current node, also called *focus*. It is represented by a
   2-tuple where the first element is the focus and the second element is the
-  metadata/context. When the focus is the topmost node, the metadata is `nil`,
-  or `:end` after the end of a traversal.
+  metadata/context. The metadata is `nil` when the focus is the topmost node
   """
 
   # Remove once we figure out why these functions cause a "pattern can never
@@ -25,12 +24,12 @@ defmodule Sourceror.Zipper do
   import Kernel, except: [node: 1]
 
   @type tree :: Macro.t()
-  @type path :: %{
-          l: [tree],
-          ptree: zipper,
-          r: [tree]
-        }
-  @type zipper :: {tree, path | nil | :end}
+  @opaque path :: %{
+            l: [tree],
+            ptree: zipper,
+            r: [tree]
+          }
+  @type zipper :: {tree, path | nil}
 
   @doc """
   Returns true if the node is a branch.
@@ -74,15 +73,8 @@ defmodule Sourceror.Zipper do
   Walks the zipper all the way up and returns the top zipper.
   """
   @spec top(zipper) :: zipper
-  def top({tree, :end}), do: {tree, :end}
-
-  def top(zipper) do
-    if parent = up(zipper) do
-      top(parent)
-    else
-      zipper
-    end
-  end
+  def top({_, nil} = zipper), do: zipper
+  def top(zipper), do: zipper |> up() |> top()
 
   @doc """
   Walks the zipper all the way up and returns the root node.
@@ -101,8 +93,6 @@ defmodule Sourceror.Zipper do
   nil if no there's no children.
   """
   @spec down(zipper) :: zipper | nil
-  def down({_, :end}), do: nil
-
   def down({tree, meta}) do
     with true <- branch?(tree), [first | rest] <- children(tree) do
       rest =
@@ -124,7 +114,6 @@ defmodule Sourceror.Zipper do
   """
   @spec up(zipper) :: zipper | nil
   def up({_, nil}), do: nil
-  def up({_, :end}), do: nil
 
   def up({tree, meta}) do
     children = Enum.reverse(meta.l || []) ++ [tree] ++ (meta.r || [])
@@ -136,71 +125,43 @@ defmodule Sourceror.Zipper do
   Returns the zipper of the left sibling of the node at this zipper, or nil.
   """
   @spec left(zipper) :: zipper | nil
-  def left({_, nil}), do: nil
-  def left({_, :end}), do: nil
-  def left({_, %{l: nil}}), do: nil
+  def left({tree, %{l: [ltree | l], r: r} = meta}),
+    do: {ltree, %{meta | l: l, r: [tree | r || []]}}
 
-  def left({tree, meta}) do
-    r = [tree | meta.r || []]
-
-    case meta.l do
-      [tree | l] ->
-        {tree, %{meta | l: l, r: r}}
-
-      [] ->
-        nil
-    end
-  end
+  def left(_), do: nil
 
   @doc """
   Returns the leftmost sibling of the node at this zipper, or itself.
   """
   @spec leftmost(zipper) :: zipper
-  def leftmost({_, nil} = zipper), do: zipper
-  def leftmost({_, :end} = zipper), do: zipper
-  def leftmost({_, %{l: nil}} = zipper), do: zipper
-
-  def leftmost({tree, meta}) do
-    [left | rest] = Enum.reverse(meta.l)
+  def leftmost({tree, %{l: [_ | _] = l} = meta}) do
+    [left | rest] = Enum.reverse(l)
     r = rest ++ [tree] ++ (meta.r || [])
-
     {left, %{meta | l: nil, r: r}}
   end
+
+  def leftmost(zipper), do: zipper
 
   @doc """
   Returns the zipper of the right sibling of the node at this zipper, or nil.
   """
   @spec right(zipper) :: zipper | nil
-  def right({_, nil}), do: nil
-  def right({_, :end}), do: nil
-  def right({_, %{r: nil}}), do: nil
+  def right({tree, %{r: [rtree | r]} = meta}),
+    do: {rtree, %{meta | r: r, l: [tree | meta.l || []]}}
 
-  def right({tree, meta}) do
-    l = [tree | meta.l || []]
-
-    case meta.r do
-      [tree | r] ->
-        {tree, %{meta | l: l, r: r}}
-
-      [] ->
-        nil
-    end
-  end
+  def right(_), do: nil
 
   @doc """
   Returns the rightmost sibling of the node at this zipper, or itself.
   """
   @spec rightmost(zipper) :: zipper
-  def rightmost({_, nil} = zipper), do: zipper
-  def rightmost({_, :end} = zipper), do: zipper
-  def rightmost({_, %{r: nil}} = zipper), do: zipper
-
-  def rightmost({tree, meta}) do
-    [right | rest] = Enum.reverse(meta.r)
+  def rightmost({tree, %{r: [_ | _] = r} = meta}) do
+    [right | rest] = Enum.reverse(r)
     l = rest ++ [tree] ++ (meta.l || [])
-
     {right, %{meta | l: l, r: nil}}
   end
+
+  def rightmost(zipper), do: zipper
 
   @doc """
   Replaces the current node in the zipper with a new node.
@@ -286,18 +247,8 @@ defmodule Sourceror.Zipper do
   end
 
   @doc """
-  Returns true if the zipper represents the end of a depth-first walk.
+  Returns the following zipper in depth-first pre-order.
   """
-  @spec end?(zipper) :: boolean
-  def end?({_, meta}), do: meta == :end
-
-  @doc """
-  Returns the following zipper in depth-first pre-order. When reaching the end,
-  returns a distinguished zipper detectable via `end?/1`. If it's already at
-  the end, it stays there.
-  """
-  def next({_, :end} = zipper), do: zipper
-
   def next({tree, _} = zipper) do
     if branch?(tree) && down(zipper), do: down(zipper), else: skip(zipper)
   end
@@ -320,8 +271,6 @@ defmodule Sourceror.Zipper do
   @spec skip(zipper, direction :: :next | :prev) :: zipper
   def skip(zipper, direction \\ :next)
 
-  def skip({_, :end} = zipper, :next), do: zipper
-  def skip({_, :end}, :prev), do: nil
   def skip({_, nil}, :prev), do: nil
 
   def skip(zipper, :next) do
@@ -333,22 +282,14 @@ defmodule Sourceror.Zipper do
   end
 
   defp next_up(zipper) do
-    parent = up(zipper)
-
-    if parent do
+    if parent = up(zipper) do
       right(parent) || next_up(parent)
-    else
-      {node(zipper), :end}
     end
   end
 
   defp prev_up(zipper) do
-    parent = up(zipper)
-
-    if parent do
+    if parent = up(zipper) do
       left(parent) || prev_up(parent)
-    else
-      {node(zipper), :end}
     end
   end
 
@@ -383,8 +324,6 @@ defmodule Sourceror.Zipper do
   The function must return a zipper.
   """
   @spec traverse(zipper, (zipper -> zipper)) :: zipper
-  def traverse({tree, :end}, _), do: {tree, :end}
-
   def traverse({_tree, nil} = zipper, fun) do
     do_traverse(zipper, fun)
   end
@@ -394,12 +333,9 @@ defmodule Sourceror.Zipper do
     {updated, meta}
   end
 
-  defp do_traverse({tree, :end}, _), do: {tree, :end}
-
   defp do_traverse(zipper, fun) do
-    fun.(zipper)
-    |> next()
-    |> do_traverse(fun)
+    zipper = fun.(zipper)
+    if next = next(zipper), do: do_traverse(next, fun), else: top(zipper)
   end
 
   @doc """
@@ -409,8 +345,6 @@ defmodule Sourceror.Zipper do
   If the zipper is not at the top, just the subtree will be traversed.
   """
   @spec traverse(zipper, term, (zipper, term -> {zipper, term})) :: {zipper, term}
-  def traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
-
   def traverse({_tree, nil} = zipper, acc, fun) do
     do_traverse(zipper, acc, fun)
   end
@@ -420,12 +354,9 @@ defmodule Sourceror.Zipper do
     {{updated, meta}, acc}
   end
 
-  defp do_traverse({tree, :end}, acc, _), do: {{tree, :end}, acc}
-
   defp do_traverse(zipper, acc, fun) do
     {zipper, acc} = fun.(zipper, acc)
-
-    do_traverse(next(zipper), acc, fun)
+    if next = next(zipper), do: do_traverse(next, acc, fun), else: {top(zipper), acc}
   end
 
   @doc """
@@ -445,7 +376,6 @@ defmodule Sourceror.Zipper do
              {:cont, zipper} | {:halt, zipper} | {:skip, zipper})
         ) ::
           zipper
-  def traverse_while({tree, :end}, _), do: {tree, :end}
 
   def traverse_while({_tree, nil} = zipper, fun) do
     do_traverse_while(zipper, fun)
@@ -456,13 +386,16 @@ defmodule Sourceror.Zipper do
     {updated, meta}
   end
 
-  defp do_traverse_while({tree, :end}, _), do: {tree, :end}
-
   defp do_traverse_while(zipper, fun) do
     case fun.(zipper) do
-      {:cont, zipper} -> zipper |> next() |> do_traverse_while(fun)
-      {:skip, zipper} -> zipper |> skip() |> do_traverse_while(fun)
-      {:halt, zipper} -> top(zipper)
+      {:cont, zipper} ->
+        if next = next(zipper), do: do_traverse_while(next, fun), else: top(zipper)
+
+      {:skip, zipper} ->
+        if skipped = skip(zipper), do: do_traverse_while(skipped, fun), else: top(zipper)
+
+      {:halt, zipper} ->
+        top(zipper)
     end
   end
 
@@ -480,8 +413,6 @@ defmodule Sourceror.Zipper do
           term,
           (zipper, term -> {:cont, zipper, term} | {:halt, zipper, term} | {:skip, zipper, term})
         ) :: {zipper, term}
-  def traverse_while({tree, :end}, _, _), do: {tree, :end}
-
   def traverse_while({_tree, nil} = zipper, acc, fun) do
     do_traverse_while(zipper, acc, fun)
   end
@@ -491,13 +422,16 @@ defmodule Sourceror.Zipper do
     {{updated, meta}, acc}
   end
 
-  defp do_traverse_while({tree, :end}, acc, _), do: {{tree, :end}, acc}
-
   defp do_traverse_while(zipper, acc, fun) do
     case fun.(zipper, acc) do
-      {:cont, zipper, acc} -> zipper |> next() |> do_traverse_while(acc, fun)
-      {:skip, zipper, acc} -> zipper |> skip() |> do_traverse_while(acc, fun)
-      {:halt, zipper, acc} -> {top(zipper), acc}
+      {:cont, zipper, acc} ->
+        if next = next(zipper), do: do_traverse_while(next, acc, fun), else: {top(zipper), acc}
+
+      {:skip, zipper, acc} ->
+        if skip = skip(zipper), do: do_traverse_while(skip, acc, fun), else: {top(zipper), acc}
+
+      {:halt, zipper, acc} ->
+        {top(zipper), acc}
     end
   end
 
@@ -514,8 +448,6 @@ defmodule Sourceror.Zipper do
 
   def find(nil, _direction, _predicate), do: nil
 
-  def find({_, :end}, :next, _predicate), do: nil
-
   def find({tree, _} = zipper, direction, predicate)
       when direction in [:next, :prev] and is_function(predicate) do
     if predicate.(tree) do
@@ -527,7 +459,7 @@ defmodule Sourceror.Zipper do
           :prev -> prev(zipper)
         end
 
-      find(zipper, direction, predicate)
+      zipper && find(zipper, direction, predicate)
     end
   end
 
