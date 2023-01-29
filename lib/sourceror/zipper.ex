@@ -317,7 +317,7 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Traverses the tree in depth-first pre-order calling the given function for
-  each node.
+  each node. When the traversal is finished, the zipper will be back where it began.
 
   If the zipper is not at the top, just the subtree will be traversed.
 
@@ -340,7 +340,8 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Traverses the tree in depth-first pre-order calling the given function for
-  each node with an accumulator.
+  each node with an accumulator. When the traversal is finished, the zipper
+  will be back where it began.
 
   If the zipper is not at the top, just the subtree will be traversed.
   """
@@ -364,7 +365,8 @@ defmodule Sourceror.Zipper do
   each node.
 
   The traversing will continue if the function returns `{:cont, zipper}`,
-  skipped for `{:skip, zipper}` and halted for `{:halt, zipper}`
+  skipped for `{:skip, zipper}` and halted for `{:halt, zipper}`. When the
+  traversal is finished, the zipper will be back where it began.
 
   If the zipper is not at the top, just the subtree will be traversed.
 
@@ -376,7 +378,6 @@ defmodule Sourceror.Zipper do
              {:cont, zipper} | {:halt, zipper} | {:skip, zipper})
         ) ::
           zipper
-
   def traverse_while({_tree, nil} = zipper, fun) do
     do_traverse_while(zipper, fun)
   end
@@ -401,7 +402,8 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Traverses the tree in depth-first pre-order calling the given function for
-  each node with an accumulator.
+  each node with an accumulator. When the traversal is finished, the zipper
+  will be back where it began.
 
   The traversing will continue if the function returns `{:cont, zipper, acc}`,
   skipped for `{:skip, zipper, acc}` and halted for `{:halt, zipper, acc}`
