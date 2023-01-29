@@ -25,10 +25,10 @@ defmodule Sourceror.Zipper do
 
   @type tree :: Macro.t()
   @type path :: %{
-          l: [tree],
-          ptree: zipper,
-          r: [tree]
-        }
+            l: [tree],
+            ptree: zipper,
+            r: [tree]
+          }
   @type zipper :: {tree, path | nil}
 
   @doc """
@@ -268,18 +268,10 @@ defmodule Sourceror.Zipper do
   The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
   `traverse_while/3`.
   """
-  @spec skip(zipper, direction :: :next | :prev) :: zipper
+  @spec skip(zipper, direction :: :next | :prev) :: zipper | nil
   def skip(zipper, direction \\ :next)
-
-  def skip({_, nil}, :prev), do: nil
-
-  def skip(zipper, :next) do
-    if next = right(zipper), do: next, else: next_up(zipper)
-  end
-
-  def skip(zipper, :prev) do
-    if prev = left(zipper), do: prev, else: prev_up(zipper)
-  end
+  def skip(zipper, :next), do: right(zipper) || next_up(zipper)
+  def skip(zipper, :prev), do: left(zipper) || prev_up(zipper)
 
   defp next_up(zipper) do
     if parent = up(zipper) do
