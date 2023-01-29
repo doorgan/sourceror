@@ -24,11 +24,11 @@ defmodule Sourceror.Zipper do
   import Kernel, except: [node: 1]
 
   @type tree :: Macro.t()
-  @opaque path :: %{
-            l: [tree],
-            ptree: zipper,
-            r: [tree]
-          }
+  @type path :: %{
+          l: [tree],
+          ptree: zipper,
+          r: [tree]
+        }
   @type zipper :: {tree, path | nil}
 
   @doc """
