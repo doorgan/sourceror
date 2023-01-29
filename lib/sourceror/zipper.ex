@@ -25,10 +25,10 @@ defmodule Sourceror.Zipper do
 
   @type tree :: Macro.t()
   @type path :: %{
-            l: [tree],
-            ptree: zipper,
-            r: [tree]
-          }
+          l: [tree],
+          ptree: zipper,
+          r: [tree]
+        }
   @type zipper :: {tree, path | nil}
 
   @doc """
