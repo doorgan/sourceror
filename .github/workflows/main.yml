@@ -21,6 +21,10 @@ jobs:
           - elixir: 1.13.4
             otp: 24.3
             run_dialyzer: true
+          - elixir: 1.13.4
+            otp: 24.3
+          - elixir: 1.13.4
+            otp: 25.0.2
             check_formatted: true
             run_credo: true
             run_coveralls: true
@@ -29,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
-        uses: actions/setup-elixir@v1
+        uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
