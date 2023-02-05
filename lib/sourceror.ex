@@ -66,7 +66,11 @@ defmodule Sourceror do
   """
   defmacro quoted_to_algebra(quoted, opts) do
     quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts] do
-      code_module.quoted_to_algebra(quoted, opts)
+      if opts |> Keyword.get(:quoted_to_algebra) |> is_function(2) do
+        opts[:quoted_to_algebra].(quoted, opts)
+      else
+        code_module.quoted_to_algebra(quoted, opts)
+      end
     end
   end
 
@@ -173,6 +177,10 @@ defmodule Sourceror do
     * `:format` - if set to `:splicing`, if the quoted expression is a list, it
       will strip the square brackets. This is useful to print a single element
       of a keyword list.
+
+    * `:quoted_to_algebra` - expects a function of the type
+      `(Macro.t(), keyword -> Inspect.Algebra.t())` to convert the given quoted
+      expression to an algebra document.
 
   For more options see `Code.format_string!/1` and `Code.quoted_to_algebra/2`.
   """

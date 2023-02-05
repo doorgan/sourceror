@@ -2,10 +2,10 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
-  defmacro assert_same(string) do
-    quote bind_quoted: [string: string] do
+  defmacro assert_same(string, opts \\ []) do
+    quote bind_quoted: [string: string, opts: opts] do
       string = String.trim(string)
-      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string()
+      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string(opts)
     end
   end
 
@@ -179,6 +179,23 @@ defmodule SourcerorTest do
       # A request error
       def request(%S3{http_method: :head} = op), do: head_object(op)
       """)
+    end
+  end
+
+  describe "to_string/2 with optional quoted_to_algebra" do
+    test "preserves trailing commas with the freedom_formatter" do
+      assert_same(
+        """
+        def list do
+          [
+            45,
+            44,
+          ]
+        end
+        """,
+        quoted_to_algebra: &FreedomFormatter.Formatter.to_algebra/2,
+        trailing_comma: true
+      )
     end
   end
 
