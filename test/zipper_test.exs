@@ -283,6 +283,16 @@ defmodule SourcerorTest.ZipperTest do
              end)
              |> Z.root() == [1, [12, [13, 14], 15], [6, 7]]
     end
+
+    test "traverses in depth-first pre-order and skips last node" do
+      zipper = Z.zip([1, 2, 3])
+
+      assert Z.traverse(zipper, fn
+               {3, _m} = z -> Z.skip(z)
+               {x, m} when is_integer(x) -> {x + 10, m}
+               z -> z
+             end) == {[11, 12, 3], nil}
+    end
   end
 
   describe "traverse/3" do
@@ -316,6 +326,16 @@ defmodule SourcerorTest.ZipperTest do
         |> Z.traverse([], &{&1, [Z.node(&1) | &2]})
 
       assert [[2, [3, 4], 5], 2, [3, 4], 3, 4, 5] == Enum.reverse(acc)
+    end
+
+    test "traverses in depth-first pre-order and skips last node" do
+      zipper = Z.zip([1, 2, 3])
+
+      assert Z.traverse(zipper, [], fn
+               {3, _m} = z, acc -> {Z.skip(z), acc}
+               {x, m}, acc when is_integer(x) -> {{x + 10, m}, [x | acc]}
+               z, acc -> {z, acc}
+             end) == {{[11, 12, 3], nil}, [2, 1]}
     end
   end
 
