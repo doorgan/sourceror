@@ -13,7 +13,7 @@ Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.9"}
+  {:sourceror, "~> 0.11"}
 ])
 ```
 

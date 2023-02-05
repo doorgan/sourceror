@@ -439,6 +439,21 @@ defmodule SourcerorTest do
         |> Sourceror.parse_string!()
 
       assert Sourceror.get_end_position(quoted) == [line: 4, column: 4]
+
+      quoted =
+        ~S"""
+        foo(1)
+        foo 1
+        foo bar()
+        _
+        """
+        |> Sourceror.parse_string!()
+
+      {_, _, [parens, without_parens, nested, _]} = quoted
+
+      assert Sourceror.get_end_position(parens) == [line: 1, column: 6]
+      assert Sourceror.get_end_position(without_parens) == [line: 2, column: 5]
+      assert Sourceror.get_end_position(nested) == [line: 3, column: 9]
     end
   end
 
@@ -485,6 +500,34 @@ defmodule SourcerorTest do
       assert Sourceror.get_range(quoted) == %{
                start: [line: 1, column: 1],
                end: [line: 3, column: 2]
+             }
+    end
+
+    test "returns the correct column for calls with and without parens" do
+      quoted =
+        ~S"""
+        foo(1)
+        foo 1
+        foo bar()
+        _
+        """
+        |> Sourceror.parse_string!()
+
+      {_, _, [parens, without_parens, nested_without_parens, _]} = quoted
+
+      assert Sourceror.get_range(parens) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 7]
+             }
+
+      assert Sourceror.get_range(without_parens) == %{
+               start: [line: 2, column: 1],
+               end: [line: 2, column: 6]
+             }
+
+      assert Sourceror.get_range(nested_without_parens) == %{
+               start: [line: 3, column: 1],
+               end: [line: 3, column: 10]
              }
     end
   end
@@ -733,17 +776,17 @@ defmodule SourcerorTest do
              """
     end
 
-    test "multiple patches in single line" do
+    test "patches multiple ranges in a single line" do
       original = ~S"foo bar baz"
 
       patches = [
         %{
-          change: "a",
-          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
-        },
-        %{
           change: "something long",
           range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+        },
+        %{
+          change: "a",
+          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
         },
         %{
           change: "c",
@@ -752,6 +795,35 @@ defmodule SourcerorTest do
       ]
 
       assert Sourceror.patch_string(original, patches) == ~S"a something long c"
+    end
+
+    test "patches multiple ranges in a single line with single and multiline changes" do
+      original = ~S"foo bar baz"
+
+      patches = [
+        %{
+          change: "something long",
+          range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+        },
+        %{
+          change: "a",
+          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
+        },
+        %{
+          change: """
+          [
+            next
+          ]
+          """,
+          range: %{start: [line: 1, column: 9], end: [line: 1, column: 12]}
+        }
+      ]
+
+      assert Sourceror.patch_string(original, patches) == ~S"""
+             a something long [
+               next
+             ]
+             """
     end
 
     test "patches multiple line ranges" do
@@ -781,30 +853,120 @@ defmodule SourcerorTest do
              """
     end
 
-    test "patches multiline ranges without beaking indentation" do
+    test "patches multiline ranges" do
       original = ~S"""
-      foo do bar do
-        :ok
-        end end
+      foo do
+        some_call(bar do
+          :baz
+          end)
+      end
       """
 
       patch_text =
         ~S"""
-        baz do
-          :not_ok
+        whatever do
+          :inner
         end
         """
         |> String.trim()
 
       patch = %{
         change: patch_text,
-        range: %{start: [line: 1, column: 8], end: [line: 3, column: 6]}
+        range: %{start: [line: 2, column: 13], end: [line: 4, column: 8]}
       }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
-             foo do baz do
-                 :not_ok
-               end end
+             foo do
+               some_call(whatever do
+                 :inner
+               end)
+             end
+             """
+    end
+
+    test "patches single line range with multiple lines" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 3], end: [line: 2, column: 6]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello world do
+               [
+                 1,
+                 2,
+                 3
+               ]
+             end
+             """
+
+      original = """
+      outer do
+        inner :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 9], end: [line: 2, column: 12]}
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             outer do
+               inner [
+                 1,
+                 2,
+                 3
+               ]
+             end
+             """
+    end
+
+    test "patches single line range with multiple lines allowing user to skip indentation fixes" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      patch = %{
+        change: """
+        [
+          1,
+          2,
+          3
+        ]\
+        """,
+        range: %{start: [line: 2, column: 3], end: [line: 2, column: 6]},
+        preserve_indentation: false
+      }
+
+      assert Sourceror.patch_string(original, [patch]) == ~S"""
+             hello world do
+               [
+               1,
+               2,
+               3
+             ]
+             end
              """
     end
 
