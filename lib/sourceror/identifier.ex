@@ -3,7 +3,7 @@ defmodule Sourceror.Identifier do
   Functions to identify an classify forms and quoted expressions.
   """
 
-  @unary_ops [:&, :!, :^, :not, :+, :-, :"~~~", :@]
+  @unary_ops [:&, :!, :^, :not, :+, :-, :~~~, :@]
   binary_ops = [
     :<-,
     :\\,
@@ -34,9 +34,9 @@ defmodule Sourceror.Identifier do
     :<<~,
     :~>>,
     :<~>,
-    :"<|>",
+    :<|>,
     :in,
-    :"^^^",
+    :^^^,
     :"//",
     :++,
     :--,
@@ -55,7 +55,7 @@ defmodule Sourceror.Identifier do
                  binary_ops
                end)
 
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :"<|>"]
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
 
   @doc """
   Checks if the given identifier is an unary op.
