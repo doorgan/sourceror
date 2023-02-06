@@ -326,13 +326,8 @@ defmodule Sourceror.Zipper do
   end
 
   defp do_traverse(zipper, fun) do
-    case fun.(zipper) do
-      nil ->
-        top(zipper)
-
-      zipper ->
-        if next = next(zipper), do: do_traverse(next, fun), else: top(zipper)
-    end
+    zipper = fun.(zipper)
+    if next = next(zipper), do: do_traverse(next, fun), else: top(zipper)
   end
 
   @doc """
@@ -353,13 +348,8 @@ defmodule Sourceror.Zipper do
   end
 
   defp do_traverse(zipper, acc, fun) do
-    case fun.(zipper, acc) do
-      {nil, acc} ->
-        {top(zipper), acc}
-
-      {zipper, acc} ->
-        if next = next(zipper), do: do_traverse(next, acc, fun), else: {top(zipper), acc}
-    end
+    {zipper, acc} = fun.(zipper, acc)
+    if next = next(zipper), do: do_traverse(next, acc, fun), else: {top(zipper), acc}
   end
 
   @doc """
