@@ -223,41 +223,23 @@ defmodule Sourceror.Range do
   end
 
   # Qualified call
-  defp do_get_range({{:., _, [left, right]}, meta, []} = quoted) when is_atom(right) do
-    if Sourceror.has_closing_line?(quoted) do
-      get_range_for_node_with_closing_line(quoted)
-    else
-      start_pos = get_range(left).start
-      identifier_pos = Keyword.take(meta, [:line, :column])
+  defp do_get_range({{:., _, [_left, right]}, _meta, []} = quoted) when is_atom(right) do
+    get_range_for_qualified_call_without_arguments(quoted)
+  end
 
-      parens_length =
-        if meta[:no_parens] do
-          0
-        else
-          2
-        end
-
-      end_pos = [
-        line: identifier_pos[:line],
-        column:
-          identifier_pos[:column] + String.length(Atom.to_string(right)) +
-            parens_length
-      ]
-
-      %{start: start_pos, end: end_pos}
-    end
+  # Anonymous function call
+  defp do_get_range({{:., _, [_left]}, _meta, []} = quoted) do
+    get_range_for_qualified_call_without_arguments(quoted)
   end
 
   # Qualified call with arguments
-  defp do_get_range({{:., _, [left, _]}, _meta, args} = quoted) do
-    if Sourceror.has_closing_line?(quoted) do
-      get_range_for_node_with_closing_line(quoted)
-    else
-      start_pos = get_range(left).start
-      end_pos = get_range(List.last(args) || left).end
+  defp do_get_range({{:., _, [_left, _]}, _meta, _args} = quoted) do
+    get_range_for_qualified_call_with_arguments(quoted)
+  end
 
-      %{start: start_pos, end: end_pos}
-    end
+  # Anonymous function call with arguments
+  defp do_get_range({{:., _, [_left]}, _meta, _args} = quoted) do
+    get_range_for_qualified_call_with_arguments(quoted)
   end
 
   # Unary operators
@@ -354,6 +336,46 @@ defmodule Sourceror.Range do
     else
       start_pos = Keyword.take(meta, [:line, :column])
       end_pos = get_range(List.last(args)).end
+
+      %{start: start_pos, end: end_pos}
+    end
+  end
+
+  defp get_range_for_qualified_call_without_arguments({{:., _, call}, meta, []} = quoted) do
+    if Sourceror.has_closing_line?(quoted) do
+      get_range_for_node_with_closing_line(quoted)
+    else
+      {left, right_len} =
+        case call do
+          [left, right] -> {left, String.length(Atom.to_string(right))}
+          [left] -> {left, 0}
+        end
+
+      start_pos = get_range(left).start
+      identifier_pos = Keyword.take(meta, [:line, :column])
+
+      parens_length =
+        if meta[:no_parens] do
+          0
+        else
+          2
+        end
+
+      end_pos = [
+        line: identifier_pos[:line],
+        column: identifier_pos[:column] + right_len + parens_length
+      ]
+
+      %{start: start_pos, end: end_pos}
+    end
+  end
+
+  defp get_range_for_qualified_call_with_arguments({{:., _, [left | _]}, _meta, args} = quoted) do
+    if Sourceror.has_closing_line?(quoted) do
+      get_range_for_node_with_closing_line(quoted)
+    else
+      start_pos = get_range(left).start
+      end_pos = get_range(List.last(args) || left).end
 
       %{start: start_pos, end: end_pos}
     end
