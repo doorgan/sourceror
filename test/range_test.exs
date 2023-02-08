@@ -328,8 +328,19 @@ defmodule SourcerorTest.RangeTest do
     test "qualified calls" do
       assert to_range(~S/foo.bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
       assert to_range(~S/foo.bar()/) == %{start: [line: 1, column: 1], end: [line: 1, column: 10]}
+      assert to_range(~S/foo.()/) == %{start: [line: 1, column: 1], end: [line: 1, column: 7]}
+
+      assert to_range(~S/foo.bar.()/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 11]
+             }
 
       assert to_range(~s/foo.bar(\n)/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 2, column: 2]
+             }
+
+      assert to_range(~s/foo.bar.(\n)/) == %{
                start: [line: 1, column: 1],
                end: [line: 2, column: 2]
              }
@@ -339,6 +350,16 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S/foo.bar(baz)/) == %{
                start: [line: 1, column: 1],
                end: [line: 1, column: 13]
+             }
+
+      assert to_range(~S/foo.bar.(baz)/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+
+      assert to_range(~s/foo.bar.(\nbaz)/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 2, column: 5]
              }
 
       assert to_range(~S/foo.bar("baz#{2}qux")/) == %{
