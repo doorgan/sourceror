@@ -314,6 +314,9 @@ defmodule Sourceror.Zipper do
   If the zipper is not at the top, just the subtree will be traversed.
 
   The function must return a zipper.
+
+  If you want to optimize the traversal by skipping certain subtrees, consider
+  using `traverse_while/2` instead.
   """
   @spec traverse(zipper, (zipper -> zipper)) :: zipper
   def traverse({_tree, nil} = zipper, fun) do
