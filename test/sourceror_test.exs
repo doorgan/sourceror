@@ -38,12 +38,16 @@ defmodule SourcerorTest do
       # A
       foo do
         # B
-        :ok
 
         # C
+
+        :ok
+        # D
+
+        # E
       end
 
-      # D
+      # F
       """)
     end
 
