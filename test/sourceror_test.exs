@@ -182,23 +182,6 @@ defmodule SourcerorTest do
     end
   end
 
-  describe "to_string/2 with optional quoted_to_algebra" do
-    test "preserves trailing commas with the freedom_formatter" do
-      assert_same(
-        """
-        def list do
-          [
-            45,
-            44,
-          ]
-        end
-        """,
-        quoted_to_algebra: &FreedomFormatter.Formatter.to_algebra/2,
-        trailing_comma: true
-      )
-    end
-  end
-
   describe "parse_string!/2" do
     test "raises on invalid string" do
       assert_raise SyntaxError, fn ->
@@ -372,6 +355,30 @@ defmodule SourcerorTest do
                ~S"defparsec(:do_parse, parser)"
 
       assert code |> Sourceror.parse_string!() |> Sourceror.to_string(opts) == code
+    end
+
+    test "with optional quoted_to_algebra" do
+      quoted_to_algebra = fn _quoted, opts ->
+        assert is_function(opts[:quoted_to_algebra], 2)
+        assert opts[:trailing_comma] == true
+
+        {:doc_group,
+         {:doc_group,
+          {:doc_cons,
+           {:doc_nest,
+            {:doc_cons, "[",
+             {:doc_cons, {:doc_break, "", :strict},
+              {:doc_force, {:doc_group, {:doc_cons, "1", ","}, :self}}}}, 2, :break},
+           {:doc_cons, {:doc_break, "", :strict}, "]"}}, :self}, :self}
+      end
+
+      code = """
+      [
+        1,
+      ]
+      """
+
+      assert_same(code, quoted_to_algebra: quoted_to_algebra, trailing_comma: true)
     end
   end
 
