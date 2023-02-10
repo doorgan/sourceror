@@ -70,7 +70,6 @@ defmodule Sourceror.MixProject do
       {:ex_check, "~> 0.15.0", only: [:dev], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.15", only: [:test]},
-      {:freedom_formatter, "~> 2.1", only: :test},
       {:sobelow, "~> 0.11", only: :dev}
     ]
   end
