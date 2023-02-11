@@ -2,10 +2,10 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
-  defmacro assert_same(string) do
-    quote bind_quoted: [string: string] do
+  defmacro assert_same(string, opts \\ []) do
+    quote bind_quoted: [string: string, opts: opts] do
       string = String.trim(string)
-      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string()
+      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string(opts)
     end
   end
 
@@ -355,6 +355,30 @@ defmodule SourcerorTest do
                ~S"defparsec(:do_parse, parser)"
 
       assert code |> Sourceror.parse_string!() |> Sourceror.to_string(opts) == code
+    end
+
+    test "with optional quoted_to_algebra" do
+      quoted_to_algebra = fn _quoted, opts ->
+        assert is_function(opts[:quoted_to_algebra], 2)
+        assert opts[:trailing_comma] == true
+
+        {:doc_group,
+         {:doc_group,
+          {:doc_cons,
+           {:doc_nest,
+            {:doc_cons, "[",
+             {:doc_cons, {:doc_break, "", :strict},
+              {:doc_force, {:doc_group, {:doc_cons, "1", ","}, :self}}}}, 2, :break},
+           {:doc_cons, {:doc_break, "", :strict}, "]"}}, :self}, :self}
+      end
+
+      code = """
+      [
+        1,
+      ]
+      """
+
+      assert_same(code, quoted_to_algebra: quoted_to_algebra, trailing_comma: true)
     end
   end
 
