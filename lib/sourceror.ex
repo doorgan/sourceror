@@ -915,11 +915,8 @@ defmodule Sourceror do
 
   defp locals_without_parens() do
     if Version.match?(System.version(), ">= 1.13.0") do
-      File.cwd!()
-      |> Path.join(".formatter.exs")
-      |> Mix.Tasks.Format.formatter_for_file()
-      |> elem(1)
-      |> Keyword.get(:locals_without_parens, [])
+      {_formatter, formatter_opts} = Mix.Tasks.Format.formatter_for_file("elixir.ex")
+      Keyword.get(formatter_opts, :locals_without_parens, [])
     else
       []
     end
