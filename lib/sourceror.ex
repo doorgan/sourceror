@@ -913,7 +913,7 @@ defmodule Sourceror do
     |> Enum.map(&Enum.join/1)
   end
 
-  def locals_without_parens() do
+  defp locals_without_parens() do
     if Version.match?(System.version(), ">= 1.13.0") do
       File.cwd!()
       |> Path.join(".formatter.exs")
