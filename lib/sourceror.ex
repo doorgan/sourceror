@@ -199,8 +199,14 @@ defmodule Sourceror do
     extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
 
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
+    locals_without_parens = Keyword.get(opts, :locals_without_parens, locals_without_parens())
 
-    to_algebra_opts = Keyword.merge(opts, comments: comments, escape: false)
+    to_algebra_opts =
+      Keyword.merge(opts,
+        comments: comments,
+        escape: false,
+        locals_without_parens: locals_without_parens
+      )
 
     text =
       quoted
@@ -905,5 +911,17 @@ defmodule Sourceror do
     |> String.split(@re_newline, include_captures: true)
     |> Enum.chunk_every(2)
     |> Enum.map(&Enum.join/1)
+  end
+
+  def locals_without_parens() do
+    if Version.match?(System.version(), ">= 1.13.0") do
+      File.cwd!()
+      |> Path.join(".formatter.exs")
+      |> Mix.Tasks.Format.formatter_for_file()
+      |> elem(1)
+      |> Keyword.get(:locals_without_parens, [])
+    else
+      []
+    end
   end
 end
