@@ -199,14 +199,11 @@ defmodule Sourceror do
     extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
 
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
-    locals_without_parens = Keyword.get(opts, :locals_without_parens, locals_without_parens())
 
     to_algebra_opts =
-      Keyword.merge(opts,
-        comments: comments,
-        escape: false,
-        locals_without_parens: locals_without_parens
-      )
+      opts
+      |> Keyword.merge(comments: comments, escape: false)
+      |> Keyword.put_new(:locals_without_parens, locals_without_parens())
 
     text =
       quoted
