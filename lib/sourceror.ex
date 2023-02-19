@@ -200,7 +200,10 @@ defmodule Sourceror do
 
     {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
 
-    to_algebra_opts = Keyword.merge(opts, comments: comments, escape: false)
+    to_algebra_opts =
+      opts
+      |> Keyword.merge(comments: comments, escape: false)
+      |> Keyword.put_new(:locals_without_parens, locals_without_parens())
 
     text =
       quoted
@@ -905,5 +908,14 @@ defmodule Sourceror do
     |> String.split(@re_newline, include_captures: true)
     |> Enum.chunk_every(2)
     |> Enum.map(&Enum.join/1)
+  end
+
+  defp locals_without_parens() do
+    if Version.match?(System.version(), ">= 1.13.0") do
+      {_formatter, formatter_opts} = Mix.Tasks.Format.formatter_for_file("elixir.ex")
+      Keyword.get(formatter_opts, :locals_without_parens, [])
+    else
+      []
+    end
   end
 end
