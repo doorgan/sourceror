@@ -166,6 +166,11 @@ defmodule Sourceror do
   The comments line number will be ignored and the line number of the associated
   node will be used when formatting the code.
 
+  If you're using Elixir >=1.13, the `locals_without_parens` from your project
+  formatter configuration will be used. You can pass a different set of options
+  by using the `locals_withot_parens` option. If you want to disable that option
+  entirely, use `locals_without_parens: []`.
+
   ## Options
     * `:indent` - how many indentations to insert at the start of each line.
       Note that this only prepends the indents without checking the indentation
@@ -910,8 +915,9 @@ defmodule Sourceror do
     |> Enum.map(&Enum.join/1)
   end
 
-  defp locals_without_parens() do
+  defp locals_without_parens do
     if Version.match?(System.version(), ">= 1.13.0") do
+      # credo:disable-for-next-line
       {_formatter, formatter_opts} = Mix.Tasks.Format.formatter_for_file("elixir.ex")
       Keyword.get(formatter_opts, :locals_without_parens, [])
     else
