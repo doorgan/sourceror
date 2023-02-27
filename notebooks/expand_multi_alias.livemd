@@ -129,7 +129,7 @@ if it's inside another block. When traversing, if we encounter a block, we reduc
 to unwrap any marked block, essentially "adding multiple nodes" to the block:
 
 ```elixir
-defmodule AliasExpansion do
+defmodule AliasExpansionHandledMultiNodes do
   def expand_aliases(quoted) do
     Sourceror.postwalk(quoted, fn
       {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
@@ -162,12 +162,14 @@ defmodule AliasExpansion do
   defp unwrap_aliases({:__block__, [unwrap_me?: true], aliases}, args) do
     args ++ aliases
   end
+
   defp unwrap_aliases(quoted, args) do
     args ++ [quoted]
   end
+end
 
 Sourceror.parse_string!(source)
-|> AliasExpansion.expand_aliases()
+|> AliasExpansionHandledMultiNodes.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -190,7 +192,7 @@ This is easier to see with an example:
 alias Foo.{Bar, Baz}
 """
 |> Sourceror.parse_string!()
-|> Sourceror.postwalk(postwalk_aliases)
+|> AliasExpansionHandledMultiNodes.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -207,7 +209,7 @@ We can solve this by attaching the leading comments to the first one, and the tr
 the last one:
 
 ```elixir
-defmodule AliasExpansion do
+defmodule AliasExpansionHandledComments do
   def expand_aliases(quoted) do
     Sourceror.postwalk(quoted, fn
       {:alias, _, [{{:., _, [_, :{}]}, _, _}]} = quoted, state ->
@@ -282,7 +284,7 @@ end
 alias Foo.{Bar, Baz}
 """
 |> Sourceror.parse_string!()
-|> AliasExpansion.expand_aliases()
+|> AliasExpansionHandledComments.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -335,7 +337,7 @@ end
 
 source
 |> Sourceror.parse_string!()
-|> AliasExpansion.expand_aliases()
+|> AliasExpansionHandledComments.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
@@ -427,7 +429,7 @@ Walking a tree is nice, but we also need to change it. For that we have tools li
 We can see them in action by rewriting our `AliasExpansion` module to use the zipper api:
 
 ```elixir
-defmodule AliasExpansion do
+defmodule AliasExpansionWithZipper do
   alias Sourceror.Zipper, as: Z
 
   def expand_aliases(quoted) do
@@ -483,7 +485,7 @@ end
 
 source
 |> Sourceror.parse_string!()
-|> AliasExpansion.expand_aliases()
+|> AliasExpansionWithZipper.expand_aliases()
 |> Sourceror.to_string()
 |> IO.puts()
 ```
