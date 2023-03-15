@@ -208,7 +208,7 @@ defmodule Sourceror do
     to_algebra_opts =
       opts
       |> Keyword.merge(comments: comments, escape: false)
-      |> Keyword.put_new_lazy(:locals_without_parens, locals_without_parens())
+      |> Keyword.put_new_lazy(:locals_without_parens, &locals_without_parens/0)
 
     text =
       quoted
