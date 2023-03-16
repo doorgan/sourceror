@@ -168,7 +168,7 @@ defmodule Sourceror do
 
   If you're using Elixir >=1.13, the `locals_without_parens` from your project
   formatter configuration will be used. You can pass a different set of options
-  by using the `locals_withot_parens` option. If you want to disable that option
+  by using the `locals_without_parens` option. If you want to disable that option
   entirely, use `locals_without_parens: []`.
 
   ## Options
