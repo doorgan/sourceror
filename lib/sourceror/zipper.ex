@@ -412,7 +412,7 @@ defmodule Sourceror.Zipper do
   end
 
   def traverse_while({tree, meta}, acc, fun) do
-    {{updated, _meta}, acc} = do_traverse({tree, nil}, acc, fun)
+    {{updated, _meta}, acc} = do_traverse_while({tree, nil}, acc, fun)
     {{updated, meta}, acc}
   end
 
