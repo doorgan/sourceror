@@ -31,3 +31,6 @@ sourceror-*.tar
 # Dialyzer plts.
 /priv/plts/*
 !/priv/plts/.gitkeep
+
+# LSP artifacts
+/.lexical
