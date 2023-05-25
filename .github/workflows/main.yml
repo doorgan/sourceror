@@ -5,36 +5,38 @@ on: [pull_request, push]
 jobs:
   ci:
     name: ci
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         include:
-          - elixir: 1.10.4
-            otp: 21.3
+          - elixir: '1.10.4'
+            otp: '21.3'
             run_vendored_tests: true
-          - elixir: 1.11.4
-            otp: 23.2
+          - elixir: '1.11.4'
+            otp: '23.2'
             run_vendored_tests: true
-          - elixir: 1.12.3
-            otp: 24.3
+          - elixir: '1.12.3'
+            otp: '24.3'
             run_vendored_tests: true
-          - elixir: 1.13.4
-            otp: 24.3
-            run_dialyzer: true
-          - elixir: 1.13.4
-            otp: 25.0.2
+          - elixir: '1.13.4'
+            otp: '24.3'
+          - elixir: '1.13.4'
+            otp: '25.0.2'
             check_formatted: true
             run_credo: true
             run_coveralls: true
-          - elixir: 1.14.3
-            otp: 25.2
+            run_dialyzer: true
+          - elixir: '1.14.3'
+            otp: '25.2'
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
+        id: beam
         uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
+          version-type: strict
 
       - name: Restore dependencies cache
         uses: actions/cache@v2
@@ -45,17 +47,22 @@ jobs:
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('**/mix.lock') }}
             ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix
 
-      - name: Restore Dialyzer PLT cache
-        uses: actions/cache@v2
-        with:
-          path: priv/plts
-          key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt-${{ hashFiles('**/priv/plts/dialyzer.plt.hash') }}
-            ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plt
-
       - name: Install dependencies
         run: mix deps.get
+
+      - name: Retrieve PLT Cache
+        if: matrix.run_dialyzer
+        uses: actions/cache@v1
+        id: plt-cache
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+
+      - name: Create PLTs
+        if: matrix.run_dialyzer && steps.plt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p priv/plts
+          mix dialyzer.build
 
       - name: Check formatting
         run: mix format --check-formatted
