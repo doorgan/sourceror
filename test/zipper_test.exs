@@ -544,4 +544,38 @@ defmodule SourcerorTest.ZipperTest do
       assert Z.find(zipper, :prev, fn x -> x == 9 end) == nil
     end
   end
+
+  describe "inspect" do
+    test "omits the path by default" do
+      zipper = Z.zip([1, [2], 3]) |> Z.next() |> Z.next()
+
+      assert inspect(zipper) == "#Zipper<node: [2]>"
+    end
+
+    test ":as_code option pretty-prints the node" do
+      ast =
+        quote do
+          def some_function(x, y) do
+            x + y
+          end
+        end
+
+      zipper = Z.zip(ast)
+
+      assert inspect(zipper, custom_options: [zipper: :as_code]) == """
+             #Zipper<node:
+               def some_function(x, y) do
+                x + y
+               end
+             >\
+             """
+    end
+
+    test ":raw option includes the path" do
+      zipper = Z.zip([1, [2], 3]) |> Z.next() |> Z.next()
+
+      assert inspect(zipper, custom_options: [zipper: :raw]) ==
+               "%Zipper{node: [2], path: %{left: [1], parent: %Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
+    end
+  end
 end

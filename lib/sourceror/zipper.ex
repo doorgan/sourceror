@@ -494,4 +494,27 @@ defmodule Sourceror.Zipper do
 
   defp do_append_child(list, child) when is_list(list), do: list ++ [child]
   defp do_append_child({left, right}, child), do: {:{}, [], [left, right, child]}
+
+  defimpl Inspect do
+    import Inspect.Algebra
+
+    def inspect(zipper, opts) do
+      opts.custom_options
+      |> Keyword.get(:zipper, :as_ast)
+      |> inspect(zipper, opts)
+    end
+
+    defp inspect(:as_ast, zipper, opts) do
+      concat(["#Zipper<", Inspect.List.keyword({:node, zipper.node}, opts), ">"])
+    end
+
+    defp inspect(:as_code, zipper, opts) do
+      code = Sourceror.to_algebra(zipper.node, Map.to_list(opts))
+      nest(concat(["#Zipper<node:", code, ">"]), 1) |> format(opts.width)
+    end
+
+    defp inspect(:raw, zipper, opts) do
+      Inspect.Map.inspect(zipper, "Zipper", [%{field: :node}, %{field: :path}], opts)
+    end
+  end
 end

@@ -201,18 +201,9 @@ defmodule Sourceror do
         :tabs -> "\t"
       end
 
-    extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
-
-    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
-
-    to_algebra_opts =
-      opts
-      |> Keyword.merge(comments: comments, escape: false)
-      |> Keyword.put_new_lazy(:locals_without_parens, &locals_without_parens/0)
-
     text =
       quoted
-      |> quoted_to_algebra(to_algebra_opts)
+      |> to_algebra(opts)
       |> Inspect.Algebra.format(line_length)
       |> IO.iodata_to_binary()
       |> String.split("\n")
@@ -225,6 +216,20 @@ defmodule Sourceror do
     else
       text
     end
+  end
+
+  @doc false
+  def to_algebra(quoted, opts \\ []) do
+    extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
+
+    {quoted, comments} = Sourceror.Comments.extract_comments(quoted, extract_comments_opts)
+
+    to_algebra_opts =
+      opts
+      |> Keyword.merge(comments: comments, escape: false)
+      |> Keyword.put_new_lazy(:locals_without_parens, &locals_without_parens/0)
+
+    quoted_to_algebra(quoted, to_algebra_opts)
   end
 
   @doc """
