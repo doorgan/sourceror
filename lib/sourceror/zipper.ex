@@ -505,16 +505,49 @@ defmodule Sourceror.Zipper do
     end
 
     defp inspect(:as_ast, zipper, opts) do
-      concat(["#Zipper<", Inspect.List.keyword({:node, zipper.node}, opts), ">"])
+      zipper.node
+      |> to_doc(opts)
+      |> inspect_opaque_zipper(zipper, opts)
     end
 
     defp inspect(:as_code, zipper, opts) do
-      code = Sourceror.to_algebra(zipper.node, Map.to_list(opts))
-      nest(concat(["#Zipper<node:", code, ">"]), 1) |> format(opts.width)
+      zipper.node
+      |> Sourceror.to_algebra(Map.to_list(opts))
+      |> inspect_opaque_zipper(zipper, opts)
     end
 
     defp inspect(:raw, zipper, opts) do
       Inspect.Map.inspect(zipper, "Zipper", [%{field: :node}, %{field: :path}], opts)
     end
+
+    defp inspect_opaque_zipper(inner, zipper, opts) do
+      inner_content =
+        [get_prefix(zipper, opts), inner, get_suffix(zipper, opts)]
+        |> concat()
+        |> nest(2)
+
+      force_unfit(
+        concat([
+          color("#Sourceror.Zipper<", :map, opts),
+          inner_content,
+          line(),
+          color(">", :map, opts)
+        ])
+      )
+    end
+
+    defp get_prefix(%Z{path: nil}, opts), do: concat([line(), comment("#root", opts), line()])
+
+    defp get_prefix(%Z{path: %{left: [_ | _]}}, opts),
+      do: concat([line(), comment("#...", opts), line()])
+
+    defp get_prefix(_, _), do: line()
+
+    defp get_suffix(%Z{path: %{right: [_ | _]}}, opts),
+      do: concat([line(), comment("#...", opts)])
+
+    defp get_suffix(_, _), do: empty()
+
+    defp comment(string, opts), do: color(string, :operator, opts)
   end
 end

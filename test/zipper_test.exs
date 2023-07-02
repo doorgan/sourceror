@@ -545,36 +545,107 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
-  describe "inspect" do
-    test "omits the path by default" do
-      zipper = Z.zip([1, [2], 3]) |> Z.next() |> Z.next()
+  describe "inspect/2" do
+    test "defaults to using zipper: :as_ast" do
+      zipper = Z.zip([1, [2], 3])
 
-      assert inspect(zipper) == "#Zipper<node: [2]>"
+      assert inspect(zipper) == inspect(zipper, custom_options: [zipper: :as_ast])
+    end
+
+    test "zipper: :as_ast" do
+      zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert zipper |> inspect() == """
+             #Sourceror.Zipper<
+               #root
+               {:=, [line: 1], [{:x, [line: 1], nil}, {:+, [line: 1], [1, 2]}]}
+             >\
+             """
+
+      assert zipper |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               {:x, [line: 1], nil}
+               #...
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               #...
+               {:+, [line: 1], [1, 2]}
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               1
+               #...
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> Z.next() |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               #...
+               2
+             >\
+             """
     end
 
     test ":as_code option pretty-prints the node" do
-      ast =
-        quote do
-          def some_function(x, y) do
-            x + y
-          end
-        end
+      zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
 
-      zipper = Z.zip(ast)
+      assert zipper |> inspect(custom_options: [zipper: :as_code]) == """
+             #Sourceror.Zipper<
+               #root
+               x = 1 + 2
+             >\
+             """
 
-      assert inspect(zipper, custom_options: [zipper: :as_code]) == """
-             #Zipper<node:
-               def some_function(x, y) do
-                x + y
-               end
+      assert zipper |> Z.next() |> inspect(custom_options: [zipper: :as_code]) == """
+             #Sourceror.Zipper<
+               x
+               #...
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> inspect(custom_options: [zipper: :as_code]) == """
+             #Sourceror.Zipper<
+               #...
+               1 + 2
+             >\
+             """
+
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> inspect(custom_options: [zipper: :as_code]) == """
+             #Sourceror.Zipper<
+               1
+               #...
+             >\
+             """
+
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> inspect(custom_options: [zipper: :as_code]) == """
+             #Sourceror.Zipper<
+               #...
+               2
              >\
              """
     end
 
     test ":raw option includes the path" do
-      zipper = Z.zip([1, [2], 3]) |> Z.next() |> Z.next()
+      zipper = Z.zip([1, [2], 3])
 
-      assert inspect(zipper, custom_options: [zipper: :raw]) ==
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> inspect(custom_options: [zipper: :raw, sort_maps: true]) ==
                "%Zipper{node: [2], path: %{left: [1], parent: %Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
     end
   end
