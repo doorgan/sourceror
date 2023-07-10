@@ -1,17 +1,88 @@
 defmodule Sourceror.Zipper do
   @moduledoc """
-  Implements a Zipper for the Elixir AST based on Gérard Huet [Functional
-  pearl: the
-  zipper](https://www.st.cs.uni-saarland.de/edu/seminare/2005/advanced-fp/docs/huet-zipper.pdf)
-  paper and Clojure's `clojure.zip` API.
+  Tree-like data structure that provides enhanced navigation and modification
+  of an Elixir AST.
+
+  This implementation is based on Gérard Huet [Functional pearl: the zipper](https://www.st.cs.uni-saarland.de/edu/seminare/2005/advanced-fp/docs/huet-zipper.pdf)
+  and Clojure's `clojure.zip` API.
 
   A zipper is a data structure that represents a location in a tree from the
-  perspective of the current node, also called *focus*.
+  perspective of the current node, also called the *focus*.
 
   It is represented by a struct containing a `:node` and `:path`, which is a
   private field used to track the position of the `:node` with regards to
   the entire tree. The `:path` is an implementation detail that should be
   considered private.
+
+  For more information and examples, see the following guides:
+
+    * [Zippers](zippers.html) (an introduction)
+    * [Expand multi-alias syntax](expand_multi_alias.html) (an example)
+
+  ## Inspect protocol
+
+  When inspecting a zipper, the default representation shows the current
+  node and provides indicators of the surrounding context without displaying
+  the full path, which can be very verbose for large ASTs.
+
+      iex> alias Sourceror.Zipper, as: Z
+      Sourceror.Zipper
+
+      iex> code = \"""
+      ...> def my_function do
+      ...>   :ok
+      ...> end\\
+      ...> \"""
+
+      iex> zipper = code |> Code.string_to_quoted!() |> Z.zip()
+      #Sourceror.Zipper<
+        #root
+        {:def, [line: 1], [{:my_function, [line: 1], nil}, [do: :ok]]}
+      >
+
+      iex> zipper |> Z.next()
+      #Sourceror.Zipper<
+        {:my_function, [line: 1], nil}
+        #...
+      >
+
+  This representation can be customized, however, using the `:custom_options`
+  field in `Inspect.Opts` and setting `:zipper` to one of the following:
+
+    * `:as_ast` (default) - display the current node as an AST
+    * `:as_code` - display the current node formatted as code
+    * `:raw` - display the raw `%Sourceror.Zipper{}` struct including the
+      `:path`.
+
+  Using the zipper defined above as an example:
+
+      iex> zipper |> inspect(custom_options: [zipper: :as_code]) |> IO.puts()
+      #Sourceror.Zipper<
+        #root
+        def my_function do
+          :ok
+        end
+      >
+
+      iex> zipper |> Z.next() |> inspect(custom_options: [zipper: :as_code]) |> IO.puts()
+      #Sourceror.Zipper<
+        my_function
+        #...
+      >
+
+      iex> zipper |> Z.next() |> inspect(custom_options: [zipper: :raw], pretty: true) |> IO.puts()
+      %Sourceror.Zipper{
+        node: {:my_function, [line: 1], nil},
+        path: %{
+          parent: %Sourceror.Zipper{
+            node: {:def, [line: 1], [{:my_function, [line: 1], nil}, [do: :ok]]},
+            path: nil
+          },
+          left: nil,
+          right: [[do: :ok]]
+        }
+      }
+
   """
 
   import Kernel, except: [node: 1]

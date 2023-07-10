@@ -1,6 +1,6 @@
 defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
-  doctest Sourceror.Zipper
+  doctest Sourceror.Zipper, except: [:moduledoc]
 
   alias Sourceror.Zipper, as: Z
 
