@@ -521,6 +521,8 @@ defmodule Sourceror.Zipper do
     end
 
     defp inspect_opaque_zipper(inner, zipper, opts) do
+      opts = maybe_put_zipper_internal_color(opts)
+
       inner_content =
         [get_prefix(zipper, opts), inner, get_suffix(zipper, opts)]
         |> concat()
@@ -536,18 +538,26 @@ defmodule Sourceror.Zipper do
       )
     end
 
-    defp get_prefix(%Z{path: nil}, opts), do: concat([line(), comment("#root", opts), line()])
+    defp get_prefix(%Z{path: nil}, opts), do: concat([line(), internal("#root", opts), line()])
 
     defp get_prefix(%Z{path: %{left: [_ | _]}}, opts),
-      do: concat([line(), comment("#...", opts), line()])
+      do: concat([line(), internal("#...", opts), line()])
 
     defp get_prefix(_, _), do: line()
 
     defp get_suffix(%Z{path: %{right: [_ | _]}}, opts),
-      do: concat([line(), comment("#...", opts)])
+      do: concat([line(), internal("#...", opts)])
 
     defp get_suffix(_, _), do: empty()
 
-    defp comment(string, opts), do: color(string, :operator, opts)
+    defp internal(string, opts), do: color(string, :zipper_internal, opts)
+
+    # This prevents colorizing in contexts where no other syntax colors
+    # are present, e.g. in a test. Is there a better way to check this?
+    defp maybe_put_zipper_internal_color(%Inspect.Opts{syntax_colors: []} = opts), do: opts
+
+    defp maybe_put_zipper_internal_color(%Inspect.Opts{syntax_colors: colors} = opts) do
+      %{opts | syntax_colors: Keyword.put_new(colors, :zipper_internal, :light_black)}
+    end
   end
 end
