@@ -646,7 +646,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> Z.next()
              |> inspect(custom_options: [zipper: :raw, sort_maps: true]) ==
-               "%Zipper{node: [2], path: %{left: [1], parent: %Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
+               "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
     end
   end
 end

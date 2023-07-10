@@ -517,7 +517,13 @@ defmodule Sourceror.Zipper do
     end
 
     defp inspect(:raw, zipper, opts) do
-      Inspect.Map.inspect(zipper, "Zipper", [%{field: :node}, %{field: :path}], opts)
+      open = color("%Sourceror.Zipper{", :map, opts)
+      sep = color(",", :map, opts)
+      close = color("}", :map, opts)
+      list = [node: zipper.node, path: zipper.path]
+      fun = fn kw, opts -> Inspect.List.keyword(kw, opts) end
+
+      container_doc(open, list, close, opts, fun, separator: sep)
     end
 
     defp inspect_opaque_zipper(inner, zipper, opts) do
