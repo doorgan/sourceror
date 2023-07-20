@@ -545,14 +545,14 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
-  describe "inspect/2" do
-    test "defaults to using zipper: :as_ast" do
+  describe "Zipper.Inspect" do
+    test "inspect/2 defaults to using zipper: :as_ast" do
       zipper = Z.zip([1, [2], 3])
 
       assert inspect(zipper) == inspect(zipper, custom_options: [zipper: :as_ast])
     end
 
-    test "zipper: :as_ast" do
+    test ":as_ast option formats the node as an ast" do
       zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
 
       assert zipper |> inspect() == """
@@ -591,7 +591,7 @@ defmodule SourcerorTest.ZipperTest do
              """
     end
 
-    test ":as_code option pretty-prints the node" do
+    test ":as_code option formats the node as code" do
       zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
 
       assert zipper |> inspect(custom_options: [zipper: :as_code]) == """
@@ -639,7 +639,7 @@ defmodule SourcerorTest.ZipperTest do
              """
     end
 
-    test ":raw option includes the path" do
+    test ":raw option formats the zipper as a struct" do
       zipper = Z.zip([1, [2], 3])
 
       assert zipper
@@ -647,6 +647,30 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> inspect(custom_options: [zipper: :raw, sort_maps: true]) ==
                "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
+    end
+
+    test "default_inspect_as/1 sets a default" do
+      zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert :as_ast = Z.Inspect.default_inspect_as()
+
+      assert inspect(zipper) == """
+             #Sourceror.Zipper<
+               #root
+               {:=, [line: 1], [{:x, [line: 1], nil}, {:+, [line: 1], [1, 2]}]}
+             >\
+             """
+
+      assert :ok = Z.Inspect.default_inspect_as(:as_code)
+
+      assert inspect(zipper) == """
+             #Sourceror.Zipper<
+               #root
+               x = 1 + 2
+             >\
+             """
+
+      assert :ok = Z.Inspect.default_inspect_as(:as_ast)
     end
   end
 end
