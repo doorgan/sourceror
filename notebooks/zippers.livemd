@@ -73,14 +73,8 @@ we need to install Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.13"}
+  :sourceror
 ])
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
 ```
 
 The module that implements zippers for the Elixir AST is `Sourceror.Zipper`.
@@ -150,26 +144,13 @@ zipper |> Z.down() |> Z.right()
 
 Now we're focusing on `[2, 3]`, which has siblings both to its left (the `1` we saw previously) and to its right.
 
-The `Inspect.Sourceror.Zipper` implementation, which is used to pretty-print the zipper, hides some of the implementation details by default.
-However, to better understand the zipper's internals, we can pass `:custom_options` to `inspect/2` directly.
-We'll define a quick helper and use it to dig a little deeper:
+Sourceror defines a less-verbose implementation of the `Inspect` protocol for zippers, but the default format hides some of the implementation details.
+To better understand the zipper's internals, we'll set a more verbose default format to use going forward. (You can check out the `Sourceror.Zipper.Inspect` docs for more info.)
 
 ```elixir
-inspect_zipper = fn zipper ->
-  zipper
-  |> inspect(
-    custom_options: [
-      zippers: :raw
-    ],
-    pretty: true,
-    syntax_colors: IO.ANSI.syntax_colors()
-  )
-  |> IO.puts()
+Sourceror.Zipper.Inspect.default_inspect_as(:raw)
 
-  zipper
-end
-
-zipper |> Z.down() |> Z.right() |> tap(inspect_zipper)
+zipper |> Z.down() |> Z.right()
 ```
 
 <!-- livebook:{"output":true} -->
@@ -185,16 +166,6 @@ zipper |> Z.down() |> Z.right() |> tap(inspect_zipper)
 }
 ```
 
-<!-- livebook:{"output":true} -->
-
-```
-#Sourceror.Zipper<
-  #...
-  [2, 3]
-  #...
->
-```
-
 Now we can see that the zipper struct is composed of two fields, the current `:node` and a `:path` that contains siblings to the left, siblings to the right, and the parent.
 
 Besides moving around, we can also change the tree as a localized operation.
@@ -205,7 +176,6 @@ zipper
 |> Z.down()
 |> Z.right()
 |> Z.insert_right(:to_the_right!)
-|> tap(inspect_zipper)
 ```
 
 <!-- livebook:{"output":true} -->
@@ -221,16 +191,6 @@ zipper
 }
 ```
 
-<!-- livebook:{"output":true} -->
-
-```
-#Sourceror.Zipper<
-  #...
-  [2, 3]
-  #...
->
-```
-
 We can see that the atom `:to_the_right!` was added to our right siblings.
 Let's now remove it:
 
@@ -241,7 +201,6 @@ zipper
 |> Z.insert_right(:to_the_right!)
 |> Z.right()
 |> Z.remove()
-|> tap(inspect_zipper)
 ```
 
 <!-- livebook:{"output":true} -->
@@ -253,10 +212,7 @@ zipper
     parent: %Sourceror.Zipper{
       node: [2, 3],
       path: %{
-        parent: %Sourceror.Zipper{
-          node: [1, [2, 3], 4, [5, [6, 7]], 8],
-          path: nil
-        },
+        parent: %Sourceror.Zipper{node: [1, [2, 3], 4, [5, [6, 7]], 8], path: nil},
         left: [1],
         right: [4, [5, [6, 7]], 8]
       }
@@ -265,15 +221,6 @@ zipper
     right: nil
   }
 }
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-#Sourceror.Zipper<
-  #...
-  3
->
 ```
 
 A couple interesting things happened.
@@ -285,25 +232,17 @@ It's as if we did a `Macro.postwalk` step, but backwards.
 Let's look a what happens if we go higher in the tree:
 
 ```elixir
-zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!) |> Z.up() |> tap(inspect_zipper)
+zipper
+|> Z.down()
+|> Z.right()
+|> Z.insert_right(:to_the_right!)
+|> Z.up()
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-%Sourceror.Zipper{
-  node: [1, [2, 3], :to_the_right!, 4, [5, [6, 7]], 8],
-  path: nil
-}
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-#Sourceror.Zipper<
-  #root
-  [1, [2, 3], :to_the_right!, 4, [5, [6, 7]], 8]
->
+%Sourceror.Zipper{node: [1, [2, 3], :to_the_right!, 4, [5, [6, 7]], 8], path: nil}
 ```
 
 Instead of removing the added node, we went back up.
