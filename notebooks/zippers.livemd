@@ -159,7 +159,7 @@ inspect_zipper = fn zipper ->
   zipper
   |> inspect(
     custom_options: [
-      zipper: :raw
+      zippers: :raw
     ],
     pretty: true,
     syntax_colors: IO.ANSI.syntax_colors()

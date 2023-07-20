@@ -28,7 +28,7 @@ defmodule Sourceror.Zipper.Inspect do
       >
 
   This representation can be changed using `default_inspect_as/1` to set a
-  global default or by using `:custom_options` with the `:zipper` key when
+  global default or by using `:custom_options` with the `:zippers` key when
   inspecting. (See `Inspect.Opts` for more about inspect options.)
 
   Zippers can be inspected in these formats:
@@ -81,7 +81,7 @@ defmodule Sourceror.Zipper.Inspect do
   @doc false
   @spec inspect(Z.t(), Inspect.Opts.t()) :: Inspect.Algebra.t()
   def inspect(zipper, opts) do
-    inspect_as = Keyword.get_lazy(opts.custom_options, :zipper, &default_inspect_as/0)
+    inspect_as = Keyword.get_lazy(opts.custom_options, :zippers, &default_inspect_as/0)
     inspect(zipper, inspect_as, opts)
   end
 

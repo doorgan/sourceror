@@ -546,10 +546,10 @@ defmodule SourcerorTest.ZipperTest do
   end
 
   describe "Zipper.Inspect" do
-    test "inspect/2 defaults to using zipper: :as_ast" do
+    test "inspect/2 defaults to using zippers: :as_ast" do
       zipper = Z.zip([1, [2], 3])
 
-      assert inspect(zipper) == inspect(zipper, custom_options: [zipper: :as_ast])
+      assert inspect(zipper) == inspect(zipper, custom_options: [zippers: :as_ast])
     end
 
     test ":as_ast option formats the node as an ast" do
@@ -594,21 +594,21 @@ defmodule SourcerorTest.ZipperTest do
     test ":as_code option formats the node as code" do
       zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
 
-      assert zipper |> inspect(custom_options: [zipper: :as_code]) == """
+      assert zipper |> inspect(custom_options: [zippers: :as_code]) == """
              #Sourceror.Zipper<
                #root
                x = 1 + 2
              >\
              """
 
-      assert zipper |> Z.next() |> inspect(custom_options: [zipper: :as_code]) == """
+      assert zipper |> Z.next() |> inspect(custom_options: [zippers: :as_code]) == """
              #Sourceror.Zipper<
                x
                #...
              >\
              """
 
-      assert zipper |> Z.next() |> Z.next() |> inspect(custom_options: [zipper: :as_code]) == """
+      assert zipper |> Z.next() |> Z.next() |> inspect(custom_options: [zippers: :as_code]) == """
              #Sourceror.Zipper<
                #...
                1 + 2
@@ -619,7 +619,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> Z.next()
              |> Z.next()
-             |> inspect(custom_options: [zipper: :as_code]) == """
+             |> inspect(custom_options: [zippers: :as_code]) == """
              #Sourceror.Zipper<
                1
                #...
@@ -631,7 +631,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> Z.next()
              |> Z.next()
-             |> inspect(custom_options: [zipper: :as_code]) == """
+             |> inspect(custom_options: [zippers: :as_code]) == """
              #Sourceror.Zipper<
                #...
                2
@@ -645,7 +645,7 @@ defmodule SourcerorTest.ZipperTest do
       assert zipper
              |> Z.next()
              |> Z.next()
-             |> inspect(custom_options: [zipper: :raw, sort_maps: true]) ==
+             |> inspect(custom_options: [zippers: :raw, sort_maps: true]) ==
                "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
     end
 
