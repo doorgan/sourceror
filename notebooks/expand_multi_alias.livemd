@@ -13,8 +13,7 @@ Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
-  # :sourceror
-  {:sourceror, path: Path.expand("../", __DIR__)}
+  :sourceror
 ])
 ```
 
