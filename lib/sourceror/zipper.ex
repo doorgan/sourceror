@@ -1,39 +1,50 @@
 defmodule Sourceror.Zipper do
   @moduledoc """
-  Implements a Zipper for the Elixir AST based on Gérard Huet [Functional
-  pearl: the
-  zipper](https://www.st.cs.uni-saarland.de/edu/seminare/2005/advanced-fp/docs/huet-zipper.pdf)
-  paper and Clojure's `clojure.zip` API.
+  Tree-like data structure that provides enhanced navigation and modification
+  of an Elixir AST.
+
+  This implementation is based on Gérard Huet [Functional pearl: the zipper](https://www.st.cs.uni-saarland.de/edu/seminare/2005/advanced-fp/docs/huet-zipper.pdf)
+  and Clojure's `clojure.zip` API.
 
   A zipper is a data structure that represents a location in a tree from the
-  perspective of the current node, also called *focus*. It is represented by a
-  2-tuple where the first element is the focus and the second element is the
-  metadata/context. The metadata is `nil` when the focus is the topmost node
-  """
+  perspective of the current node, also called the *focus*.
 
-  # Remove once we figure out why these functions cause a "pattern can never
-  # match" error:
-  #
-  # The pattern can never match the type.
-  #
-  # Pattern: _child = {_, _}
-  #
-  # Type: nil
-  @dialyzer {:nowarn_function, do_prev: 1, prev_after_remove: 1}
+  It is represented by a struct containing a `:node` and `:path`, which is a
+  private field used to track the position of the `:node` with regards to
+  the entire tree. The `:path` is an implementation detail that should be
+  considered private.
+
+  For more information and examples, see the following guides:
+
+    * [Zippers](zippers.html) (an introduction)
+    * [Expand multi-alias syntax](expand_multi_alias.html) (an example)
+
+  """
 
   import Kernel, except: [node: 1]
 
-  @type tree :: Macro.t()
-  @type path :: %{
-          l: [tree],
-          ptree: zipper,
-          r: [tree]
-        }
-  @type zipper :: {tree, path | nil}
+  alias Sourceror.Zipper, as: Z
 
-  @doc """
-  Returns true if the node is a branch.
-  """
+  defstruct [:node, :path]
+
+  @type t :: %Z{
+          node: tree,
+          path: path | nil
+        }
+
+  @opaque path :: %{
+            left: [tree] | nil,
+            parent: t,
+            right: [tree] | nil
+          }
+
+  @type tree :: Macro.t()
+
+  @compile {:inline, new: 1, new: 2}
+  defp new(node), do: %Z{node: node}
+  defp new(node, nil), do: %Z{node: node}
+  defp new(node, %{left: _, parent: _, right: _} = path), do: %Z{node: node, path: path}
+
   @spec branch?(tree) :: boolean
   def branch?({_, _, args}) when is_list(args), do: true
   def branch?({_, _}), do: true
@@ -66,34 +77,34 @@ defmodule Sourceror.Zipper do
   @doc """
   Creates a zipper from a tree node.
   """
-  @spec zip(tree) :: zipper
-  def zip(term), do: {term, nil}
+  @spec zip(tree) :: t
+  def zip(term), do: new(term)
 
   @doc """
   Walks the zipper all the way up and returns the top zipper.
   """
-  @spec top(zipper) :: zipper
-  def top({_, nil} = zipper), do: zipper
+  @spec top(t) :: t
+  def top(%Z{path: nil} = zipper), do: zipper
   def top(zipper), do: zipper |> up() |> top()
 
   @doc """
   Walks the zipper all the way up and returns the root node.
   """
-  @spec root(zipper) :: tree
+  @spec root(t) :: tree
   def root(zipper), do: zipper |> top() |> node()
 
   @doc """
   Returns the node at the zipper.
   """
-  @spec node(zipper) :: tree
-  def node({tree, _}), do: tree
+  @spec node(t) :: tree
+  def node(%Z{node: tree}), do: tree
 
   @doc """
   Returns the zipper of the leftmost child of the node at this zipper, or
   nil if no there's no children.
   """
-  @spec down(zipper) :: zipper | nil
-  def down({tree, meta}) do
+  @spec down(t) :: t | nil
+  def down(%Z{node: tree} = zipper) do
     with true <- branch?(tree), [first | rest] <- children(tree) do
       rest =
         if rest == [] do
@@ -102,7 +113,7 @@ defmodule Sourceror.Zipper do
           rest
         end
 
-      {first, %{ptree: {tree, meta}, l: nil, r: rest}}
+      new(first, %{parent: zipper, left: nil, right: rest})
     else
       _ -> nil
     end
@@ -112,32 +123,32 @@ defmodule Sourceror.Zipper do
   Returns the zipper of the parent of the node at this zipper, or nil if at the
   top.
   """
-  @spec up(zipper) :: zipper | nil
-  def up({_, nil}), do: nil
+  @spec up(t) :: t | nil
+  def up(%Z{path: nil}), do: nil
 
-  def up({tree, meta}) do
-    children = Enum.reverse(meta.l || []) ++ [tree] ++ (meta.r || [])
-    {parent, parent_meta} = meta.ptree
-    {make_node(parent, children), parent_meta}
+  def up(%Z{node: tree, path: path}) do
+    children = Enum.reverse(path.left || []) ++ [tree] ++ (path.right || [])
+    %Z{node: parent, path: parent_path} = path.parent
+    new(make_node(parent, children), parent_path)
   end
 
   @doc """
   Returns the zipper of the left sibling of the node at this zipper, or nil.
   """
-  @spec left(zipper) :: zipper | nil
-  def left({tree, %{l: [ltree | l], r: r} = meta}),
-    do: {ltree, %{meta | l: l, r: [tree | r || []]}}
+  @spec left(t) :: t | nil
+  def left(%Z{node: tree, path: %{left: [ltree | l], right: r} = path}),
+    do: new(ltree, %{path | left: l, right: [tree | r || []]})
 
   def left(_), do: nil
 
   @doc """
   Returns the leftmost sibling of the node at this zipper, or itself.
   """
-  @spec leftmost(zipper) :: zipper
-  def leftmost({tree, %{l: [_ | _] = l} = meta}) do
+  @spec leftmost(t) :: t
+  def leftmost(%Z{node: tree, path: %{left: [_ | _] = l} = path}) do
     [left | rest] = Enum.reverse(l)
-    r = rest ++ [tree] ++ (meta.r || [])
-    {left, %{meta | l: nil, r: r}}
+    r = rest ++ [tree] ++ (path.right || [])
+    new(left, %{path | left: nil, right: r})
   end
 
   def leftmost(zipper), do: zipper
@@ -145,20 +156,20 @@ defmodule Sourceror.Zipper do
   @doc """
   Returns the zipper of the right sibling of the node at this zipper, or nil.
   """
-  @spec right(zipper) :: zipper | nil
-  def right({tree, %{r: [rtree | r]} = meta}),
-    do: {rtree, %{meta | r: r, l: [tree | meta.l || []]}}
+  @spec right(t) :: t | nil
+  def right(%Z{node: tree, path: %{right: [rtree | r]} = path}),
+    do: new(rtree, %{path | right: r, left: [tree | path.left || []]})
 
   def right(_), do: nil
 
   @doc """
   Returns the rightmost sibling of the node at this zipper, or itself.
   """
-  @spec rightmost(zipper) :: zipper
-  def rightmost({tree, %{r: [_ | _] = r} = meta}) do
+  @spec rightmost(t) :: t
+  def rightmost(%Z{node: tree, path: %{right: [_ | _] = r} = path}) do
     [right | rest] = Enum.reverse(r)
-    l = rest ++ [tree] ++ (meta.l || [])
-    {right, %{meta | l: l, r: nil}}
+    l = rest ++ [tree] ++ (path.left || [])
+    new(right, %{path | left: l, right: nil})
   end
 
   def rightmost(zipper), do: zipper
@@ -166,38 +177,44 @@ defmodule Sourceror.Zipper do
   @doc """
   Replaces the current node in the zipper with a new node.
   """
-  @spec replace(zipper, tree) :: zipper
-  def replace({_, meta}, tree), do: {tree, meta}
+  @spec replace(t, tree) :: t
+  def replace(%Z{path: path}, tree), do: new(tree, path)
 
   @doc """
   Replaces the current node in the zipper with the result of applying `fun` to
   the node.
   """
-  @spec update(zipper, (tree -> tree)) :: zipper
-  def update({tree, meta}, fun), do: {fun.(tree), meta}
+  @spec update(t, (tree -> tree)) :: t
+  def update(%Z{node: tree, path: path}, fun) when is_function(fun, 1), do: new(fun.(tree), path)
 
   @doc """
   Removes the node at the zipper, returning the zipper that would have preceded
   it in a depth-first walk.
   """
-  @spec remove(zipper) :: zipper
-  def remove({_, nil}), do: raise(ArgumentError, message: "Cannot remove the top level node.")
+  @spec remove(t) :: t
+  def remove(%Z{path: nil}),
+    do: raise(ArgumentError, message: "Cannot remove the top level node.")
 
-  def remove({_, meta}) do
-    case meta.l do
+  def remove(%Z{path: path}) do
+    case path.left do
       [left | rest] ->
-        prev_after_remove({left, %{meta | l: rest}})
+        left
+        |> new(%{path | left: rest})
+        |> prev_after_remove()
 
       _ ->
-        children = meta.r || []
-        {parent, parent_meta} = meta.ptree
-        {make_node(parent, children), parent_meta}
+        children = path.right || []
+        %Z{node: parent, path: parent_path} = path.parent
+
+        parent
+        |> make_node(children)
+        |> new(parent_path)
     end
   end
 
   defp prev_after_remove(zipper) do
     with true <- branch?(node(zipper)),
-         {_, _} = child <- down(zipper) do
+         %Z{} = child <- down(zipper) do
       prev_after_remove(rightmost(child))
     else
       _ -> zipper
@@ -209,12 +226,12 @@ defmodule Sourceror.Zipper do
   moving. Raises an `ArgumentError` when attempting to insert a sibling at the
   top level.
   """
-  @spec insert_left(zipper, tree) :: zipper
-  def insert_left({_, nil}, _),
+  @spec insert_left(t, tree) :: t
+  def insert_left(%Z{path: nil}, _),
     do: raise(ArgumentError, message: "Can't insert siblings at the top level.")
 
-  def insert_left({tree, meta}, child) do
-    {tree, %{meta | l: [child | meta.l || []]}}
+  def insert_left(%Z{node: tree, path: path}, child) do
+    new(tree, %{path | left: [child | path.left || []]})
   end
 
   @doc """
@@ -222,34 +239,38 @@ defmodule Sourceror.Zipper do
   moving. Raises an `ArgumentError` when attempting to insert a sibling at the
   top level.
   """
-  @spec insert_right(zipper, tree) :: zipper
-  def insert_right({_, nil}, _),
+  @spec insert_right(t, tree) :: t
+  def insert_right(%Z{path: nil}, _),
     do: raise(ArgumentError, message: "Can't insert siblings at the top level.")
 
-  def insert_right({tree, meta}, child) do
-    {tree, %{meta | r: [child | meta.r || []]}}
+  def insert_right(%Z{node: tree, path: path}, child) do
+    new(tree, %{path | right: [child | path.right || []]})
   end
 
   @doc """
   Inserts the item as the leftmost child of the node at this zipper,
   without moving.
   """
-  def insert_child({tree, meta}, child) do
-    {do_insert_child(tree, child), meta}
+  def insert_child(%Z{node: tree, path: path}, child) do
+    tree
+    |> do_insert_child(child)
+    |> new(path)
   end
 
   @doc """
   Inserts the item as the rightmost child of the node at this zipper,
   without moving.
   """
-  def append_child({tree, meta}, child) do
-    {do_append_child(tree, child), meta}
+  def append_child(%Z{node: tree, path: path}, child) do
+    tree
+    |> do_append_child(child)
+    |> new(path)
   end
 
   @doc """
   Returns the following zipper in depth-first pre-order.
   """
-  def next({tree, _} = zipper) do
+  def next(%Z{node: tree} = zipper) do
     if branch?(tree) && down(zipper), do: down(zipper), else: skip(zipper)
   end
 
@@ -268,7 +289,7 @@ defmodule Sourceror.Zipper do
   The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
   `traverse_while/3`.
   """
-  @spec skip(zipper, direction :: :next | :prev) :: zipper | nil
+  @spec skip(t, direction :: :next | :prev) :: t | nil
   def skip(zipper, direction \\ :next)
   def skip(zipper, :next), do: right(zipper) || next_up(zipper)
   def skip(zipper, :prev), do: left(zipper) || prev_up(zipper)
@@ -289,7 +310,7 @@ defmodule Sourceror.Zipper do
   Returns the previous zipper in depth-first pre-order. If it's already at
   the end, it returns nil.
   """
-  @spec prev(zipper) :: zipper
+  @spec prev(t) :: t
   def prev(zipper) do
     if left = left(zipper) do
       do_prev(left)
@@ -300,7 +321,7 @@ defmodule Sourceror.Zipper do
 
   defp do_prev(zipper) do
     with true <- branch?(node(zipper)),
-         {_, _} = child <- down(zipper) do
+         %Z{} = child <- down(zipper) do
       do_prev(rightmost(child))
     else
       _ -> zipper
@@ -315,14 +336,18 @@ defmodule Sourceror.Zipper do
 
   The function must return a zipper.
   """
-  @spec traverse(zipper, (zipper -> zipper)) :: zipper
-  def traverse({_tree, nil} = zipper, fun) do
+  @spec traverse(t, (t -> t)) :: t
+  def traverse(%Z{path: nil} = zipper, fun) do
     do_traverse(zipper, fun)
   end
 
-  def traverse({tree, meta}, fun) do
-    {updated, _meta} = do_traverse({tree, nil}, fun)
-    {updated, meta}
+  def traverse(%Z{node: tree, path: path}, fun) do
+    %Z{node: updated} =
+      tree
+      |> new()
+      |> do_traverse(fun)
+
+    new(updated, path)
   end
 
   defp do_traverse(zipper, fun) do
@@ -337,14 +362,18 @@ defmodule Sourceror.Zipper do
 
   If the zipper is not at the top, just the subtree will be traversed.
   """
-  @spec traverse(zipper, term, (zipper, term -> {zipper, term})) :: {zipper, term}
-  def traverse({_tree, nil} = zipper, acc, fun) do
+  @spec traverse(t, term, (t, term -> {t, term})) :: {t, term}
+  def traverse(%Z{path: nil} = zipper, acc, fun) do
     do_traverse(zipper, acc, fun)
   end
 
-  def traverse({tree, meta}, acc, fun) do
-    {{updated, _meta}, acc} = do_traverse({tree, nil}, acc, fun)
-    {{updated, meta}, acc}
+  def traverse(%Z{node: tree, path: path}, acc, fun) do
+    {%Z{node: updated}, acc} =
+      tree
+      |> new()
+      |> do_traverse(acc, fun)
+
+    {new(updated, path), acc}
   end
 
   defp do_traverse(zipper, acc, fun) do
@@ -364,19 +393,18 @@ defmodule Sourceror.Zipper do
 
   The function must return a zipper.
   """
-  @spec traverse_while(
-          zipper,
-          (zipper ->
-             {:cont, zipper} | {:halt, zipper} | {:skip, zipper})
-        ) ::
-          zipper
-  def traverse_while({_tree, nil} = zipper, fun) do
+  @spec traverse_while(t, (t -> {:cont, t} | {:halt, t} | {:skip, t})) :: t
+  def traverse_while(%Z{path: nil} = zipper, fun) do
     do_traverse_while(zipper, fun)
   end
 
-  def traverse_while({tree, meta}, fun) do
-    {updated, _meta} = do_traverse_while({tree, nil}, fun)
-    {updated, meta}
+  def traverse_while(%Z{node: tree, path: path}, fun) do
+    %Z{node: updated} =
+      tree
+      |> new()
+      |> do_traverse_while(fun)
+
+    new(updated, path)
   end
 
   defp do_traverse_while(zipper, fun) do
@@ -403,17 +431,21 @@ defmodule Sourceror.Zipper do
   If the zipper is not at the top, just the subtree will be traversed.
   """
   @spec traverse_while(
-          zipper,
+          t,
           term,
-          (zipper, term -> {:cont, zipper, term} | {:halt, zipper, term} | {:skip, zipper, term})
-        ) :: {zipper, term}
-  def traverse_while({_tree, nil} = zipper, acc, fun) do
+          (t, term -> {:cont, t, term} | {:halt, t, term} | {:skip, t, term})
+        ) :: {t, term}
+  def traverse_while(%Z{path: nil} = zipper, acc, fun) do
     do_traverse_while(zipper, acc, fun)
   end
 
-  def traverse_while({tree, meta}, acc, fun) do
-    {{updated, _meta}, acc} = do_traverse_while({tree, nil}, acc, fun)
-    {{updated, meta}, acc}
+  def traverse_while(%Z{node: tree, path: path}, acc, fun) do
+    {%Z{node: updated}, acc} =
+      tree
+      |> new()
+      |> do_traverse_while(acc, fun)
+
+    {new(updated, path), acc}
   end
 
   defp do_traverse_while(zipper, acc, fun) do
@@ -436,13 +468,12 @@ defmodule Sourceror.Zipper do
   The optional second parameters specifies the `direction`, defaults to
   `:next`.
   """
-  @spec find(zipper, direction :: :prev | :next, predicate :: (tree -> any)) ::
-          zipper | nil
+  @spec find(t, direction :: :prev | :next, predicate :: (tree -> any)) :: t | nil
   def find(zipper, direction \\ :next, predicate)
 
   def find(nil, _direction, _predicate), do: nil
 
-  def find({tree, _} = zipper, direction, predicate)
+  def find(%Z{node: tree} = zipper, direction, predicate)
       when direction in [:next, :prev] and is_function(predicate) do
     if predicate.(tree) do
       zipper

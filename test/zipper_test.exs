@@ -1,12 +1,12 @@
 defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
-  doctest Sourceror.Zipper
+  doctest Sourceror.Zipper, except: [:moduledoc]
 
   alias Sourceror.Zipper, as: Z
 
   describe "zip/1" do
     test "creates a zipper from a term" do
-      assert Z.zip(42) == {42, nil}
+      assert %Z{node: 42} = Z.zip(42)
     end
   end
 
@@ -65,26 +65,39 @@ defmodule SourcerorTest.ZipperTest do
 
   describe "down/1" do
     test "rips and tears the parent node" do
-      assert Z.zip([1, 2]) |> Z.down() == {1, %{l: nil, r: [2], ptree: {[1, 2], nil}}}
-      assert Z.zip({1, 2}) |> Z.down() == {1, %{l: nil, r: [2], ptree: {{1, 2}, nil}}}
+      assert Z.zip([1, 2]) |> Z.down() == %Z{
+               node: 1,
+               path: %{left: nil, right: [2], parent: %Z{node: [1, 2]}}
+             }
+
+      assert Z.zip({1, 2}) |> Z.down() == %Z{
+               node: 1,
+               path: %{left: nil, right: [2], parent: %Z{node: {1, 2}}}
+             }
 
       assert Z.zip({:foo, [], [1, 2]}) |> Z.down() ==
-               {1, %{l: nil, r: [2], ptree: {{:foo, [], [1, 2]}, nil}}}
+               %Z{node: 1, path: %{left: nil, right: [2], parent: %Z{node: {:foo, [], [1, 2]}}}}
 
       assert Z.zip({{:., [], [:a, :b]}, [], [1, 2]}) |> Z.down() ==
-               {{:., [], [:a, :b]},
-                %{l: nil, r: [1, 2], ptree: {{{:., [], [:a, :b]}, [], [1, 2]}, nil}}}
+               %Z{
+                 node: {:., [], [:a, :b]},
+                 path: %{
+                   left: nil,
+                   right: [1, 2],
+                   parent: %Z{node: {{:., [], [:a, :b]}, [], [1, 2]}}
+                 }
+               }
     end
   end
 
   describe "up/1" do
     test "reconstructs the previous parent" do
-      assert Z.zip([1, 2]) |> Z.down() |> Z.up() == {[1, 2], nil}
-      assert Z.zip({1, 2}) |> Z.down() |> Z.up() == {{1, 2}, nil}
-      assert Z.zip({:foo, [], [1, 2]}) |> Z.down() |> Z.up() == {{:foo, [], [1, 2]}, nil}
+      assert Z.zip([1, 2]) |> Z.down() |> Z.up() == %Z{node: [1, 2]}
+      assert Z.zip({1, 2}) |> Z.down() |> Z.up() == %Z{node: {1, 2}}
+      assert Z.zip({:foo, [], [1, 2]}) |> Z.down() |> Z.up() == %Z{node: {:foo, [], [1, 2]}}
 
       assert Z.zip({{:., [], [:a, :b]}, [], [1, 2]}) |> Z.down() |> Z.up() ==
-               {{{:., [], [:a, :b]}, [], [1, 2]}, nil}
+               %Z{node: {{:., [], [:a, :b]}, [], [1, 2]}}
     end
 
     test "returns nil at the top level" do
@@ -183,7 +196,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> Z.next()
 
-      refute {42, nil} |> Z.next()
+      refute 42 |> Z.zip() |> Z.next()
     end
   end
 
@@ -265,7 +278,7 @@ defmodule SourcerorTest.ZipperTest do
       zipper = Z.zip([1, [2, [3, 4], 5], [6, 7]])
 
       assert Z.traverse(zipper, fn
-               {x, m} when is_integer(x) -> {x * 2, m}
+               %Z{node: x} = z when is_integer(x) -> %{z | node: x * 2}
                z -> z
              end)
              |> Z.node() == [2, [4, [6, 8], 10], [12, 14]]
@@ -278,7 +291,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.down()
              |> Z.right()
              |> Z.traverse(fn
-               {x, m} when is_integer(x) -> {x + 10, m}
+               %Z{node: x} = z when is_integer(x) -> %{z | node: x + 10}
                z -> z
              end)
              |> Z.root() == [1, [12, [13, 14], 15], [6, 7]]
@@ -325,9 +338,9 @@ defmodule SourcerorTest.ZipperTest do
 
       assert zipper
              |> Z.traverse_while(fn
-               {[x | _], _} = z when rem(x, 2) != 0 -> {:skip, z}
-               {[_ | _], _} = z -> {:cont, z}
-               {x, m} -> {:cont, {x + 100, m}}
+               %Z{node: [x | _]} = z when rem(x, 2) != 0 -> {:skip, z}
+               %Z{node: [_ | _]} = z -> {:cont, z}
+               %Z{node: x} = z -> {:cont, %{z | node: x + 100}}
              end)
              |> Z.node() == [110, [120, [130, 131], [21, [32, 33]], [122, 123]]]
     end
@@ -337,15 +350,15 @@ defmodule SourcerorTest.ZipperTest do
 
       assert zipper
              |> Z.traverse_while(fn
-               {[x | _], _} = z when rem(x, 2) != 0 -> {:halt, z}
-               {[_ | _], _} = z -> {:cont, z}
-               {x, m} -> {:cont, {x + 100, m}}
+               %Z{node: [x | _]} = z when rem(x, 2) != 0 -> {:halt, z}
+               %Z{node: [_ | _]} = z -> {:cont, z}
+               %Z{node: x} = z -> {:cont, %{z | node: x + 100}}
              end)
              |> Z.node() == [110, [120, [130, 131], [21, [32, 33]], [22, 23]]]
     end
 
     test "traverses until end while always skip" do
-      assert {_, nil} = [1] |> Z.zip() |> Z.traverse_while(fn z -> {:skip, z} end)
+      assert %Z{path: nil} = [1] |> Z.zip() |> Z.traverse_while(fn z -> {:skip, z} end)
     end
   end
 
@@ -356,9 +369,9 @@ defmodule SourcerorTest.ZipperTest do
       {_zipper, acc} =
         zipper
         |> Z.traverse_while([], fn
-          {[x | _], _} = z, acc when rem(x, 2) != 0 -> {:skip, z, acc}
-          {[_ | _], _} = z, acc -> {:cont, z, acc}
-          {x, _} = z, acc -> {:cont, z, [x + 100 | acc]}
+          %Z{node: [x | _]} = z, acc when rem(x, 2) != 0 -> {:skip, z, acc}
+          %Z{node: [_ | _]} = z, acc -> {:cont, z, acc}
+          %Z{node: x} = z, acc -> {:cont, z, [x + 100 | acc]}
         end)
 
       assert acc == [123, 122, 131, 130, 120, 110]
@@ -370,16 +383,16 @@ defmodule SourcerorTest.ZipperTest do
       {_zipper, acc} =
         zipper
         |> Z.traverse_while([], fn
-          {[x | _], _} = z, acc when rem(x, 2) != 0 -> {:halt, z, acc}
-          {[_ | _], _} = z, acc -> {:cont, z, acc}
-          {x, _} = z, acc -> {:cont, z, [x + 100 | acc]}
+          %Z{node: [x | _]} = z, acc when rem(x, 2) != 0 -> {:halt, z, acc}
+          %Z{node: [_ | _]} = z, acc -> {:cont, z, acc}
+          %Z{node: x} = z, acc -> {:cont, z, [x + 100 | acc]}
         end)
 
       assert acc == [131, 130, 120, 110]
     end
 
     test "traverses until end while always skip" do
-      assert {_, nil} =
+      assert %Z{path: nil} =
                [1]
                |> Z.zip()
                |> Z.traverse_while(nil, fn z, acc -> {:skip, z, acc} end)
@@ -390,9 +403,9 @@ defmodule SourcerorTest.ZipperTest do
   describe "top/1" do
     test "returns the top zipper" do
       assert Z.zip([1, [2, [3, 4]]]) |> Z.next() |> Z.next() |> Z.next() |> Z.top() ==
-               {[1, [2, [3, 4]]], nil}
+               %Z{node: [1, [2, [3, 4]]]}
 
-      assert 42 |> Z.zip() |> Z.top() |> Z.top() |> Z.top() == {42, nil}
+      assert 42 |> Z.zip() |> Z.top() |> Z.top() |> Z.top() == %Z{node: 42, path: nil}
     end
   end
 
@@ -529,6 +542,135 @@ defmodule SourcerorTest.ZipperTest do
         |> Z.next()
 
       assert Z.find(zipper, :prev, fn x -> x == 9 end) == nil
+    end
+  end
+
+  describe "Zipper.Inspect" do
+    test "inspect/2 defaults to using zippers: :as_ast" do
+      zipper = Z.zip([1, [2], 3])
+
+      assert inspect(zipper) == inspect(zipper, custom_options: [zippers: :as_ast])
+    end
+
+    test ":as_ast option formats the node as an ast" do
+      zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert zipper |> inspect() == """
+             #Sourceror.Zipper<
+               #root
+               {:=, [line: 1], [{:x, [line: 1], nil}, {:+, [line: 1], [1, 2]}]}
+             >\
+             """
+
+      assert zipper |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               {:x, [line: 1], nil}
+               #...
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               #...
+               {:+, [line: 1], [1, 2]}
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               1
+               #...
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> Z.next() |> Z.next() |> inspect() == """
+             #Sourceror.Zipper<
+               #...
+               2
+             >\
+             """
+    end
+
+    test ":as_code option formats the node as code" do
+      zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert zipper |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               #root
+               x = 1 + 2
+             >\
+             """
+
+      assert zipper |> Z.next() |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               x
+               #...
+             >\
+             """
+
+      assert zipper |> Z.next() |> Z.next() |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               #...
+               1 + 2
+             >\
+             """
+
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               1
+               #...
+             >\
+             """
+
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               #...
+               2
+             >\
+             """
+    end
+
+    test ":raw option formats the zipper as a struct" do
+      zipper = Z.zip([1, [2], 3])
+
+      assert zipper
+             |> Z.next()
+             |> Z.next()
+             |> inspect(custom_options: [zippers: :raw, sort_maps: true]) ==
+               "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
+    end
+
+    test "default_inspect_as/1 sets a default" do
+      zipper = "x = 1 + 2" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert :as_ast = Z.Inspect.default_inspect_as()
+
+      assert inspect(zipper) == """
+             #Sourceror.Zipper<
+               #root
+               {:=, [line: 1], [{:x, [line: 1], nil}, {:+, [line: 1], [1, 2]}]}
+             >\
+             """
+
+      assert :ok = Z.Inspect.default_inspect_as(:as_code)
+
+      assert inspect(zipper) == """
+             #Sourceror.Zipper<
+               #root
+               x = 1 + 2
+             >\
+             """
+
+      assert :ok = Z.Inspect.default_inspect_as(:as_ast)
     end
   end
 end

@@ -1,26 +1,38 @@
 <!-- vim: set syntax=markdown: -->
 
+<!-- livebook:{"persist_outputs":true} -->
+
 # Zippers
 
 ## Introduction
 
-Elixir provides the functions `Macro.traverse/4`, `Macro.prewalk/3` and `Macro.postwalk/3` to traverse
-the AST. They are very useful if we want to collect the nodes of some type, or to perform localized
-manipulations to the *current node* we are visiting, but it becomes increasingly hard to use when
-we need to remove a node, insert siblings, or get information about other nodes. To mitigate these
-issues, we can reach for a *zipper*.
+Elixir provides the functions `Macro.traverse/4`, `Macro.prewalk/3` and `Macro.postwalk/3` to traverse the AST.
+They are very useful if we want to collect the nodes of some type or manipulate the *current node* we are visiting, but it becomes increasingly hard to use when we need to remove a node, insert siblings, or get information about other nodes.
+To mitigate these issues, we can reach for a *zipper*.
 
-A *zipper* is a data structure that represents a *location* in the data, composed by the *focus*,
-ie the current element we are standing at, and the *context* or *metadata* that holds the rest of the
-data from the perspective of the focus. This is simpler to visualize with a list. Let's consider
-the list of integers from 1 to 10, and let's stand at the 5th element:
+A *zipper* is a data structure that represents a *location* in some data, composed of a *focus* (the current element we're visiting) and some *context* that holds the rest of the data from the perspective of that focus.
+
+To visualize this, we'll use a list of integers from `1` to `10` and say that our current focus is the number `5`:
+
+<!-- livebook:{"break_markdown":true} -->
+
+<!-- livebook:{"force_markdown":true} -->
+
 ```elixir
 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
              ↑
            focus
 ```
+
+<!-- livebook:{"break_markdown":true} -->
+
 From the perspective of the `5`, the surrounding elements are the numbers from `4` to `1` at it's left,
 and the numbers from `6` to `10` at it's right. We can encode that information in a tuple:
+
+<!-- livebook:{"break_markdown":true} -->
+
+<!-- livebook:{"force_markdown":true} -->
+
 ```elixir
              focus
                ↓
@@ -28,15 +40,26 @@ and the numbers from `6` to `10` at it's right. We can encode that information i
       ↑                   ↑
 left siblings      right siblings
 ```
+
+<!-- livebook:{"break_markdown":true} -->
+
 That data structure, composed of the focus and the rest of the data as viewed from the focus, is called
 a *zipper*. In a traditional list, if we wanted to go to the previous element, we would have to
 start from the beginning of the list and traverse it all the way down until the current element minus
 one position. With a list zipper, however, all we need to do is to pop the first element of the
 left siblings to get the new focus, and put the old focus in the list of right siblings. After that
 we get a new zipper focused on `4`:
+
+<!-- livebook:{"break_markdown":true} -->
+
+<!-- livebook:{"force_markdown":true} -->
+
 ```elixir
 {[3, 2, 1], 4, [5, 6, 7, 8, 9, 10]}
 ```
+
+<!-- livebook:{"break_markdown":true} -->
+
 If we wanted to move to the right, we would perform the same operation, but popping from the right
 and prepending to the left. Such movements are performed in constant time, making zippers an
 attractive option when a lot of movements over a list are required, but things start to get more
@@ -50,15 +73,21 @@ we need to install Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.11"}
+  :sourceror
 ])
 ```
 
-The module that implements zippers for the Elixir AST is `Sourceror.Zipper`, we will alias it `Z` for
-convenience:
+The module that implements zippers for the Elixir AST is `Sourceror.Zipper`.
+We'll use the alias `Z` for convenience.
 
 ```elixir
 alias Sourceror.Zipper, as: Z
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Sourceror.Zipper
 ```
 
 To create a zipper for a tree, we use `Z.zip/1`. Let's first start with a tree of lists first, since
@@ -68,54 +97,157 @@ they are easier to visualize than a full blown AST:
 zipper = Z.zip([1, [2, 3], 4, [5, [6, 7]], 8])
 ```
 
-For now it's not very interesting, it's just a 2-tuple where the first element is the tree we passed
-in, and the second one is just `nil`, meaning we are at the topmost node in the tree. Let's see what
-happens when we go down a level:
+<!-- livebook:{"output":true} -->
+
+```
+#Sourceror.Zipper<
+  #root
+  [1, [2, 3], 4, [5, [6, 7]], 8]
+>
+```
+
+Sourceror represents zippers using the `%Sourceror.Zipper{}` struct.
+When this zipper is inspected, the `#root` tag means we're at the topmost node in the tree.
+Let's see what happens when we go down a level:
 
 ```elixir
 zipper |> Z.down()
 ```
 
-Now it's getting more interesting! Now the first element is `1`, meaning we went down a level and we
-are now focusing at the first element of the list. The second element of the tuple is now a map holding
-the rest of the tree *from the perspective of `1`*. We are at the first element, so our left siblings
-`l` is `nil`, our right siblings are the rest of the elements in the list, and our parent is the
-zipper of the parent node. If we now move one position to the right, we get a different zipper:
+<!-- livebook:{"output":true} -->
+
+```
+#Sourceror.Zipper<
+  1
+  #...
+>
+```
+
+Now it's getting more interesting!
+The current `node` of the zipper is `1`, meaning we went down a level and are now focusing on the first element of the list.
+The `#...` tag after the `1` means that the current node has right siblings.
+If we move one position to the right, we get a different zipper:
 
 ```elixir
 zipper |> Z.down() |> Z.right()
 ```
 
-Now we are focusing `[2, 3]`, which was popped from the right siblings and the `1` we had in the
-previous step was added to the left siblings. We didn't move vertically, so the parent tree stayed
-the same.
+<!-- livebook:{"output":true} -->
 
-Besides moving around, we can also change the tree as a localized operation. For example, let's add
-an element to the right of our position:
-
-```elixir
-zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!)
+```
+#Sourceror.Zipper<
+  #...
+  [2, 3]
+  #...
+>
 ```
 
-We can see that the atom `:to_the_right!` was added to our right siblings. let's now remove it:
+Now we're focusing on `[2, 3]`, which has siblings both to its left (the `1` we saw previously) and to its right.
+
+Sourceror defines a less-verbose implementation of the `Inspect` protocol for zippers, but the default format hides some of the implementation details.
+To better understand the zipper's internals, we'll set a more verbose default format to use going forward. (You can check out the `Sourceror.Zipper.Inspect` docs for more info.)
 
 ```elixir
-zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!) |> Z.right() |> Z.remove()
+Sourceror.Zipper.Inspect.default_inspect_as(:raw)
+
+zipper |> Z.down() |> Z.right()
 ```
 
-A couple interesting things happened. First, the item was removed, we can see it nowhere in the zipper.
-Second, the focus moved to the previous element, but inside of the `[2, 3]` list. Whenever we remove
-an item, the focus is moved to the previous element in *depth-first* order. It's as if we did a
-`Macro.postwalk` step, but backwards. Let's look a what happens if we go higher in the tree:
+<!-- livebook:{"output":true} -->
+
+```
+%Sourceror.Zipper{
+  node: [2, 3],
+  path: %{
+    parent: %Sourceror.Zipper{node: [1, [2, 3], 4, [5, [6, 7]], 8], path: nil},
+    left: [1],
+    right: [4, [5, [6, 7]], 8]
+  }
+}
+```
+
+Now we can see that the zipper struct is composed of two fields, the current `:node` and a `:path` that contains siblings to the left, siblings to the right, and the parent.
+
+Besides moving around, we can also change the tree as a localized operation.
+For example, let's add an element to the right of our position:
 
 ```elixir
-zipper |> Z.down() |> Z.right() |> Z.insert_right(:to_the_right!) |> Z.up()
+zipper
+|> Z.down()
+|> Z.right()
+|> Z.insert_right(:to_the_right!)
 ```
 
-Here instead of removing the added node we went back up. The list was reconstructed and the second
-element is now `nil`, meaning we reached the top. One way is that when we go down a level, the
-tree is deconstructed to adjust to the new focus, ie the zipper is being opened, and when we go up
-a level the tree is reconstructed, ie the zipper is being closed.
+<!-- livebook:{"output":true} -->
+
+```
+%Sourceror.Zipper{
+  node: [2, 3],
+  path: %{
+    parent: %Sourceror.Zipper{node: [1, [2, 3], 4, [5, [6, 7]], 8], path: nil},
+    left: [1],
+    right: [:to_the_right!, 4, [5, [6, 7]], 8]
+  }
+}
+```
+
+We can see that the atom `:to_the_right!` was added to our right siblings.
+Let's now remove it:
+
+```elixir
+zipper
+|> Z.down()
+|> Z.right()
+|> Z.insert_right(:to_the_right!)
+|> Z.right()
+|> Z.remove()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%Sourceror.Zipper{
+  node: 3,
+  path: %{
+    parent: %Sourceror.Zipper{
+      node: [2, 3],
+      path: %{
+        parent: %Sourceror.Zipper{node: [1, [2, 3], 4, [5, [6, 7]], 8], path: nil},
+        left: [1],
+        right: [4, [5, [6, 7]], 8]
+      }
+    },
+    left: [2],
+    right: nil
+  }
+}
+```
+
+A couple interesting things happened.
+First, the item was removed and we can no longer see it in the zipper.
+Second, the focus moved to the right-most element *inside* the `[2, 3]` list.
+Whenever we remove an item, the focus is moved to the previous element in *depth-first* order.
+It's as if we did a `Macro.postwalk` step, but backwards.
+
+Let's look a what happens if we go higher in the tree:
+
+```elixir
+zipper
+|> Z.down()
+|> Z.right()
+|> Z.insert_right(:to_the_right!)
+|> Z.up()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%Sourceror.Zipper{node: [1, [2, 3], :to_the_right!, 4, [5, [6, 7]], 8], path: nil}
+```
+
+Instead of removing the added node, we went back up.
+The list was reconstructed and the `:path` is now `nil`, meaning we reached the top.
+One way is that when we go down a level, the tree is deconstructed to adjust to the new focus (the zipper is being opened), and when we go up a level the tree is reconstructed (the zipper is being closed).
 
 Now, while it's useful to know how to move up, down, left and right, this only works if we know the
 shape of the tree before hand. In the real world, we never know the shape of the tree, and so we use
@@ -125,14 +257,14 @@ pre-order traversal while calling a function at each location.
 
 To demonstrate the ability of zippers to look around at the rest of the tree, we will traverse a tree
 of lists and integers, multiplying each integer by the integer at it's right, or removing it if it's
-already the rightmost sibling, or the following element is another list:
+already the rightmost sibling or the following element is another list:
 
 ```elixir
 [1, 2, 3, [4, 5, 6, [7, 8, 9], 10, 11], 12, 13, 14]
 |> Z.zip()
 |> Z.traverse(fn
-  {x, _} = zipper when is_integer(x) ->
-    with {right, _} when is_integer(right) <- Z.right(zipper) do
+  %Z{node: x} = zipper when is_integer(x) ->
+    with %Z{node: right} when is_integer(right) <- Z.right(zipper) do
       Z.replace(zipper, x * right)
     else
       _ -> Z.remove(zipper)
@@ -142,6 +274,12 @@ already the rightmost sibling, or the following element is another list:
     zipper
 end)
 |> Z.node()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[2, 6, [20, 30, ~c"8H", 110], 156, 182]
 ```
 
 The traversal function takes a zipper representing the current position, and must return a new zipper.

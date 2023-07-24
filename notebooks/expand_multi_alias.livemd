@@ -13,7 +13,7 @@ Let's first start by installing Sourceror:
 
 ```elixir
 Mix.install([
-  {:sourceror, "~> 0.11"}
+  :sourceror
 ])
 ```
 
@@ -439,7 +439,7 @@ defmodule AliasExpansionWithZipper do
   end
 
   defp expand_alias(
-         {{:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}]}, _metadata} = zipper
+         %Z{node: {:alias, alias_meta, [{{:., _, [left, :{}]}, call_meta, right}]}} = zipper
        ) do
     {_, _, base_segments} = left
 
@@ -490,7 +490,25 @@ source
 |> IO.puts()
 ```
 
-The produced output is exactly the same, but the usage of zipper greatly simplifies the code.
+The output is the same. Let's confirm:
+
+```elixir
+without_zipper =
+  source
+  |> Sourceror.parse_string!()
+  |> AliasExpansionHandledComments.expand_aliases()
+  |> Sourceror.to_string()
+
+with_zipper =
+  source
+  |> Sourceror.parse_string!()
+  |> AliasExpansionWithZipper.expand_aliases()
+  |> Sourceror.to_string()
+
+without_zipper == with_zipper
+```
+
+The usage of a zipper greatly simplifies the code.
 We no longer have to resort to hacks like grouping the aliases in a block with the `:flatten_me?`
 metadata and wait for the traversal to go up to unwrap it. We just say "add these nodes after me"
 and that's it. The only detail is that we need to reverse the aliases so the reducing step inserts
