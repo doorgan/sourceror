@@ -54,6 +54,15 @@ defmodule Sourceror.Range do
   @spec get_range(Macro.t()) :: Sourceror.range()
   defp do_get_range(quoted)
 
+  # Module aliases starting with a non-atom or special form
+  # e.g. __MODULE__.Nested, @module.Nested, module().Nested
+  defp do_get_range({:__aliases__, meta, [{_, _, _} = first_segment | rest]}) do
+    %{start: start_pos} = do_get_range(first_segment)
+    %{end: end_pos} = do_get_range({:__aliases__, meta, rest})
+
+    %{start: start_pos, end: end_pos}
+  end
+
   # Module aliases
   defp do_get_range({:__aliases__, meta, segments}) do
     start_pos = Keyword.take(meta, [:line, :column])
