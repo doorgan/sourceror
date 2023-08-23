@@ -420,6 +420,31 @@ defmodule SourcerorTest.RangeTest do
                start: [line: 1, column: 1],
                end: [line: 2, column: 6]
              }
+
+      assert to_range(~s/__MODULE__/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 11]
+             }
+
+      assert to_range(~s/__MODULE__.Bar/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
+
+      assert to_range(~s/@foo.Bar/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 9]
+             }
+
+      assert to_range(~s/foo().Bar/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 10]
+             }
+
+      assert to_range(~s/foo.bar.().Baz/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
     end
 
     test "unary operators" do
