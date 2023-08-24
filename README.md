@@ -28,7 +28,7 @@ Add `:sourceror` as a dependency to your project's `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:sourceror, "~> 0.12"}
+    {:sourceror, "~> 0.13"}
   ]
 end
 ```
