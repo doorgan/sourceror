@@ -1,41 +1,20 @@
-# Changelog for Sourceror v0.12
+# Changelog for Sourceror v0.13
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.12.2 (2023-03-21)
-
-### 1. Bug fixes
-  - [Sourceror] - Fix `to_string` crashing if a formatter for a dependency
-  couldn't be found (thanks to @NickNeck)
-
-
-## v0.12.1 (2023-02-19)
+## v0.13.0 (2023-08-23)
 
 ### 1. Enhancements
-  - [Sourceror] Added the option `quoted_to_algebra` to `to_string`, which
-  allows the usage of other formatters like `FreedomFormatter` (thanks to
-  @NickNeck)
-  - [Sourceror] Now `to_string` uses the `locals_without_parens` from your
-    project by default (thanks to @scottming and @NickNeck)
+  - [Sourceror.Zipper] Refactor `Zipper` to use a struct by @zachallaun in https://github.com/doorgan/sourceror/pull/98
 
 ### 2. Bug fixes
-  - [Sourceror] Fixed a bug that causes `get_rage` to crash on the AST for
-    anonymous function calls (thanks to @zachallaun)
-
-## v0.12.0 (2023-02-04)
-
-### 1. Bug fixes
-  - [Sourceror] `Sourceror.patch_string` now produces better results when
-    patching a single line with a multiline replacement (Thanks to @zachallaun)
-  - [Sourceror.Zipper] the concept of an "ended" zipper was removed, so now you
-    can traverse the same zipper multiple times without having to manualy reset
-    it (thanks to @novaugust)
+  - [Sourceror] Fix `get_range` for complex module aliases (fixes #99) by @zachallaun in https://github.com/doorgan/sourceror/pull/100
 
 
-## v0.11.2 (2022-08-15)
+## v0.12.3 (2023-03-21)
 
-The changelog for v0.11 releases can be found [in the 0.11
-branch](https://github.com/doorgan/sourceror/blob/v0.11/CHANGELOG.md).
+The changelog for v0.12 releases can be found [in the 0.12
+branch](https://github.com/doorgan/sourceror/blob/v0.12/CHANGELOG.md).
