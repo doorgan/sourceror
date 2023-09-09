@@ -371,6 +371,21 @@ defmodule SourcerorTest.RangeTest do
                start: [line: 1, column: 1],
                end: [line: 1, column: 26]
              }
+
+      assert to_range(~S/foo."b-a-r"/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 12]
+             }
+
+      assert to_range(~S/foo."b-a-r"()/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+
+      assert to_range(~S/foo."b-a-r"(1)/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
     end
 
     test "qualified calls without parens" do
@@ -382,6 +397,11 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S/foo.bar baz, qux/) == %{
                start: [line: 1, column: 1],
                end: [line: 1, column: 17]
+             }
+
+      assert to_range(~S/foo."b-a-r" baz/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 16]
              }
     end
 

@@ -356,7 +356,7 @@ defmodule Sourceror.Range do
     else
       {left, right_len} =
         case call do
-          [left, right] -> {left, String.length(Atom.to_string(right))}
+          [left, right] -> {left, String.length(inspect(right)) - 1}
           [left] -> {left, 0}
         end
 
