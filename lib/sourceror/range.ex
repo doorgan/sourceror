@@ -153,17 +153,24 @@ defmodule Sourceror.Range do
   end
 
   # Block with no parenthesis
-  defp do_get_range({:__block__, _, args} = quoted) do
+  defp do_get_range({:__block__, meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
-      {first, rest} = List.pop_at(args, 0)
-      {last, _} = List.pop_at(rest, -1, first)
+      case args do
+        [{_, _, _} | _] ->
+          {first, rest} = List.pop_at(args, 0)
+          {last, _} = List.pop_at(rest, -1, first)
 
-      %{
-        start: get_range(first).start,
-        end: get_range(last).end
-      }
+          %{
+            start: get_range(first).start,
+            end: get_range(last).end
+          }
+
+        [charlist] when is_list(charlist) ->
+          string = List.to_string(charlist)
+          do_get_range({:__block__, meta, [string]})
+      end
     end
   end
 
@@ -204,13 +211,44 @@ defmodule Sourceror.Range do
     %{start: start_pos, end: end_pos}
   end
 
-  # Stabs
+  # Stabs without args
+  # -> b
+  defp do_get_range({:->, meta, [[], right]}) do
+    start_pos = Keyword.take(meta, [:line, :column])
+    end_pos = get_range(right).end
+
+    %{start: start_pos, end: end_pos}
+  end
+
+  # Stabs with args
   # a -> b
   defp do_get_range({:->, _, [left_args, right]}) do
     start_pos = get_range(left_args).start
     end_pos = get_range(right).end
 
     %{start: start_pos, end: end_pos}
+  end
+
+  # Argument capture syntax
+  # &1
+  defp do_get_range({:&, meta, [int]}) when is_integer(int) do
+    start_pos = Keyword.take(meta, [:line, :column])
+    int_len = int |> Integer.to_string() |> String.length()
+
+    %{start: start_pos, end: [line: meta[:line], column: meta[:column] + int_len + 1]}
+  end
+
+  # Unwrapped Access syntax
+  defp do_get_range({:., _, [Access, :get]} = quoted) do
+    get_range_for_node_with_closing_line(quoted)
+  end
+
+  # Unwrapped qualified calls
+  defp do_get_range({:., meta, [left, atom]}) when is_atom(atom) do
+    start_pos = get_range(left).start
+    atom_length = atom |> inspect() |> String.length()
+
+    %{start: start_pos, end: [line: meta[:line], column: meta[:column] + atom_length]}
   end
 
   # Access syntax
@@ -229,6 +267,15 @@ defmodule Sourceror.Range do
       Macro.update_meta(interpolation, &Keyword.put(&1, :delimiter, meta[:delimiter]))
 
     get_range_for_interpolation(interpolation)
+  end
+
+  # Interpolated charlists
+  defp do_get_range({{:., _, [List, :to_charlist]}, meta, [segments]}) do
+    start_pos = Keyword.take(meta, [:line, :column])
+
+    end_pos = get_end_pos_for_interpolation_segments(segments, meta[:delimiter] || "'", start_pos)
+
+    %{start: start_pos, end: end_pos}
   end
 
   # Qualified call
@@ -356,7 +403,7 @@ defmodule Sourceror.Range do
     else
       {left, right_len} =
         case call do
-          [left, right] -> {left, String.length(Atom.to_string(right))}
+          [left, right] -> {left, String.length(inspect(right)) - 1}
           [left] -> {left, 0}
         end
 
@@ -437,7 +484,15 @@ defmodule Sourceror.Range do
 
         {:"::", _, [{_, meta, _}, {:binary, _, _}]}, _pos ->
           meta
-          |> Keyword.get(:closing)
+          |> Keyword.fetch!(:closing)
+          |> Keyword.take([:line, :column])
+          # Add the closing }
+          |> Keyword.update!(:column, &(&1 + 1))
+
+        # interpolation in charlist
+        {{:., _, [Kernel, :to_string]}, meta, _}, _pos ->
+          meta
+          |> Keyword.fetch!(:closing)
           |> Keyword.take([:line, :column])
           # Add the closing }
           |> Keyword.update!(:column, &(&1 + 1))
@@ -456,7 +511,9 @@ defmodule Sourceror.Range do
   end
 
   defp has_interpolations?(segments) do
-    Enum.any?(segments, &match?({:"::", _, _}, &1))
+    Enum.any?(segments, fn segment ->
+      match?({:"::", _, _}, segment) or match?({{:., _, [Kernel, :to_string]}, _, _}, segment)
+    end)
   end
 
   defp multiline_delimiter?(delimiter) do

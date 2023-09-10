@@ -130,6 +130,63 @@ defmodule SourcerorTest.RangeTest do
              }
     end
 
+    test "charlists" do
+      assert to_range(~S/'foo'/) == %{start: [line: 1, column: 1], end: [line: 1, column: 6]}
+      assert to_range(~S/'fo\no'/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
+
+      assert to_range(~S"""
+             '''
+             foo
+
+             bar
+             '''
+             """) == %{start: [line: 1, column: 1], end: [line: 5, column: 4]}
+
+      assert to_range(~S"""
+               '''
+               foo
+               bar
+               '''
+             """) == %{start: [line: 1, column: 3], end: [line: 4, column: 6]}
+    end
+
+    test "charlists with interpolations" do
+      assert to_range(~S/'foo#{2}bar'/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 13]
+             }
+
+      assert to_range(~S"""
+             'foo#{
+               2
+               }bar'
+             """) == %{
+               start: [line: 1, column: 1],
+               end: [line: 3, column: 8]
+             }
+
+      assert to_range(~S"""
+             'foo#{
+               2
+               }
+               bar'
+             """) == %{
+               start: [line: 1, column: 1],
+               end: [line: 4, column: 7]
+             }
+
+      assert to_range(~S"""
+             'foo#{
+               2
+               }
+               bar
+             '
+             """) == %{
+               start: [line: 1, column: 1],
+               end: [line: 5, column: 2]
+             }
+    end
+
     test "atoms" do
       assert to_range(~S/:foo/) == %{start: [line: 1, column: 1], end: [line: 1, column: 5]}
       assert to_range(~S/:"foo"/) == %{start: [line: 1, column: 1], end: [line: 1, column: 7]}
@@ -256,6 +313,27 @@ defmodule SourcerorTest.RangeTest do
              }
     end
 
+    test "stab without args" do
+      {:fn, _, [stab]} = Sourceror.parse_string!(~S"fn -> :ok end")
+
+      assert Sourceror.Range.get_range(stab) == %{
+               start: [line: 1, column: 4],
+               end: [line: 1, column: 10]
+             }
+
+      {:fn, _, [stab]} =
+        Sourceror.parse_string!(~S"""
+        fn ->
+          :ok
+        end
+        """)
+
+      assert Sourceror.Range.get_range(stab) == %{
+               start: [line: 1, column: 4],
+               end: [line: 2, column: 6]
+             }
+    end
+
     test "qualified tuples" do
       assert to_range(~S/Foo.{Bar, Baz}/) == %{
                start: [line: 1, column: 1],
@@ -371,6 +449,21 @@ defmodule SourcerorTest.RangeTest do
                start: [line: 1, column: 1],
                end: [line: 1, column: 26]
              }
+
+      assert to_range(~S/foo."b-a-r"/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 12]
+             }
+
+      assert to_range(~S/foo."b-a-r"()/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+
+      assert to_range(~S/foo."b-a-r"(1)/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
     end
 
     test "qualified calls without parens" do
@@ -382,6 +475,11 @@ defmodule SourcerorTest.RangeTest do
       assert to_range(~S/foo.bar baz, qux/) == %{
                start: [line: 1, column: 1],
                end: [line: 1, column: 17]
+             }
+
+      assert to_range(~S/foo."b-a-r" baz/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 16]
              }
     end
 
@@ -556,6 +654,108 @@ defmodule SourcerorTest.RangeTest do
                start: [line: 1, column: 1],
                end: [line: 4, column: 7]
              }
+    end
+
+    test "captures" do
+      assert to_range(~S"&foo/1") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 7]
+             }
+
+      assert to_range(~S"&Foo.bar/1") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 11]
+             }
+
+      assert to_range(~S"&__MODULE__.Foo.bar/1") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 22]
+             }
+    end
+
+    test "captures with arguments" do
+      assert to_range(~S"&foo(&1, :bar)") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
+
+      assert to_range(~S"& &1.foo") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 9]
+             }
+
+      assert to_range(~S"& &1") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 5]
+             }
+
+      # This range currently ends on column 5, though it should be column 6,
+      # and appears to be a limitation of the parser, which does not include
+      # any metadata about the parens. That is, this currently holds:
+      #
+      #     Sourceror.parse_string!("& &1") == Sourceror.parse_string!("&(&1)")
+      #
+      # assert to_range(~S"&(&1)") == %{
+      #          start: [line: 1, column: 1],
+      #          end: [line: 1, column: 6]
+      #        }
+    end
+
+    test "arguments in captures" do
+      {:&, _, [{:&, _, _} = arg]} = Sourceror.parse_string!(~S"& &1")
+
+      assert Sourceror.Range.get_range(arg) == %{
+               start: [line: 1, column: 3],
+               end: [line: 1, column: 5]
+             }
+    end
+
+    test "Access syntax" do
+      assert to_range(~S"foo[bar]") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 9]
+             }
+
+      {{:., _, [Access, :get]} = access, _, _} = Sourceror.parse_string!(~S"foo[bar]")
+
+      assert Sourceror.Range.get_range(access) == %{
+               start: [line: 1, column: 4],
+               end: [line: 1, column: 9]
+             }
+    end
+
+    test "should not raise on any three-element tuple parsed by parse_string" do
+      for relative_path <- Path.wildcard("lib/*/**.ex") do
+        assert_can_get_ranges(relative_path)
+      end
+    end
+
+    defp assert_can_get_ranges(relative_path) do
+      source = relative_path |> Path.relative_to_cwd() |> File.read!()
+      quoted = Sourceror.parse_string!(source)
+
+      Sourceror.prewalk(quoted, fn
+        {_, _, _} = quoted, acc ->
+          try do
+            Sourceror.get_range(quoted)
+          rescue
+            e ->
+              flunk("""
+              Expected a range from expression in #{relative_path}:
+
+                  #{inspect(quoted)}
+
+              Got error:
+
+                  #{Exception.format(:error, e)}
+              """)
+          end
+
+          {quoted, acc}
+
+        quoted, acc ->
+          {quoted, acc}
+      end)
     end
   end
 end
