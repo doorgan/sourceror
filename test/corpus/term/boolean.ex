@@ -1,0 +1,4 @@
+## simple literal
+
+true
+false
