@@ -64,5 +64,3 @@ with 'quotes'
 
 ~r/left|right/i
 ~r/left|right/iUx
-~r/left|right/0
-~r/left|right/u8

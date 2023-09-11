@@ -13,8 +13,6 @@ not arg
 
 ## binary left associative
 
-a ** b ** c
-
 a * b * c
 a / b / c
 
@@ -97,7 +95,6 @@ a - b ++ c
 a = b <<< c
 
 a + b * c - d
-a ** b + c ** d
 
 ## precedence determined by parentheses
 

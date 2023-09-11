@@ -6,10 +6,16 @@
         included: [
           "lib/",
           "src/",
-          "test/",
+          "test/"
         ],
-        excluded: [~r"/_build/", ~r"/deps/", ~r"/lib/sourceror/code/", ~r"/test/code/", "lib/sourceror/code.ex"]
-      },
+        excluded: [
+          ~r"/_build/",
+          ~r"/deps/",
+          ~r"/lib/sourceror/code/",
+          ~r"/test/corpus/",
+          "lib/sourceror/code.ex"
+        ]
+      }
     }
   ]
 }

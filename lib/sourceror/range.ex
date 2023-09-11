@@ -7,13 +7,14 @@ defmodule Sourceror.Range do
     String.split(string, ~r/\n|\r\n|\r/)
   end
 
+  @spec get_range(Macro.t()) :: Sourceror.range() | nil
   def get_range(quoted, opts \\ []) do
-    range = do_get_range(quoted)
-
-    if Keyword.get(opts, :include_comments, false) do
-      add_comments_to_range(range, quoted)
-    else
-      range
+    with %{} = range <- do_get_range(quoted) do
+      if Keyword.get(opts, :include_comments, false) do
+        add_comments_to_range(range, quoted)
+      else
+        range
+      end
     end
   end
 
@@ -51,16 +52,13 @@ defmodule Sourceror.Range do
     }
   end
 
-  @spec get_range(Macro.t()) :: Sourceror.range()
+  @spec do_get_range(Macro.t()) :: Sourceror.range() | nil
   defp do_get_range(quoted)
 
   # Module aliases starting with a non-atom or special form
   # e.g. __MODULE__.Nested, @module.Nested, module().Nested
   defp do_get_range({:__aliases__, meta, [{_, _, _} = first_segment | rest]}) do
-    %{start: start_pos} = do_get_range(first_segment)
-    %{end: end_pos} = do_get_range({:__aliases__, meta, rest})
-
-    %{start: start_pos, end: end_pos}
+    get_range_for_pair(first_segment, {:__aliases__, meta, rest})
   end
 
   # Module aliases
@@ -161,15 +159,14 @@ defmodule Sourceror.Range do
         [{_, _, _} | _] ->
           {first, rest} = List.pop_at(args, 0)
           {last, _} = List.pop_at(rest, -1, first)
-
-          %{
-            start: get_range(first).start,
-            end: get_range(last).end
-          }
+          get_range_for_pair(first, last)
 
         [charlist] when is_list(charlist) ->
           string = List.to_string(charlist)
           do_get_range({:__block__, meta, [string]})
+
+        [] ->
+          nil
       end
     end
   end
@@ -188,27 +185,18 @@ defmodule Sourceror.Range do
 
   # 2-tuples from keyword lists
   defp do_get_range({left, right}) do
-    left_range = get_range(left)
-    right_range = get_range(right)
-
-    %{start: left_range.start, end: right_range.end}
+    get_range_for_pair(left, right)
   end
 
   # Handles arguments. Lists are always wrapped in `:__block__`, so the only case
   # in which we can have a naked list is in partial keyword lists, as in `[:a, :b, c: d, e: f]`,
   # or stabs like `:foo -> :bar`
-  defp do_get_range(list) when is_list(list) do
-    first_range = List.first(list) |> get_range()
-    start_pos = first_range.start
+  defp do_get_range([first, _second | _] = list) do
+    get_range_for_pair(first, List.last(list))
+  end
 
-    end_pos =
-      if last = List.last(list) do
-        get_range(last).end
-      else
-        first_range.end
-      end
-
-    %{start: start_pos, end: end_pos}
+  defp do_get_range([first]) do
+    get_range(first)
   end
 
   # Stabs without args
@@ -222,11 +210,8 @@ defmodule Sourceror.Range do
 
   # Stabs with args
   # a -> b
-  defp do_get_range({:->, _, [left_args, right]}) do
-    start_pos = get_range(left_args).start
-    end_pos = get_range(right).end
-
-    %{start: start_pos, end: end_pos}
+  defp do_get_range({:->, _, [left, right]}) do
+    get_range_for_pair(left, right)
   end
 
   # Argument capture syntax
@@ -245,10 +230,10 @@ defmodule Sourceror.Range do
 
   # Unwrapped qualified calls
   defp do_get_range({:., meta, [left, atom]}) when is_atom(atom) do
-    start_pos = get_range(left).start
-    atom_length = atom |> inspect() |> String.length()
-
-    %{start: start_pos, end: [line: meta[:line], column: meta[:column] + atom_length]}
+    with %{start: start_pos} <- get_range(left) do
+      atom_length = atom |> inspect() |> String.length()
+      %{start: start_pos, end: [line: meta[:line], column: meta[:column] + atom_length]}
+    end
   end
 
   # Access syntax
@@ -300,33 +285,28 @@ defmodule Sourceror.Range do
 
   # Unary operators
   defp do_get_range({op, meta, [arg]}) when is_unary_op(op) do
-    start_pos = Keyword.take(meta, [:line, :column])
-    arg_range = get_range(arg)
+    with %{end: end_pos} <- get_range(arg) do
+      start_pos = Keyword.take(meta, [:line, :column])
 
-    end_column =
-      if arg_range.end[:line] == meta[:line] do
-        arg_range.end[:column]
-      else
-        arg_range.end[:column] + String.length(to_string(op))
-      end
+      end_column =
+        if end_pos[:line] == meta[:line] do
+          end_pos[:column]
+        else
+          end_pos[:column] + String.length(to_string(op))
+        end
 
-    %{start: start_pos, end: [line: arg_range.end[:line], column: end_column]}
+      %{start: start_pos, end: [line: end_pos[:line], column: end_column]}
+    end
   end
 
   # Binary operators
   defp do_get_range({op, _, [left, right]}) when is_binary_op(op) do
-    %{
-      start: get_range(left).start,
-      end: get_range(right).end
-    }
+    get_range_for_pair(left, right)
   end
 
   # Stepped ranges
   defp do_get_range({:"..//", _, [left, _middle, right]}) do
-    %{
-      start: get_range(left).start,
-      end: get_range(right).end
-    }
+    get_range_for_pair(left, right)
   end
 
   # Bitstrings and interpolations
@@ -386,14 +366,17 @@ defmodule Sourceror.Range do
     get_range_for_unqualified_call(quoted)
   end
 
+  # Catch-all
+  defp do_get_range(_), do: nil
+
   defp get_range_for_unqualified_call({_call, meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
-      start_pos = Keyword.take(meta, [:line, :column])
-      end_pos = get_range(List.last(args)).end
-
-      %{start: start_pos, end: end_pos}
+      with %{end: end_pos} <- get_range(List.last(args)) do
+        start_pos = Keyword.take(meta, [:line, :column])
+        %{start: start_pos, end: end_pos}
+      end
     end
   end
 
@@ -407,22 +390,23 @@ defmodule Sourceror.Range do
           [left] -> {left, 0}
         end
 
-      start_pos = get_range(left).start
-      identifier_pos = Keyword.take(meta, [:line, :column])
+      with %{start: start_pos} <- get_range(left) do
+        identifier_pos = Keyword.take(meta, [:line, :column])
 
-      parens_length =
-        if meta[:no_parens] do
-          0
-        else
-          2
-        end
+        parens_length =
+          if meta[:no_parens] do
+            0
+          else
+            2
+          end
 
-      end_pos = [
-        line: identifier_pos[:line],
-        column: identifier_pos[:column] + right_len + parens_length
-      ]
+        end_pos = [
+          line: identifier_pos[:line],
+          column: identifier_pos[:column] + right_len + parens_length
+        ]
 
-      %{start: start_pos, end: end_pos}
+        %{start: start_pos, end: end_pos}
+      end
     end
   end
 
@@ -430,10 +414,7 @@ defmodule Sourceror.Range do
     if Sourceror.has_closing_line?(quoted) do
       get_range_for_node_with_closing_line(quoted)
     else
-      start_pos = get_range(left).start
-      end_pos = get_range(List.last(args) || left).end
-
-      %{start: start_pos, end: end_pos}
+      get_range_for_pair(left, List.last(args) || left)
     end
   end
 
@@ -507,6 +488,13 @@ defmodule Sourceror.Range do
 
       true ->
         Keyword.update!(end_pos, :column, &(&1 + 2))
+    end
+  end
+
+  defp get_range_for_pair(left, right) do
+    with %{start: start_pos} <- get_range(left),
+         %{end: end_pos} <- get_range(right) do
+      %{start: start_pos, end: end_pos}
     end
   end
 

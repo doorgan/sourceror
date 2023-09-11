@@ -484,13 +484,21 @@ defmodule Sourceror do
     get_start_position(left, default)
   end
 
+  def get_start_position({{:., _, [Kernel, :to_string]}, _, [left | _]}, default) do
+    get_start_position(left, default)
+  end
+
+  def get_start_position({{:., _, [List, :to_charlist]}, meta, _}, default) do
+    position = Keyword.take(meta, [:line, :column])
+    Keyword.merge(default, position)
+  end
+
   def get_start_position({{:., _, [left | _]}, _, _}, default) do
     get_start_position(left, default)
   end
 
   def get_start_position({_, meta, _}, default) do
     position = Keyword.take(meta, [:line, :column])
-
     Keyword.merge(default, position)
   end
 
@@ -621,6 +629,9 @@ defmodule Sourceror do
 
   The quoted expression must have at least line and column metadata, otherwise
   it is not possible to calculate an accurate range, or to calculate it at all.
+  Additionally, certain syntax constructs desugar into ASTs without a
+  meaningful range. In these cases, `get_range/1` returns `nil`.
+
   This function is most useful when used after `Sourceror.parse_string/1`,
   before any kind of modification to the AST.
 
@@ -654,7 +665,7 @@ defmodule Sourceror do
         ...> |> Sourceror.get_range(include_comments: true)
         %{start: [line: 1, column: 1], end: [line: 2, column: 11]}
   """
-  @spec get_range(Macro.t()) :: range
+  @spec get_range(Macro.t()) :: range | nil
   def get_range(quoted, opts \\ []) do
     Sourceror.Range.get_range(quoted, opts)
   end
