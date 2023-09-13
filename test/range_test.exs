@@ -724,24 +724,24 @@ defmodule SourcerorTest.RangeTest do
              }
     end
 
-    test "should not raise on any three-element tuple parsed by parse_string" do
-      for relative_path <- Path.wildcard("lib/*/**.ex") do
-        assert_can_get_ranges(relative_path)
-      end
+    test "should never raise" do
+      ExUnit.CaptureIO.capture_io(:stderr, fn ->
+        for file <- SourcerorTest.Support.Corpus.all_paths() do
+          assert :ok = can_get_ranges(file)
+        end
+      end)
     end
 
-    defp assert_can_get_ranges(relative_path) do
-      source = relative_path |> Path.relative_to_cwd() |> File.read!()
-      quoted = Sourceror.parse_string!(source)
-
-      Sourceror.prewalk(quoted, fn
-        {_, _, _} = quoted, acc ->
+    defp can_get_ranges(file) do
+      with {:ok, source} <- File.read(file),
+           {:ok, quoted} <- Sourceror.parse_string(source) do
+        Sourceror.prewalk(quoted, fn quoted, acc ->
           try do
             Sourceror.get_range(quoted)
           rescue
             e ->
               flunk("""
-              Expected a range from expression in #{relative_path}:
+              Expected a range from expression (#{file}):
 
                   #{inspect(quoted)}
 
@@ -752,10 +752,13 @@ defmodule SourcerorTest.RangeTest do
           end
 
           {quoted, acc}
+        end)
 
-        quoted, acc ->
-          {quoted, acc}
-      end)
+        :ok
+      else
+        {:error, error} ->
+          {:error, file, error}
+      end
     end
   end
 end

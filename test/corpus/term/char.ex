@@ -1,0 +1,21 @@
+## regular character
+
+?a
+?Z
+?0
+?9
+?_
+??
+
+## escaped character
+
+?\n
+?\t
+?\s
+?\\
+?\a
+?\b
+
+## list of char literals
+
+[?a, ?b, ?c]
