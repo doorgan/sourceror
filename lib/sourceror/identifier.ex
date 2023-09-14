@@ -13,7 +13,7 @@ defmodule Sourceror.Identifier do
     end
   end
 
-  @unary_ops [:&, :!, :^, :not, :+, :-, :"~~~", :@]
+  @unary_ops [:&, :!, :^, :not, :+, :-, :~~~, :@]
 
   @binary_ops [
                 :<-,
@@ -45,9 +45,9 @@ defmodule Sourceror.Identifier do
                 :<<~,
                 :~>>,
                 :<~>,
-                :"<|>",
+                :<|>,
                 :in,
-                :"^^^",
+                :^^^,
                 :"//",
                 :++,
                 :--,
@@ -62,7 +62,7 @@ defmodule Sourceror.Identifier do
               |> concat_if.("~> 1.12", ~w[+++ ---]a)
               |> concat_if.("~> 1.13", ~w[**]a)
 
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :"<|>"]
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
 
   @non_call_forms [:__block__, :__aliases__]
 
