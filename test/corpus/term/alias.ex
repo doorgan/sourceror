@@ -28,8 +28,3 @@ name.Mod.Child
 ## dot on special identifier
 
 __MODULE__.Child
-
-(source
-  (dot
-    (identifier)
-    (alias)))

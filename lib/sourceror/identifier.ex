@@ -3,89 +3,222 @@ defmodule Sourceror.Identifier do
   Functions to identify an classify forms and quoted expressions.
   """
 
-  @unary_ops [:&, :!, :^, :not, :+, :-, :~~~, :@]
-  binary_ops = [
-    :<-,
-    :\\,
-    :when,
-    :"::",
-    :|,
-    :=,
-    :||,
-    :|||,
-    :or,
-    :&&,
-    :&&&,
-    :and,
-    :==,
-    :!=,
-    :=~,
-    :===,
-    :!==,
-    :<,
-    :<=,
-    :>=,
-    :>,
-    :|>,
-    :<<<,
-    :>>>,
-    :<~,
-    :~>,
-    :<<~,
-    :~>>,
-    :<~>,
-    :<|>,
-    :in,
-    :^^^,
-    :"//",
-    :++,
-    :--,
-    :..,
-    :<>,
-    :+,
-    :-,
-    :*,
-    :/,
-    :.
-  ]
+  # this is used below to handle operators that were added in later
+  # versions of Elixir
+  concat_if = fn ops, version, new_ops ->
+    if Version.match?(System.version(), version) do
+      ops ++ new_ops
+    else
+      ops
+    end
+  end
 
-  @binary_ops (if Version.match?(System.version(), "~> 1.12") do
-                 binary_ops ++ Enum.map(~w[+++ ---], &String.to_atom/1)
-               else
-                 binary_ops
-               end)
+  @unary_ops [:&, :!, :^, :not, :+, :-, :"~~~", :@]
 
-  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :<|>]
+  @binary_ops [
+                :<-,
+                :\\,
+                :when,
+                :"::",
+                :|,
+                :=,
+                :||,
+                :|||,
+                :or,
+                :&&,
+                :&&&,
+                :and,
+                :==,
+                :!=,
+                :=~,
+                :===,
+                :!==,
+                :<,
+                :<=,
+                :>=,
+                :>,
+                :|>,
+                :<<<,
+                :>>>,
+                :<~,
+                :~>,
+                :<<~,
+                :~>>,
+                :<~>,
+                :"<|>",
+                :in,
+                :"^^^",
+                :"//",
+                :++,
+                :--,
+                :..,
+                :<>,
+                :+,
+                :-,
+                :*,
+                :/,
+                :.
+              ]
+              |> concat_if.("~> 1.12", ~w[+++ ---]a)
+              |> concat_if.("~> 1.13", ~w[**]a)
+
+  @pipeline_operators [:|>, :~>>, :<<~, :~>, :<~, :<~>, :"<|>"]
+
+  @non_call_forms [:__block__, :__aliases__]
 
   @doc """
   Checks if the given identifier is an unary op.
+
   ## Examples
+
       iex> is_unary_op(:+)
       true
   """
-  @spec is_unary_op(Macro.t()) :: Macro.t()
+  @spec is_unary_op(Macro.t()) :: boolean()
   defguard is_unary_op(op) when is_atom(op) and op in @unary_ops
 
   @doc """
   Checks if the given identifier is a binary op.
+
   ## Examples
+
       iex> is_binary_op(:+)
       true
   """
-  @spec is_binary_op(Macro.t()) :: Macro.t()
+  @spec is_binary_op(Macro.t()) :: boolean()
   defguard is_binary_op(op) when is_atom(op) and op in @binary_ops
 
   @doc """
   Checks if the given identifier is a pipeline operator.
+
   ## Examples
+
       iex> is_pipeline_op(:|>)
       true
   """
+  @spec is_pipeline_op(Macro.t()) :: boolean()
   defguard is_pipeline_op(op) when is_atom(op) and op in @pipeline_operators
 
   @doc """
-  Checks if the given atom is a valid module alias.
+  Checks if the given quoted form is a call.
+
+  Calls are any form of the shape `{form, metadata, args}` where args is
+  a list, with the exception of blocks and aliases, which are identified
+  by the forms `:__block__` and `:__aliases__`.
+
   ## Examples
+
+      iex> "node()" |> Sourceror.parse_string!() |> is_call()
+      true
+
+      iex> "Kernel.node()" |> Sourceror.parse_string!() |> is_call()
+      true
+
+      iex> "%{}" |> Sourceror.parse_string!() |> is_call()
+      true
+
+      iex> "@attr" |> Sourceror.parse_string!() |> is_call()
+      true
+
+      iex> "node" |> Sourceror.parse_string!() |> is_call()
+      false
+
+      iex> "1" |> Sourceror.parse_string!() |> is_call()
+      false
+
+      iex> "(1; 2)" |> Sourceror.parse_string!() |> is_call()
+      false
+
+      iex> "Macro.Env" |> Sourceror.parse_string!() |> is_call()
+      false
+  """
+  @spec is_call(Macro.t()) :: boolean()
+  defguard is_call(quoted)
+           when is_tuple(quoted) and
+                  tuple_size(quoted) == 3 and
+                  is_list(elem(quoted, 2)) and
+                  elem(quoted, 0) not in @non_call_forms
+
+  @doc """
+  Checks if the given quoted form is an unqualified call.
+
+  All unqualified calls would also return `true` if passed to `is_call/1`,
+  but they have the shape `{atom, metadata, args}`.
+
+  ## Examples
+
+      iex> "node()" |> Sourceror.parse_string!() |> is_unqualified_call()
+      true
+
+      iex> "%{}" |> Sourceror.parse_string!() |> is_unqualified_call()
+      true
+
+      iex> "@attr" |> Sourceror.parse_string!() |> is_unqualified_call()
+      true
+
+      iex> "node" |> Sourceror.parse_string!() |> is_unqualified_call()
+      false
+
+      iex> "1" |> Sourceror.parse_string!() |> is_unqualified_call()
+      false
+
+      iex> "(1; 2)" |> Sourceror.parse_string!() |> is_unqualified_call()
+      false
+
+      iex> "Macro.Env" |> Sourceror.parse_string!() |> is_unqualified_call()
+      false
+  """
+  @spec is_unqualified_call(Macro.t()) :: boolean()
+  defguard is_unqualified_call(quoted)
+           when is_call(quoted) and is_atom(elem(quoted, 0))
+
+  @doc """
+  Checks if the given quoted form is a qualified call.
+
+  All unqualified calls would also return `true` if passed to `is_call/1`,
+  but they have the shape `{{:., dot_metadata, dot_args}, metadata, args}`.
+
+  ## Examples
+
+      iex> "Kernel.node()" |> Sourceror.parse_string!() |> is_qualified_call()
+      true
+
+      iex> "__MODULE__.node()" |> Sourceror.parse_string!() |> is_qualified_call()
+      true
+
+      iex> "foo.()" |> Sourceror.parse_string!() |> is_qualified_call()
+      true
+
+      iex> "foo.bar()" |> Sourceror.parse_string!() |> is_qualified_call()
+      true
+
+      iex> "node()" |> Sourceror.parse_string!() |> is_qualified_call()
+      false
+
+      iex> "%{}" |> Sourceror.parse_string!() |> is_qualified_call()
+      false
+
+      iex> "@attr" |> Sourceror.parse_string!() |> is_qualified_call()
+      false
+
+      iex> "1" |> Sourceror.parse_string!() |> is_qualified_call()
+      false
+
+      iex> "(1; 2)" |> Sourceror.parse_string!() |> is_qualified_call()
+      false
+
+      iex> "Macro.Env" |> Sourceror.parse_string!() |> is_qualified_call()
+      false
+  """
+  @spec is_qualified_call(Macro.t()) :: boolean()
+  defguard is_qualified_call(quoted)
+           when is_call(quoted) and is_call(elem(quoted, 0)) and elem(elem(quoted, 0), 0) == :.
+
+  @doc """
+  Checks if the given atom is a valid module alias.
+
+  ## Examples
+
       iex> valid_alias?(Foo)
       true
       iex> valid_alias?(:foo)
@@ -95,7 +228,7 @@ defmodule Sourceror.Identifier do
     valid_alias?(to_charlist(atom))
   end
 
-  def valid_alias?('Elixir' ++ rest), do: valid_alias_piece?(rest)
+  def valid_alias?(~c"Elixir" ++ rest), do: valid_alias_piece?(rest)
   def valid_alias?(_other), do: false
 
   defp valid_alias_piece?([?., char | rest]) when char >= ?A and char <= ?Z,
