@@ -66,6 +66,17 @@ defmodule Sourceror.Identifier do
 
   @non_call_forms [:__block__, :__aliases__]
 
+  defguardp __is_atomic_literal__(quoted)
+            when is_number(quoted) or is_atom(quoted) or is_binary(quoted)
+
+  # {:__block__, [], [atomic_literal]}
+  defguardp __is_atomic_literal_block__(quoted)
+            when is_tuple(quoted) and
+                   tuple_size(quoted) == 3 and
+                   elem(quoted, 0) == :__block__ and
+                   tl(elem(quoted, 2)) == [] and
+                   __is_atomic_literal__(hd(elem(quoted, 2)))
+
   @doc """
   Checks if the given identifier is an unary op.
 
@@ -212,7 +223,9 @@ defmodule Sourceror.Identifier do
   """
   @spec is_qualified_call(Macro.t()) :: boolean()
   defguard is_qualified_call(quoted)
-           when is_call(quoted) and is_call(elem(quoted, 0)) and elem(elem(quoted, 0), 0) == :.
+           when is_call(quoted) and
+                  is_call(elem(quoted, 0)) and
+                  elem(elem(quoted, 0), 0) == :.
 
   @doc """
   Checks if the given quoted form is an identifier, such as a variable.
@@ -234,6 +247,45 @@ defmodule Sourceror.Identifier do
                   tuple_size(quoted) == 3 and
                   is_atom(elem(quoted, 0)) and
                   is_atom(elem(quoted, 2))
+
+  @doc """
+  Checks if the given quoted form is an atomic literal in the AST.
+
+  This set includes numbers, atoms, and strings, but not collections like
+  tuples, lists, or maps.
+
+  This guard returns `true` for literals that are the only elements inside
+  of a `:__block__`, such as `{:__block__, [], [:literal]}`.
+
+  ## Examples
+
+      iex> is_atomic_literal(1)
+      true
+
+      iex> is_atomic_literal(1.0)
+      true
+
+      iex> is_atomic_literal(:foo)
+      true
+
+      iex> is_atomic_literal("foo")
+      true
+
+      iex> is_atomic_literal({:__block__, [], [1]})
+      true
+
+      iex> is_atomic_literal({:__block__, [], [1, 2]})
+      false
+
+      iex> is_atomic_literal({:__block__, [], [{:node, [], nil}]})
+      false
+
+      iex> is_atomic_literal('foo')
+      false
+  """
+  @spec is_atomic_literal(Macro.t()) :: boolean()
+  defguard is_atomic_literal(quoted)
+           when __is_atomic_literal__(quoted) or __is_atomic_literal_block__(quoted)
 
   @doc """
   Checks if the given atom is a valid module alias.
