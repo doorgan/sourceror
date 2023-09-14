@@ -215,6 +215,27 @@ defmodule Sourceror.Identifier do
            when is_call(quoted) and is_call(elem(quoted, 0)) and elem(elem(quoted, 0), 0) == :.
 
   @doc """
+  Checks if the given quoted form is an identifier, such as a variable.
+
+  ## Examples
+
+      iex> "node" |> Sourceror.parse_string!() |> is_identifier()
+      true
+
+      iex> "node()" |> Sourceror.parse_string!() |> is_identifier()
+      false
+
+      iex> "1" |> Sourceror.parse_string!() |> is_identifier()
+      false
+  """
+  @spec is_identifier(Macro.t()) :: boolean()
+  defguard is_identifier(quoted)
+           when is_tuple(quoted) and
+                  tuple_size(quoted) == 3 and
+                  is_atom(elem(quoted, 0)) and
+                  is_atom(elem(quoted, 2))
+
+  @doc """
   Checks if the given atom is a valid module alias.
 
   ## Examples
