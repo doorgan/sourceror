@@ -85,7 +85,7 @@ defmodule Sourceror.Identifier do
       iex> is_unary_op(:+)
       true
   """
-  @spec is_unary_op(Macro.t()) :: boolean()
+  @spec is_unary_op(Macro.t()) :: Macro.t()
   defguard is_unary_op(op) when is_atom(op) and op in @unary_ops
 
   @doc """
@@ -96,7 +96,7 @@ defmodule Sourceror.Identifier do
       iex> is_binary_op(:+)
       true
   """
-  @spec is_binary_op(Macro.t()) :: boolean()
+  @spec is_binary_op(Macro.t()) :: Macro.t()
   defguard is_binary_op(op) when is_atom(op) and op in @binary_ops
 
   @doc """
@@ -107,7 +107,7 @@ defmodule Sourceror.Identifier do
       iex> is_pipeline_op(:|>)
       true
   """
-  @spec is_pipeline_op(Macro.t()) :: boolean()
+  @spec is_pipeline_op(Macro.t()) :: Macro.t()
   defguard is_pipeline_op(op) when is_atom(op) and op in @pipeline_operators
 
   @doc """
@@ -143,7 +143,7 @@ defmodule Sourceror.Identifier do
       iex> "Macro.Env" |> Sourceror.parse_string!() |> is_call()
       false
   """
-  @spec is_call(Macro.t()) :: boolean()
+  @spec is_call(Macro.t()) :: Macro.t()
   defguard is_call(quoted)
            when is_tuple(quoted) and
                   tuple_size(quoted) == 3 and
@@ -179,7 +179,7 @@ defmodule Sourceror.Identifier do
       iex> "Macro.Env" |> Sourceror.parse_string!() |> is_unqualified_call()
       false
   """
-  @spec is_unqualified_call(Macro.t()) :: boolean()
+  @spec is_unqualified_call(Macro.t()) :: Macro.t()
   defguard is_unqualified_call(quoted)
            when is_call(quoted) and is_atom(elem(quoted, 0))
 
@@ -221,7 +221,7 @@ defmodule Sourceror.Identifier do
       iex> "Macro.Env" |> Sourceror.parse_string!() |> is_qualified_call()
       false
   """
-  @spec is_qualified_call(Macro.t()) :: boolean()
+  @spec is_qualified_call(Macro.t()) :: Macro.t()
   defguard is_qualified_call(quoted)
            when is_call(quoted) and
                   is_call(elem(quoted, 0)) and
@@ -241,7 +241,7 @@ defmodule Sourceror.Identifier do
       iex> "1" |> Sourceror.parse_string!() |> is_identifier()
       false
   """
-  @spec is_identifier(Macro.t()) :: boolean()
+  @spec is_identifier(Macro.t()) :: Macro.t()
   defguard is_identifier(quoted)
            when is_tuple(quoted) and
                   tuple_size(quoted) == 3 and
@@ -283,7 +283,7 @@ defmodule Sourceror.Identifier do
       iex> is_atomic_literal('foo')
       false
   """
-  @spec is_atomic_literal(Macro.t()) :: boolean()
+  @spec is_atomic_literal(Macro.t()) :: Macro.t()
   defguard is_atomic_literal(quoted)
            when __is_atomic_literal__(quoted) or __is_atomic_literal_block__(quoted)
 
