@@ -28,6 +28,8 @@ jobs:
             run_dialyzer: true
           - elixir: '1.14.3'
             otp: '25.2'
+          - elixir: '1.15.5'
+            otp: '26'
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir

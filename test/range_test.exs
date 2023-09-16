@@ -2,6 +2,8 @@ defmodule SourcerorTest.RangeTest do
   use ExUnit.Case, async: true
   doctest Sourceror.Range
 
+  alias SourcerorTest.Support.Corpus
+
   defp to_range(string, opts \\ []) do
     string
     |> Sourceror.parse_string!()
@@ -726,22 +728,13 @@ defmodule SourcerorTest.RangeTest do
 
     test "should never raise" do
       ExUnit.CaptureIO.capture_io(:stderr, fn ->
-        for file <- SourcerorTest.Support.Corpus.all_paths() do
-          assert :ok = can_get_ranges(file)
-        end
-      end)
-    end
-
-    defp can_get_ranges(file) do
-      with {:ok, source} <- File.read(file),
-           {:ok, quoted} <- Sourceror.parse_string(source) do
-        Sourceror.prewalk(quoted, fn quoted, acc ->
+        Corpus.walk!(fn quoted, path ->
           try do
             Sourceror.get_range(quoted)
           rescue
             e ->
               flunk("""
-              Expected a range from expression (#{file}):
+              Expected a range from expression (#{path}):
 
                   #{inspect(quoted)}
 
@@ -750,15 +743,8 @@ defmodule SourcerorTest.RangeTest do
                   #{Exception.format(:error, e)}
               """)
           end
-
-          {quoted, acc}
         end)
-
-        :ok
-      else
-        {:error, error} ->
-          {:error, file, error}
-      end
+      end)
     end
   end
 end
