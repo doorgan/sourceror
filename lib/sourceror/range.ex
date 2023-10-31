@@ -203,9 +203,10 @@ defmodule Sourceror.Range do
   # -> b
   defp do_get_range({:->, meta, [[], right]}) do
     start_pos = Keyword.take(meta, [:line, :column])
-    end_pos = get_range(right).end
 
-    %{start: start_pos, end: end_pos}
+    with %{end: end_pos} <- get_range(right) do
+      %{start: start_pos, end: end_pos}
+    end
   end
 
   # Stabs with args
@@ -363,6 +364,12 @@ defmodule Sourceror.Range do
 
   # Unqualified calls
   defp do_get_range({call, _, _} = quoted) when is_atom(call) do
+    get_range_for_unqualified_call(quoted)
+  end
+
+  # Double-parenthesis unqualified calls:
+  # unquote(foo)()
+  defp do_get_range({{call, _, _}, _, _} = quoted) when is_atom(call) do
     get_range_for_unqualified_call(quoted)
   end
 
