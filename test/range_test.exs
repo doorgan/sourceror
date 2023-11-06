@@ -512,6 +512,13 @@ defmodule SourcerorTest.RangeTest do
              }
     end
 
+    test "unqualified double calls" do
+      assert to_range(~S/unquote(foo)()/) == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 15]
+             }
+    end
+
     test "module aliases" do
       assert to_range(~S/Foo/) == %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
       assert to_range(~S/Foo.Bar/) == %{start: [line: 1, column: 1], end: [line: 1, column: 8]}
