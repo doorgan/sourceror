@@ -11,7 +11,7 @@ jobs:
     name: Release
     strategy:
       matrix:
-        otp: ['23']
+        otp: ['26']
         elixir: ['1.15.0']
     env:
       HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
