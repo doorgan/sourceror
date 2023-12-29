@@ -212,7 +212,7 @@ defmodule Sourceror do
       end)
 
     if is_list(quoted) and opts[:format] == :splicing do
-      text |> String.slice(1..-2)
+      text |> String.slice(1..-2//1)
     else
       text
     end
