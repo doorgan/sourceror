@@ -57,10 +57,10 @@ if Version.match?(System.version(), "< 1.13.0") do
       Process.put(:code_formatter_comments, [comment | comments])
     end
 
-    defp next_eol_count('\s' ++ rest, count), do: next_eol_count(rest, count)
-    defp next_eol_count('\t' ++ rest, count), do: next_eol_count(rest, count)
-    defp next_eol_count('\n' ++ rest, count), do: next_eol_count(rest, count + 1)
-    defp next_eol_count('\r\n' ++ rest, count), do: next_eol_count(rest, count + 1)
+    defp next_eol_count(~c"\s" ++ rest, count), do: next_eol_count(rest, count)
+    defp next_eol_count(~c"\t" ++ rest, count), do: next_eol_count(rest, count)
+    defp next_eol_count(~c"\n" ++ rest, count), do: next_eol_count(rest, count + 1)
+    defp next_eol_count(~c"\r\n" ++ rest, count), do: next_eol_count(rest, count + 1)
     defp next_eol_count(_, count), do: count
 
     defp previous_eol_count([{token, {_, _, count}} | _])

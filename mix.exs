@@ -2,14 +2,14 @@ defmodule Sourceror.MixProject do
   use Mix.Project
 
   @repo_url "https://github.com/doorgan/sourceror"
-  @version "0.14.1"
+  @version "1.0.0"
 
   def project do
     [
       app: :sourceror,
       name: "Sourceror",
       version: @version,
-      elixir: "~> 1.10",
+      elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       erlc_paths: erlc_paths(Mix.env()),
