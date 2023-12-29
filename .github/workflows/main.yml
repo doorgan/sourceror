@@ -9,12 +9,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - elixir: '1.10.4'
-            otp: '21.3'
-            run_vendored_tests: true
-          - elixir: '1.11.4'
-            otp: '23.2'
-            run_vendored_tests: true
           - elixir: '1.12.3'
             otp: '24.3'
             run_vendored_tests: true
@@ -22,13 +16,15 @@ jobs:
             otp: '24.3'
           - elixir: '1.13.4'
             otp: '25.0.2'
+          - elixir: '1.14.3'
+            otp: '25.2'
+          - elixir: '1.15.5'
+            otp: '26'
             check_formatted: true
             run_credo: true
             run_coveralls: true
             run_dialyzer: true
-          - elixir: '1.14.3'
-            otp: '25.2'
-          - elixir: '1.15.5'
+          - elixir: '1.16.0'
             otp: '26'
     steps:
       - uses: actions/checkout@v2
