@@ -336,6 +336,48 @@ defmodule SourcerorTest.RangeTest do
              }
     end
 
+    test "stab without body" do
+      {:fn, _, [stab]} = Sourceror.parse_string!(~S"fn -> end")
+
+      assert Sourceror.Range.get_range(stab) == %{
+               start: [line: 1, column: 4],
+               end: [line: 1, column: 6]
+             }
+
+      {:fn, _, [stab]} =
+        Sourceror.parse_string!(~S"""
+        fn a ->
+        end
+        """)
+
+      assert Sourceror.Range.get_range(stab) == %{
+               start: [line: 1, column: 4],
+               end: [line: 1, column: 8]
+             }
+    end
+
+    test "anonymous functions" do
+      assert to_range(~S"fn -> :ok end") == %{
+               start: [line: 1, column: 1],
+               end: [line: 1, column: 14]
+             }
+
+      assert to_range(~S"""
+             fn ->
+               :ok
+             end
+             """) == %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
+
+      assert to_range(~S"""
+             fn -> end
+             """) == %{start: [line: 1, column: 1], end: [line: 1, column: 10]}
+
+      assert to_range(~S"""
+             fn ->
+             end
+             """) == %{start: [line: 1, column: 1], end: [line: 2, column: 4]}
+    end
+
     test "qualified tuples" do
       assert to_range(~S/Foo.{Bar, Baz}/) == %{
                start: [line: 1, column: 1],

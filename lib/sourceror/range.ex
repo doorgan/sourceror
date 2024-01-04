@@ -199,7 +199,31 @@ defmodule Sourceror.Range do
     get_range(first)
   end
 
-  # Stabs without args
+  # Stabs without right args
+  # a ->
+  defp do_get_range({:->, stab_meta, [left, {:__block__, right_meta, [nil]} = right]}) do
+    end_pos =
+      if right_meta[:column] == stab_meta[:column] do
+        right_meta
+        |> Keyword.take([:line, :column])
+        |> Keyword.update!(:column, &(&1 + 2))
+      else
+        get_range(right).end
+      end
+
+    start_pos =
+      case left do
+        [] ->
+          Keyword.take(stab_meta, [:line, :column])
+
+        _ ->
+          get_range(left).start
+      end
+
+    %{start: start_pos, end: end_pos}
+  end
+
+  # Stabs without left args
   # -> b
   defp do_get_range({:->, meta, [[], right]}) do
     start_pos = Keyword.take(meta, [:line, :column])
@@ -423,6 +447,15 @@ defmodule Sourceror.Range do
     else
       get_range_for_pair(left, List.last(args) || left)
     end
+  end
+
+  defp get_range_for_node_with_closing_line({:fn, _, _} = quoted) do
+    start_position = Sourceror.get_start_position(quoted)
+    end_position = Sourceror.get_end_position(quoted)
+
+    end_position = Keyword.update!(end_position, :column, &(&1 + 3))
+
+    %{start: start_position, end: end_position}
   end
 
   defp get_range_for_node_with_closing_line({_, meta, _} = quoted) do
