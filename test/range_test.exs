@@ -113,6 +113,9 @@ defmodule SourcerorTest.RangeTest do
       code = ~S/"fo\no"/
       assert decorate(code, to_range(code)) == "«\"fo\\no\"»"
 
+      code = ~S/"key: \"value\""/
+      assert decorate(code, to_range(code)) == "«\"key: \\\"value\\\"\"»"
+
       code = ~S'''
       """
       foo
