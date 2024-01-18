@@ -91,7 +91,16 @@ defmodule Sourceror.Range do
       if meta[:delimiter] in [~S/"""/, ~S/'''/] do
         meta[:column] + String.length(meta[:delimiter])
       else
-        count = meta[:column] + String.length(last_line) + String.length(meta[:delimiter])
+        delimiter_count =
+          if String.contains?(string, meta[:delimiter]) do
+            ~r/#{meta[:delimiter]}/ |> Regex.scan(string) |> length()
+          else
+            0
+          end
+
+        count =
+          meta[:column] + String.length(last_line) + String.length(meta[:delimiter]) +
+            delimiter_count
 
         if end_line == meta[:line] do
           count + 1
