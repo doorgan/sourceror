@@ -18,9 +18,6 @@ Updated](https://img.shields.io/github/last-commit/doorgan/sourceror.svg)](https
 
 Utilities to work with Elixir source code.
 
-**NOTICE:** This library is under heavy development. Expect frequent breaking
-changes until the first stable v1.0 release is out.
-
 ## Installation
 
 Add `:sourceror` as a dependency to your project's `mix.exs`:
@@ -167,6 +164,7 @@ replacement.
 Using patches, we could do the same as above, but produce a patch instead of
 modifying the AST. As a result, only the parts that need to be changed will be
 affected, and the rest of the code keeps the original formatting:
+
 ```elixir
 test "patches the source code" do
   source =
