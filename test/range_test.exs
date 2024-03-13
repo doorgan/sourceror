@@ -479,14 +479,9 @@ defmodule SourcerorTest.RangeTest do
         code
         |> Sourceror.parse_string!()
         |> Z.zip()
-        |> Z.find(fn node ->
-          case node do
-            {:bar, _, _} ->
-              true
-
-            _ ->
-              false
-          end
+        |> Z.find(fn 
+          {:bar, _, _} -> true
+          _ -> false
         end)
         |> Z.node()
 
