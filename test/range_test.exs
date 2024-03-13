@@ -460,6 +460,48 @@ defmodule SourcerorTest.RangeTest do
                |> String.trim_trailing()
     end
 
+    test "do/end blocks that also have :end_of_expression" do
+      alias Sourceror.Zipper, as: Z
+
+      code = ~S"""
+      foo do
+        x ->
+          bar do
+            a -> b
+            c, d -> e
+          end
+
+        :foo
+      end
+      """
+
+      value =
+        code
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+        |> Z.find(fn
+          {:bar, _, _} -> true
+          _ -> false
+        end)
+        |> Z.node()
+
+      range = Sourceror.Range.get_range(value)
+
+      assert decorate(code, range) ==
+               ~S"""
+               foo do
+                 x ->
+                   «bar do
+                     a -> b
+                     c, d -> e
+                   end»
+
+                 :foo
+               end
+               """
+               |> String.trim_trailing()
+    end
+
     test "stabs" do
       alias Sourceror.Zipper, as: Z
 
