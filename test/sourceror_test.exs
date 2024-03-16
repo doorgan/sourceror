@@ -18,6 +18,20 @@ defmodule SourcerorTest do
       """)
     end
 
+    test "multiline comments" do
+      assert_same(~S"""
+      [
+        :field_1,
+
+        #######################################################
+        ### Another comment
+        #######################################################
+
+        :field_2
+      ]
+      """)
+    end
+
     test "blocks" do
       assert_same(~S"""
       foo()

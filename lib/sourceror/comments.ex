@@ -146,15 +146,9 @@ defmodule Sourceror.Comments do
   defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments) do
     leading_comments = Keyword.get(meta, :leading_comments, [])
 
-    leading_comments_count = length(leading_comments)
-
     leading_comments =
       if collapse_comments do
-        for {comment, i} <- Enum.with_index(leading_comments, 0) do
-          next_eol_correction = max(0, comment.next_eol_count - 1)
-          line = max(1, meta[:line] - (leading_comments_count - i + next_eol_correction))
-          %{comment | line: line}
-        end
+        collapse_leading_comments(leading_comments, meta[:line])
       else
         leading_comments
       end
@@ -188,6 +182,17 @@ defmodule Sourceror.Comments do
       end)
 
     {quoted, acc}
+  end
+
+  defp collapse_leading_comments(leading_comments, line) do
+    leading_comments |> Enum.reverse() |> do_collapse_leading_comments(line, [])
+  end
+
+  defp do_collapse_leading_comments([], _line, acc), do: acc
+
+  defp do_collapse_leading_comments([comment | comments], line, acc) do
+    line = max(1, line - comment.next_eol_count)
+    do_collapse_leading_comments(comments, line, [%{comment | line: line} | acc])
   end
 
   defp collapse_trailing_comments(quoted, trailing_comments) do
