@@ -1,13 +1,28 @@
 defmodule SourcerorTest do
   use ExUnit.Case, async: true
+
+  alias Mix.Tasks
+
   doctest Sourceror
 
   defmacro assert_same(string, opts \\ []) do
     quote bind_quoted: [string: string, opts: opts] do
       string = String.trim(string)
-      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string(opts)
+      formatted = string |> Sourceror.parse_string!() |> Sourceror.to_string(opts)
+
+      unless Keyword.get(opts, :trailing_comma, false) do
+        elixir_formatted = string |> Code.format_string!(opts) |> IO.iodata_to_binary()
+
+        assert formatted == elixir_formatted,
+               "Not the same as Code.format_string!:\n#{text_diff(elixir_formatted, formatted)}"
+      end
+
+      assert string == formatted,
+             "Changed:\n#{text_diff(string, formatted)}"
     end
   end
+
+  defp text_diff(old, new), do: Tasks.Format.text_diff_format(old, new) |> IO.iodata_to_binary()
 
   describe "parse_string!/2 and to_string/2 comment position preservation" do
     test "just some comments" do
@@ -192,6 +207,87 @@ defmodule SourcerorTest do
 
       # A request error
       def request(%S3{http_method: :head} = op), do: head_object(op)
+      """)
+    end
+
+    test "in an Ecto schema macro" do
+      assert_same(~S"""
+      defmodule U do
+        use Ecto.Schema
+
+        alias A
+        alias B
+
+        schema "x" do
+          field(:a, :string)
+          field(:b, :string)
+          # field(:c, :string)
+
+          field(:d, :string)
+        end
+      end
+      """)
+    end
+
+    test "last line in def" do
+      assert_same(~S"""
+      defmodule X do
+        alias B
+        alias A
+
+        def y do
+          1
+          # test
+        end
+      end
+      """)
+    end
+
+    test "in case" do
+      assert_same(~S"""
+      defmodule Y do
+        alias B
+        alias A
+
+        def c do
+          (fn y ->
+            case z do
+              p ->
+                # test
+                 d
+
+               u ->
+                 s
+             end
+           end).()
+        end
+      end
+      """)
+    end
+
+    test "multiple comment blocks" do
+      assert_same(~S"""
+      defmodule Z do
+        alias B
+        alias A
+
+        def a do
+          # test1
+
+          # test2
+
+          # line1
+          # line2
+
+          :ok
+        end
+
+        # test
+
+        defp z do
+          1
+        end
+      end
       """)
     end
   end
