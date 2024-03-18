@@ -65,7 +65,10 @@ defmodule Sourceror.Comments do
   defp update_newlines({form, meta, args}, comments) do
     meta =
       if end_of_expression = Keyword.get(meta, :end_of_expression) do
-        newlines = end_of_expression[:newlines] - comments_in(comments, meta[:line] + 1, meta[:line] + end_of_expression[:newlines])
+        newlines =
+          end_of_expression[:newlines] -
+            comments_in(comments, meta[:line] + 1, meta[:line] + end_of_expression[:newlines])
+
         end_of_expression = Keyword.put(end_of_expression, :newlines, newlines)
         Keyword.put(meta, :end_of_expression, end_of_expression)
       else
