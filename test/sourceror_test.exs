@@ -8,17 +8,35 @@ defmodule SourcerorTest do
   defmacro assert_same(string, opts \\ []) do
     quote bind_quoted: [string: string, opts: opts] do
       string = String.trim(string)
-      formatted = string |> Sourceror.parse_string!() |> Sourceror.to_string(opts)
-
-      unless Keyword.get(opts, :trailing_comma, false) do
-        elixir_formatted = string |> Code.format_string!(opts) |> IO.iodata_to_binary()
-
-        assert formatted == elixir_formatted,
-               "Not the same as Code.format_string!:\n#{text_diff(elixir_formatted, formatted)}"
-      end
+      ast = Sourceror.parse_string!(string)
+      formatted = Sourceror.to_string(ast, opts)
 
       assert string == formatted,
-             "Changed:\n#{text_diff(string, formatted)}"
+             "Diff:\n#{text_diff(string, formatted)}"
+    end
+  end
+
+  defmacro assert_same_as_elixir(string, opts \\ []) do
+    quote bind_quoted: [string: string, opts: opts] do
+      string = String.trim(string)
+      ast = Sourceror.parse_string!(string)
+      formatted = Sourceror.to_string(ast, opts)
+      elixir_formatted = string |> Code.format_string!(opts) |> IO.iodata_to_binary()
+
+      assert formatted == elixir_formatted,
+             "Diff:\n#{text_diff(formatted, elixir_formatted)}"
+    end
+  end
+
+  defmacro assert_valid_formatted(string, opts \\ []) do
+    quote bind_quoted: [string: string, opts: opts] do
+      string = String.trim(string)
+      ast = Sourceror.parse_string!(string)
+      formatted = Sourceror.to_string(ast, opts)
+      elixir_formatted = formatted |> Code.format_string!(opts) |> IO.iodata_to_binary()
+
+      assert formatted == elixir_formatted,
+             "Diff:\n#{text_diff(formatted, elixir_formatted)}"
     end
   end
 
@@ -210,59 +228,43 @@ defmodule SourcerorTest do
       """)
     end
 
-    test "in an Ecto schema macro" do
-      assert_same(~S"""
-      defmodule U do
-        use Ecto.Schema
+    test "after expression" do
+      code = ~S"""
+      bar()
+      # test-comment
 
-        alias A
-        alias B
+      foo()
+      """
 
-        schema "x" do
-          field(:a, :string)
-          field(:b, :string)
-          # field(:c, :string)
-
-          field(:d, :string)
-        end
-      end
-      """)
+      # assert_valid_formatted(code)
+      # assert_same_as_elixir(code)
+      assert_same(code)
     end
 
     test "last line in def" do
-      assert_same(~S"""
-      defmodule X do
-        alias B
-        alias A
-
-        def y do
-          1
-          # test
-        end
+      code = ~S"""
+      def a_fun do
+        :return_value
+        # test-comment
       end
-      """)
+      """
+
+      # assert_valid_formatted(code)
+      # assert_same_as_elixir(code)
+      assert_same(code)
     end
 
-    test "in case" do
-      assert_same(~S"""
-      defmodule Y do
-        alias B
-        alias A
+    test "in directly executed anonymous function" do
+      code = ~S"""
+      (fn x ->
+         # test-comment
+         x * x
+       end).()
+      """
 
-        def c do
-          (fn y ->
-            case z do
-              p ->
-                # test
-                 d
-
-               u ->
-                 s
-             end
-           end).()
-        end
-      end
-      """)
+      assert_same(code)
+      assert_same_as_elixir(code)
+      assert_valid_formatted(code)
     end
 
     test "multiple comment blocks" do

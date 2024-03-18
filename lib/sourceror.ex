@@ -401,7 +401,14 @@ defmodule Sourceror do
       3
   """
   @spec get_line(Macro.t(), default :: integer | nil) :: integer | nil
-  def get_line({_, meta, _}, default \\ 1)
+  def get_line(quoted, default \\ 1)
+
+  def get_line({{:., _, [{:fn, _, _} = anonymous_fun | _]}, meta, _}, default)
+      when is_list(meta) and (is_integer(default) or is_nil(default)) do
+    get_line(anonymous_fun)
+  end
+
+  def get_line({_, meta, _}, default)
       when is_list(meta) and (is_integer(default) or is_nil(default)) do
     Keyword.get(meta, :line, default)
   end
