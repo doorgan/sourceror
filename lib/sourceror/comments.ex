@@ -54,12 +54,33 @@ defmodule Sourceror.Comments do
   defp do_merge_comments({form, _, _} = quoted, comments)
        when not is_pipeline_op(form) and not is_binary_op(form) do
     {comments, rest} = gather_leading_comments_for_node(quoted, comments)
-
+    quoted = update_newlines(quoted, rest)
     quoted = put_comments(quoted, :leading_comments, comments)
+
     {quoted, rest}
   end
 
   defp do_merge_comments(quoted, comments), do: {quoted, comments}
+
+  defp update_newlines({form, meta, args}, comments) do
+    meta =
+      if end_of_expression = Keyword.get(meta, :end_of_expression) do
+        newlines =
+          end_of_expression[:newlines] -
+            comments_in(comments, meta[:line] + 1, meta[:line] + end_of_expression[:newlines])
+
+        end_of_expression = Keyword.put(end_of_expression, :newlines, newlines)
+        Keyword.put(meta, :end_of_expression, end_of_expression)
+      else
+        meta
+      end
+
+    {form, meta, args}
+  end
+
+  defp comments_in(comments, from, to) do
+    Enum.count(comments, fn comment -> comment[:line] >= from and comment[:line] <= to end)
+  end
 
   defp merge_leftovers({_, _, _} = quoted, comments) do
     {comments, rest} = gather_trailing_comments_for_node(quoted, comments)
@@ -146,15 +167,9 @@ defmodule Sourceror.Comments do
   defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments) do
     leading_comments = Keyword.get(meta, :leading_comments, [])
 
-    leading_comments_count = length(leading_comments)
-
     leading_comments =
       if collapse_comments do
-        for {comment, i} <- Enum.with_index(leading_comments, 0) do
-          next_eol_correction = max(0, comment.next_eol_count - 1)
-          line = max(1, meta[:line] - (leading_comments_count - i + next_eol_correction))
-          %{comment | line: line}
-        end
+        collapse_leading_comments(leading_comments, meta[:line])
       else
         leading_comments
       end
@@ -189,6 +204,19 @@ defmodule Sourceror.Comments do
 
     {quoted, acc}
   end
+
+  defp collapse_leading_comments(leading_comments, line) do
+    leading_comments |> Enum.reverse() |> do_collapse_leading_comments(line, [])
+  end
+
+  defp do_collapse_leading_comments([], _line, acc), do: acc
+
+  defp do_collapse_leading_comments([comment | comments], line, acc) do
+    line = max(1, line - comment.next_eol_count)
+    do_collapse_leading_comments(comments, line, [%{comment | line: line} | acc])
+  end
+
+  defp collapse_trailing_comments(_quoted, []), do: []
 
   defp collapse_trailing_comments(quoted, trailing_comments) do
     meta = Sourceror.get_meta(quoted)

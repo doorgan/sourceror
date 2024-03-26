@@ -44,9 +44,13 @@ defmodule Sourceror.LinesCorrector do
       end
 
     if has_leading_comments?(quoted) do
-      leading_comments = length(meta[:leading_comments])
-      quoted = recursive_correct_lines(quoted, leading_comments + 1)
-      {quoted, %{state | last_line: meta[:line]}}
+      leading_comments =
+        Enum.reduce(meta[:leading_comments], 1, fn comment, acc ->
+          acc + comment.next_eol_count
+        end)
+
+      quoted = recursive_correct_lines(quoted, leading_comments)
+      {quoted, %{state | last_line: get_line(quoted)}}
     else
       {quoted, state}
     end

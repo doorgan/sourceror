@@ -1,13 +1,46 @@
 defmodule SourcerorTest do
   use ExUnit.Case, async: true
+
+  alias Mix.Tasks
+
   doctest Sourceror
 
   defmacro assert_same(string, opts \\ []) do
     quote bind_quoted: [string: string, opts: opts] do
       string = String.trim(string)
-      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string(opts)
+      ast = Sourceror.parse_string!(string)
+      formatted = Sourceror.to_string(ast, opts)
+
+      assert string == formatted,
+             "Diff:\n#{text_diff(string, formatted)}"
     end
   end
+
+  defmacro assert_same_as_elixir(string, opts \\ []) do
+    quote bind_quoted: [string: string, opts: opts] do
+      string = String.trim(string)
+      ast = Sourceror.parse_string!(string)
+      formatted = Sourceror.to_string(ast, opts)
+      elixir_formatted = string |> Code.format_string!(opts) |> IO.iodata_to_binary()
+
+      assert formatted == elixir_formatted,
+             "Diff:\n#{text_diff(formatted, elixir_formatted)}"
+    end
+  end
+
+  defmacro assert_valid_formatted(string, opts \\ []) do
+    quote bind_quoted: [string: string, opts: opts] do
+      string = String.trim(string)
+      ast = Sourceror.parse_string!(string)
+      formatted = Sourceror.to_string(ast, opts)
+      elixir_formatted = formatted |> Code.format_string!(opts) |> IO.iodata_to_binary()
+
+      assert formatted == elixir_formatted,
+             "Diff:\n#{text_diff(formatted, elixir_formatted)}"
+    end
+  end
+
+  defp text_diff(old, new), do: Tasks.Format.text_diff_format(old, new) |> IO.iodata_to_binary()
 
   describe "parse_string!/2 and to_string/2 comment position preservation" do
     test "just some comments" do
@@ -15,6 +48,20 @@ defmodule SourcerorTest do
       # comment
 
       # another comment
+      """)
+    end
+
+    test "multiline comments" do
+      assert_same(~S"""
+      [
+        :field_1,
+
+        #######################################################
+        ### Another comment
+        #######################################################
+
+        :field_2
+      ]
       """)
     end
 
@@ -178,6 +225,71 @@ defmodule SourcerorTest do
 
       # A request error
       def request(%S3{http_method: :head} = op), do: head_object(op)
+      """)
+    end
+
+    test "after expression" do
+      code = ~S"""
+      bar()
+      # test-comment
+
+      foo()
+      """
+
+      # assert_valid_formatted(code)
+      # assert_same_as_elixir(code)
+      assert_same(code)
+    end
+
+    test "last line in def" do
+      code = ~S"""
+      def a_fun do
+        :return_value
+        # test-comment
+      end
+      """
+
+      # assert_valid_formatted(code)
+      # assert_same_as_elixir(code)
+      assert_same(code)
+    end
+
+    test "in directly executed anonymous function" do
+      code = ~S"""
+      (fn x ->
+         # test-comment
+         x * x
+       end).()
+      """
+
+      assert_same(code)
+      assert_same_as_elixir(code)
+      assert_valid_formatted(code)
+    end
+
+    test "multiple comment blocks" do
+      assert_same(~S"""
+      defmodule Z do
+        alias B
+        alias A
+
+        def a do
+          # test1
+
+          # test2
+
+          # line1
+          # line2
+
+          :ok
+        end
+
+        # test
+
+        defp z do
+          1
+        end
+      end
       """)
     end
   end
