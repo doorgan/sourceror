@@ -201,22 +201,29 @@ defmodule Sourceror do
         :tabs -> "\t"
       end
 
-    text =
-      quoted
-      |> to_algebra(opts)
-      |> Inspect.Algebra.format(line_length)
-      |> IO.iodata_to_binary()
-      |> String.split("\n")
-      |> Enum.map_join("\n", fn line ->
-        String.duplicate(indent_str, indent) <> line
-      end)
-
-    if is_list(quoted) and opts[:format] == :splicing do
-      text |> String.slice(1..-2//1)
-    else
-      text
-    end
+    quoted
+    |> to_algebra(opts)
+    |> Inspect.Algebra.format(line_length)
+    |> IO.iodata_to_binary()
+    |> indent(indent_str, indent)
+    |> splice(quoted, opts[:format])
   end
+
+  defp indent(text, _indent_str, 0), do: text
+
+  defp indent(text, indent_str, indent) when indent > 0 do
+    text
+    |> String.split("\n")
+    |> Enum.map_join("\n", fn line ->
+      String.duplicate(indent_str, indent) <> line
+    end)
+  end
+
+  defp splice(text, quoted, :splicing) when is_list(quoted) do
+    String.slice(text, 1..-2//1)
+  end
+
+  defp splice(text, _quoted, _format), do: text
 
   @doc false
   def to_algebra(quoted, opts \\ []) do
