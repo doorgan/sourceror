@@ -14,6 +14,10 @@ defmodule Sourceror.Comments do
   `:trailing_comments` field.
   """
   @spec merge_comments(Macro.t(), list(map)) :: Macro.t()
+  def merge_comments({:__block__, _meta, []} = quoted, comments) do
+    trailing_block({quoted, comments})
+  end
+
   def merge_comments(quoted, comments) do
     {quoted, leftovers} =
       Macro.traverse(quoted, comments, &do_merge_comments/2, &merge_leftovers/2)
@@ -134,27 +138,47 @@ defmodule Sourceror.Comments do
         quoted
       end
 
-    Macro.postwalk(quoted, [], fn
-      {_, _, _} = quoted, acc ->
-        do_extract_comments(quoted, acc, collapse_comments)
+    output =
+      Macro.prewalk(quoted, [], fn
+        {_, meta, _} = quoted, acc ->
+          traling_block? = meta[:__sourceror__][:trailing_block] || false
+          do_extract_comments(quoted, acc, collapse_comments, traling_block?)
 
-      other, acc ->
-        {other, acc}
-    end)
+        other, acc ->
+          {other, acc}
+      end)
+
+    output
   end
 
-  defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments) do
-    leading_comments = Keyword.get(meta, :leading_comments, [])
+  defp do_extract_comments({_, meta, [quoted]}, [], collapse_comments, true) do
+    {quoted, comments} = do_extract_comments(quoted, [], collapse_comments, false)
+    quoted = update_empty_quoted(quoted)
 
-    leading_comments_count = length(leading_comments)
+    {start, span} = span(quoted)
+
+    {leading_comments, end_leading_comments} =
+      trailing_block_comments(meta[:leading_comments], collapse_comments, start)
+
+    end_line =
+      if span > 0 do
+        end_leading_comments + start + span
+      else
+        max(end_leading_comments, 1)
+      end
+
+    {trailing_comments, _} =
+      trailing_block_comments(meta[:trailing_comments], collapse_comments, end_line)
+
+    {quoted, Enum.concat([leading_comments, comments, trailing_comments])}
+  end
+
+  defp do_extract_comments({_, meta, _} = quoted, acc, collapse_comments, false) do
+    leading_comments = Keyword.get(meta, :leading_comments, [])
 
     leading_comments =
       if collapse_comments do
-        for {comment, i} <- Enum.with_index(leading_comments, 0) do
-          next_eol_correction = max(0, comment.next_eol_count - 1)
-          line = max(1, meta[:line] - (leading_comments_count - i + next_eol_correction))
-          %{comment | line: line}
-        end
+        collapse_comments(meta[:line], leading_comments)
       else
         leading_comments
       end
@@ -163,7 +187,7 @@ defmodule Sourceror.Comments do
 
     trailing_comments =
       if collapse_comments do
-        collapse_trailing_comments(quoted, trailing_comments)
+        quoted |> Sourceror.get_end_line() |> collapse_comments(trailing_comments)
       else
         trailing_comments
       end
@@ -190,34 +214,59 @@ defmodule Sourceror.Comments do
     {quoted, acc}
   end
 
-  defp collapse_trailing_comments(quoted, trailing_comments) do
-    meta = Sourceror.get_meta(quoted)
-    trailing_block? = meta[:__sourceror__][:trailing_block]
+  defp span({:__block__, meta, []}), do: {meta[:line], 0}
 
-    comments =
-      Enum.map(trailing_comments, fn comment ->
-        line = meta[:end_of_expression][:line] || meta[:line]
+  defp span(quoted) do
+    %{start: range_start, end: range_end} = Sourceror.get_range(quoted, include_comments: true)
+    {range_start[:line], range_end[:line] - range_start[:line] + 1}
+  end
 
-        %{comment | line: line - 1}
+  defp update_empty_quoted({:__block__, meta, []}) do
+    {:__block__, Keyword.put(meta, :line, 1), []}
+  end
+
+  defp update_empty_quoted(quoted), do: quoted
+
+  defp trailing_block_comments([], _collapse_comments, line), do: {[], line - 1}
+
+  defp trailing_block_comments(comments, false, line), do: {comments, line}
+
+  defp trailing_block_comments([comment | _] = comments, true, line) do
+    prev = min(comment.previous_eol_count, 2) - 1
+    line = line + prev
+
+    {comments, line} =
+      Enum.reduce(comments, {[], line}, fn comment, {acc, line} ->
+        comment = %{comment | line: line}
+        line = line + min(comment.next_eol_count, 2)
+        {[comment | acc], line}
       end)
 
-    comments =
-      case comments do
-        [first | rest] ->
-          prev_eol_count = if trailing_block?, do: first.previous_eol_count, else: 0
+    {Enum.reverse(comments), line}
+  end
 
-          [%{first | previous_eol_count: prev_eol_count} | rest]
+  defp collapse_comments(_line, []), do: []
 
-        _ ->
-          comments
-      end
+  defp collapse_comments(line, comments) do
+    comments
+    |> Enum.reverse()
+    |> Enum.reduce({[], line}, fn comment, {acc, line} ->
+      line = line - comment.next_eol_count
+      comment = %{comment | line: line}
+      {[comment | acc], line}
+    end)
+    |> elem(0)
+  end
 
-    case List.pop_at(comments, -1) do
-      {last, rest} when is_map(last) ->
-        rest ++ [%{last | next_eol_count: 0}]
+  defp trailing_block({quoted, []}), do: quoted
 
-      _ ->
-        comments
-    end
+  defp trailing_block({{_form, meta, _args} = quoted, leftovers}) do
+    {:__block__,
+     [
+       __sourceror__: %{trailing_block: true},
+       trailing_comments: leftovers,
+       leading_comments: [],
+       line: meta[:line]
+     ], [quoted]}
   end
 end

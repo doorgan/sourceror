@@ -2,6 +2,23 @@ defmodule SourcerorTest.CommentsTest do
   use ExUnit.Case, async: true
   doctest Sourceror.Comments
 
+  defmacrop assert_to_string(quoted, expected) do
+    quote bind_quoted: [quoted: quoted, expected: expected] do
+      expected_formatted = expected |> Code.format_string!([]) |> IO.iodata_to_binary()
+
+      if Version.match?(System.version(), "~> 1.16") do
+        assert expected == expected_formatted, """
+        The given expected code is not formatted.
+        Formatted code:
+        #{expected_formatted}
+        """
+      end
+
+      assert Sourceror.to_string(quoted, collapse_comments: true, correct_lines: true) ==
+               expected_formatted
+    end
+  end
+
   describe "merge_comments/2" do
     test "merges leading comments" do
       quoted =
@@ -125,8 +142,16 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} = Sourceror.Comments.extract_comments(quoted, collapse_comments: true)
 
       assert [
-               %{line: 1, text: "# A"},
+               %{line: 0, text: "# A"},
                %{line: 1, text: "# B"}
+             ] = comments
+
+      {_quoted, comments} =
+        Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
+
+      assert [
+               %{line: 1, text: "# A"},
+               %{line: 2, text: "# B"}
              ] = comments
 
       quoted =
@@ -140,9 +165,18 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} =
         Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
 
+      assert_to_string(quoted, """
+      def a do
+        :ok
+        # A
+      end
+
+      # B\
+      """)
+
       assert [
-               %{line: 5, text: "# A"},
-               %{line: 7, text: "# B"}
+               %{line: 3, text: "# A"},
+               %{line: 4, text: "# B"}
              ] = comments
 
       quoted =
@@ -156,22 +190,56 @@ defmodule SourcerorTest.CommentsTest do
       {_quoted, comments} =
         Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
 
+      assert_to_string(quoted, """
+      Foo.{
+        A
+        # A
+      }
+
+      # B\
+      """)
+
       assert [
-               %{line: 5, text: "# A"},
-               %{line: 7, text: "# B"}
+               %{line: 3, text: "# A"},
+               %{line: 4, text: "# B"}
              ] = comments
 
-      assert Sourceror.to_string(quoted, collapse_comments: true, correct_lines: true) ==
-               """
-               Foo.{
-                 A
+      quoted =
+        Sourceror.parse_string!("""
+        Foo.{
+          A
+          # A
+          # B
+          # C
+        } # X
+        # Y
+        # Z
+        """)
 
-                 # A
-               }
+      {_quoted, comments} =
+        Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
 
-               # B
-               """
-               |> String.trim()
+      assert_to_string(quoted, """
+      Foo.{
+        A
+        # A
+        # B
+        # C
+      }
+
+      # X
+      # Y
+      # Z\
+      """)
+
+      assert [
+               %{line: 3, text: "# A"},
+               %{line: 4, text: "# B"},
+               %{line: 5, text: "# C"},
+               %{line: 6, text: "# X"},
+               %{line: 7, text: "# Y"},
+               %{line: 8, text: "# Z"}
+             ] = comments
     end
   end
 end
