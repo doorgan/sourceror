@@ -265,6 +265,15 @@ defmodule SourcerorTest do
 
       assert_same(code)
     end
+
+    test "xxx" do
+      assert_same("""
+      defp foo(state, {:do, :code}) do
+        # Lorem ispum
+        state
+      end
+      """)
+    end
   end
 
   describe "parse_string!/2" do
