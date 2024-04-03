@@ -60,15 +60,6 @@ defmodule Sourceror.LinesCorrector do
     {quoted, state}
   end
 
-  defp do_pre_correct({:__block__, meta, [:do]}, state) do
-    state =
-      if meta[:format] != :keyword && meta[:line] == state.last_line,
-        do: %{state | last_line: state.last_line + 1},
-        else: state
-
-    {{:__block__, meta, [:do]}, state}
-  end
-
   defp do_pre_correct({form, meta, args} = quoted, state) do
     case correction(form, meta[:line], meta[:leading_comments], state) do
       nil ->
