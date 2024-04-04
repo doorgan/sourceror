@@ -266,7 +266,7 @@ defmodule SourcerorTest do
       assert_same(code)
     end
 
-    test "xxx" do
+    test "with a :do in the args" do
       assert_same("""
       defp foo(state, {:do, :code}) do
         # Lorem ispum
