@@ -80,8 +80,24 @@ defmodule Sourceror.LinesCorrector do
 
   defp correction(form, _line, _comments, _state) when is_binary_op(form), do: 0
 
+  defp correction(_form, line, nil, state) do
+    max(state.last_line - line, 0)
+  end
+
+  defp correction(_form, line, [], state) do
+    max(state.last_line - line, 0)
+  end
+
   defp correction(_form, line, comments, state) do
-    max(state.last_line + comments_eol_count(comments) - line, 0)
+    comments_last_line = comments_last_line(comments)
+    extra_lines = if state.last_line == line, do: 1, else: 0
+
+    extra_lines =
+      if line <= comments_last_line,
+        do: extra_lines + (comments_last_line - line) + 2,
+        else: extra_lines
+
+    max(state.last_line + extra_lines + comments_eol_count(comments) - line, 0)
   end
 
   defp post_correct({_form, _meta, _args} = quoted, state) do
@@ -190,6 +206,11 @@ defmodule Sourceror.LinesCorrector do
       ast ->
         ast
     end)
+  end
+
+  defp comments_last_line(comments) do
+    last = List.last(comments)
+    last.line
   end
 
   defp comments_eol_count(comments, count \\ nil)

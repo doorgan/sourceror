@@ -150,8 +150,8 @@ defmodule SourcerorTest.CommentsTest do
         Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
 
       assert [
-               %{line: 1, text: "# A"},
-               %{line: 2, text: "# B"}
+               %{line: 3, text: "# A"},
+               %{line: 4, text: "# B"}
              ] = comments
 
       quoted =
@@ -240,6 +240,73 @@ defmodule SourcerorTest.CommentsTest do
                %{line: 7, text: "# Y"},
                %{line: 8, text: "# Z"}
              ] = comments
+
+      quoted =
+        Sourceror.parse_string!("""
+        if a do
+          :b # yes
+        else
+          :a # no
+        end
+        """)
+
+      {_quoted, comments} =
+        Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
+
+      assert [
+               %{line: 2, text: "# yes"},
+               %{line: 4, text: "# no"}
+             ] = comments
+
+      assert_to_string(quoted, """
+      if a do
+        # yes
+        :b
+      else
+        # no
+        :a
+      end\
+      """)
+    end
+
+    test "remove this line" do
+      quoted =
+        Sourceror.parse_string!("""
+        cond do
+          # cond 1
+          a -> # if a
+            :a
+          # cond 2
+          b -> # if b
+            :b
+        end
+        """)
+
+      {_quoted, comments} =
+        Sourceror.Comments.extract_comments(quoted, collapse_comments: true, correct_lines: true)
+
+      assert [
+               %{line: 3, text: "# cond 1"},
+               %{line: 4, text: "# if a"},
+               %{line: 9, text: "# cond 2"},
+               %{line: 10, text: "# if b"}
+             ] = comments
+
+      assert_to_string(quoted, """
+      cond do
+        # cond 1
+
+        # if a
+        a ->
+          :a
+
+        # cond 2
+
+        # if b
+        b ->
+          :b
+      end\
+      """)
     end
   end
 end
