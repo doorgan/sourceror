@@ -204,6 +204,30 @@ defmodule SourcerorTest.RangeTest do
                |> String.trim_trailing()
     end
 
+    test "child of string with interpolations" do
+      code = ~S"""
+      "foo#{
+        2
+        }bar"
+      """
+
+      string =
+        code
+        |> Sourceror.parse_string!()
+        |> Sourceror.Zipper.zip()
+
+      interpolation =
+        string |> Sourceror.Zipper.down() |> Sourceror.Zipper.right() |> Sourceror.Zipper.node()
+
+      assert decorate(code, Sourceror.get_range(interpolation)) ==
+               ~S"""
+               "foo«#{
+                 2
+                 }»bar"
+               """
+               |> String.trim_trailing()
+    end
+
     test "charlists" do
       code = ~S/'foo'/
       assert decorate(code, to_range(code)) == "«'foo'»"

@@ -333,6 +333,21 @@ defmodule Sourceror.Range do
     end
   end
 
+  # Interpolation
+  defp do_get_range(
+         {:"::", meta,
+          [
+            {{:., _, [Kernel, :to_string]}, end_meta, _},
+            _
+          ]}
+       ) do
+    start_pos = [line: meta[:line], column: meta[:column]]
+
+    end_pos = Keyword.update!(end_meta[:closing], :column, &(&1 + 1))
+
+    %{start: start_pos, end: end_pos}
+  end
+
   # Binary operators
   defp do_get_range({op, _, [left, right]}) when is_binary_op(op) do
     get_range_for_pair(left, right)
