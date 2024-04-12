@@ -297,6 +297,14 @@ defmodule Sourceror.Range do
     %{start: start_pos, end: end_pos}
   end
 
+  # Charlist interpolation node
+  defp do_get_range({{:., _, [Kernel, :to_string]}, meta, _}) do
+    start_pos = Keyword.take(meta, [:line, :column])
+    end_pos = Keyword.update!(meta[:closing], :column, &(&1 + 1))
+
+    %{start: start_pos, end: end_pos}
+  end
+
   # Qualified call
   defp do_get_range({{:., _, [_left, right]}, _meta, []} = quoted) when is_atom(right) do
     get_range_for_qualified_call_without_arguments(quoted)
