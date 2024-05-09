@@ -57,8 +57,8 @@ defmodule SourcerorTest.LinesCorrectorTest do
       assert {:foo, foo_meta, [[{_, {:bar, bar_meta, _}}]]} = corrected
 
       assert foo_meta[:line] == 1
-      assert bar_meta[:line] == 3
-      assert foo_meta[:end][:line] == 3
+      assert bar_meta[:line] == 5
+      assert foo_meta[:end][:line] == 5
 
       assert Sourceror.to_string(corrected) ==
                ~S"""

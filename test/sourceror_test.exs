@@ -2,14 +2,27 @@ defmodule SourcerorTest do
   use ExUnit.Case, async: true
   doctest Sourceror
 
-  defmacro assert_same(string, opts \\ []) do
+  defmacrop assert_same(string, opts \\ []) do
     quote bind_quoted: [string: string, opts: opts] do
-      string = String.trim(string)
-      assert string == Sourceror.parse_string!(string) |> Sourceror.to_string(opts)
+      formatted = string |> Code.format_string!([]) |> IO.iodata_to_binary()
+
+      if Version.match?(System.version(), "~> 1.16") do
+        assert formatted == String.trim(string), """
+        The given expected code is not formatted.
+        Formatted code:
+        #{formatted}
+        """
+      end
+
+      assert formatted == Sourceror.parse_string!(string) |> Sourceror.to_string(opts)
     end
   end
 
   describe "parse_string!/2 and to_string/2 comment position preservation" do
+    test "empty string" do
+      assert_same("")
+    end
+
     test "just some comments" do
       assert_same(~S"""
       # comment
@@ -180,9 +193,94 @@ defmodule SourcerorTest do
       def request(%S3{http_method: :head} = op), do: head_object(op)
       """)
     end
+
+    test "after expression" do
+      code = ~S"""
+      bar()
+      # test-comment
+      foo()
+      """
+
+      assert_same(code)
+    end
+
+    test "last line in def" do
+      code = ~S"""
+      def a_fun do
+        :return_value
+        # test-comment
+      end
+      """
+
+      assert_same(code)
+    end
+
+    test "in directly executed anonymous function" do
+      code = ~S"""
+      (fn x ->
+         # test-comment
+         x * x
+       end).()
+      """
+
+      assert_same(code)
+    end
+
+    test "multiple comment blocks" do
+      code = ~S"""
+      defmodule Z do
+        alias B
+        alias A
+
+        def a do
+          # test1
+          # test2
+          # line1
+          # line2
+          :ok
+        end
+
+        # test
+        defp z do
+          1
+        end
+      end
+      """
+
+      assert_same(code)
+    end
+
+    test "multiline comments in list" do
+      code = ~S"""
+      [
+        :field_1,
+
+        #######################################################
+        ### Another comment
+        #######################################################
+
+        :field_2
+      ]
+      """
+
+      assert_same(code)
+    end
+
+    test "with a :do in the args" do
+      assert_same("""
+      defp foo(state, {:do, :code}) do
+        # Lorem ispum
+        state
+      end
+      """)
+    end
   end
 
   describe "parse_string!/2" do
+    test "returns an empty block for an emtpy string" do
+      assert Sourceror.parse_string!("") == {:__block__, [], []}
+    end
+
     test "raises on invalid string" do
       assert_raise SyntaxError, fn ->
         Sourceror.parse_string!(":ok end")
@@ -375,10 +473,16 @@ defmodule SourcerorTest do
       code = """
       [
         1,
-      ]
+      ]\
       """
 
-      assert_same(code, quoted_to_algebra: quoted_to_algebra, trailing_comma: true)
+      assert code ==
+               code
+               |> Sourceror.parse_string!()
+               |> Sourceror.to_string(
+                 quoted_to_algebra: quoted_to_algebra,
+                 trailing_comma: true
+               )
     end
   end
 
@@ -620,7 +724,6 @@ defmodule SourcerorTest do
                ~S"""
                foo do
                  :ok
-
                  # B
                  # A
                end
@@ -643,7 +746,6 @@ defmodule SourcerorTest do
                ~S"""
                foo do
                  :ok
-
                  # B
                end
                """
@@ -662,7 +764,6 @@ defmodule SourcerorTest do
                ~S"""
                Foo.{
                  Bar
-
                  # B
                }
                """
@@ -753,7 +854,6 @@ defmodule SourcerorTest do
                ~S"""
                foo do
                  :ok
-
                  # B
                end
                """
@@ -772,7 +872,6 @@ defmodule SourcerorTest do
                ~S"""
                Foo.{
                  Bar
-
                  # B
                }
                """
