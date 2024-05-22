@@ -545,6 +545,18 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "subtree/1" do
+    test "returns a new zipper isolated on the focused of the parent zipper" do
+      zipper =
+        [1, [2, 3], 4, 5]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.subtree(zipper) |> Z.node() == [2, 3]
+    end
+  end
+
   describe "Zipper.Inspect" do
     test "inspect/2 defaults to using zippers: :as_ast" do
       zipper = Z.zip([1, [2], 3])
