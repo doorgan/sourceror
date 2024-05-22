@@ -501,4 +501,14 @@ defmodule Sourceror.Zipper do
 
   defp do_append_child(list, child) when is_list(list), do: list ++ [child]
   defp do_append_child({left, right}, child), do: {:{}, [], [left, right, child]}
+
+  @doc """
+  Returns a new zipper that is a subtree of the currently focused node.
+  """
+  @spec subtree(t) :: t
+  def subtree(%Z{} = zipper) do
+    zipper
+    |> node()
+    |> zip()
+  end
 end
