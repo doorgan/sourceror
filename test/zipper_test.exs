@@ -553,7 +553,7 @@ defmodule SourcerorTest.ZipperTest do
         |> Z.next()
         |> Z.next()
 
-      assert Z.subtree(zipper) |> Z.root() |> Z.node() == [2, 3]
+      assert Z.subtree(zipper) |> Z.root() == [2, 3]
     end
   end
 
