@@ -45,8 +45,16 @@ defmodule Sourceror do
   with pre 1.13 Elixir versions.
   """
   defmacro string_to_quoted!(string, opts) do
-    quote bind_quoted: [code_module: @code_module, string: string, opts: opts] do
+    map_literal_fix? = Version.match?(System.version(), "< 1.17.0")
+
+    quote bind_quoted: [
+            code_module: @code_module,
+            string: string,
+            opts: opts,
+            map_literal_fix?: map_literal_fix?
+          ] do
       code_module.string_to_quoted_with_comments!(string, opts)
+      |> Sourceror.map_literal_fix(map_literal_fix?)
     end
   end
 
@@ -55,9 +63,42 @@ defmodule Sourceror do
   with pre 1.13 Elixir versions.
   """
   defmacro string_to_quoted(string, opts) do
-    quote bind_quoted: [code_module: @code_module, string: string, opts: opts] do
+    map_literal_fix? = Version.match?(System.version(), "< 1.17.0")
+
+    quote bind_quoted: [
+            code_module: @code_module,
+            string: string,
+            opts: opts,
+            map_literal_fix?: map_literal_fix?
+          ] do
       code_module.string_to_quoted_with_comments(string, opts)
+      |> Sourceror.map_literal_fix(map_literal_fix?)
     end
+  end
+
+  @doc false
+  def map_literal_fix(result, false),
+    do: result
+
+  def map_literal_fix({:error, reason}, _),
+    do: {:error, reason}
+
+  def map_literal_fix({:ok, quoted, comments}, true) do
+    {quoted, comments} = map_literal_fix({quoted, comments}, true)
+    {:ok, quoted, comments}
+  end
+
+  def map_literal_fix({quoted, comments}, true) do
+    quoted =
+      Macro.postwalk(quoted, fn
+        {:%{}, meta, args} ->
+          {:%{}, Keyword.replace(meta, :column, meta[:column] - 1), args}
+
+        quoted ->
+          quoted
+      end)
+
+    {quoted, comments}
   end
 
   @doc """

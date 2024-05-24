@@ -532,6 +532,9 @@ defmodule SourcerorTest do
 
       quoted = Sourceror.parse_string!("foo(:bar)")
       assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
+
+      quoted = Sourceror.parse_string!("%{a: 1}")
+      assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
     end
   end
 
