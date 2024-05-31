@@ -108,7 +108,9 @@ defmodule Sourceror.Range do
 
     end_column =
       if meta[:delimiter] in [~S/"""/, ~S/'''/] do
-        meta[:column] + String.length(meta[:delimiter])
+        delimiter_count = String.length(meta[:delimiter]) + 1
+        indentation = meta[:indentation] || 0
+        indentation + delimiter_count
       else
         delimiter_count =
           if String.contains?(string, meta[:delimiter]) do
