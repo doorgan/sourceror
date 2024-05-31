@@ -474,4 +474,15 @@ defmodule Sourceror.Zipper do
   @spec subtree(t) :: t
   @compile {:inline, subtree: 1}
   def subtree(%Z{} = zipper), do: %{zipper | path: nil}
+
+  @doc """
+  Runs the function `fun` on the subtree of the currently focused `node` and
+  returns the updated `zipper`.
+
+  `fun` must return a zipper, which may be positioned at the top of the subtree.
+  """
+  def within(%Z{} = zipper, fun) when is_function(fun, 1) do
+    updated = zipper |> subtree() |> fun.() |> top()
+    into(updated, zipper)
+  end
 end

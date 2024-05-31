@@ -1,6 +1,7 @@
 defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
-  doctest Sourceror.Zipper, except: [:moduledoc]
+
+  doctest Sourceror.Zipper, import: true, except: [:moduledoc]
 
   alias Sourceror.Zipper, as: Z
 
@@ -683,6 +684,35 @@ defmodule SourcerorTest.ZipperTest do
              """
 
       assert :ok = Z.Inspect.default_inspect_as(:as_ast)
+    end
+  end
+
+  describe "within/2" do
+    test "executes a function within a zipper" do
+      code = """
+      config :target, key: :change_me
+
+      config :unrelated, key: :dont_change_me
+      """
+
+      updated =
+        code
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+        |> Z.find(&match?({:config, _, [{:__block__, _, [:target]} | _]}, &1))
+        |> Z.within(fn zipper ->
+          zipper
+          |> Z.find(&match?({{:__block__, _, [:key]}, _value}, &1))
+          |> Z.update(fn {key, _value} -> {key, {:__block__, [], [:changed]}} end)
+        end)
+        |> Z.root()
+        |> Sourceror.to_string()
+
+      assert updated == """
+             config :target, key: :changed
+
+             config :unrelated, key: :dont_change_me\
+             """
     end
   end
 end
