@@ -1,5 +1,6 @@
 defmodule SourcerorTest.PatchTest do
   use ExUnit.Case, async: true
+
   doctest Sourceror.Patch
 
   describe "rename_call/2" do
@@ -7,24 +8,24 @@ defmodule SourcerorTest.PatchTest do
       original = ~S"a(foo)"
       expected = ~S"b(foo)"
 
-      patches =
+      patch =
         original
         |> Sourceror.parse_string!()
         |> Sourceror.Patch.rename_call(:b)
 
-      assert expected == Sourceror.patch_string(original, patches)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
 
     test "qualified call" do
       original = ~S"String.to_atom(foo)"
       expected = ~S"String.to_existing_atom(foo)"
 
-      patches =
+      patch =
         original
         |> Sourceror.parse_string!()
         |> Sourceror.Patch.rename_call(:to_existing_atom)
 
-      assert expected == Sourceror.patch_string(original, patches)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
 
     test "with call in new line" do
@@ -40,36 +41,36 @@ defmodule SourcerorTest.PatchTest do
       to_existing_atom(foo)
       """
 
-      patches =
+      patch =
         original
         |> Sourceror.parse_string!()
         |> Sourceror.Patch.rename_call(:to_existing_atom)
 
-      assert expected == Sourceror.patch_string(original, patches)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
 
     test "only the last call on qualified calls" do
       original = ~S"A.b.c(foo)"
       expected = ~S"A.b.changed(foo)"
 
-      patches =
+      patch =
         original
         |> Sourceror.parse_string!()
         |> Sourceror.Patch.rename_call(:changed)
 
-      assert expected == Sourceror.patch_string(original, patches)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
 
     test "calls with do block" do
       original = ~S"if foo do :ok end"
       expected = ~S"unless foo do :ok end"
 
-      patches =
+      patch =
         original
         |> Sourceror.parse_string!()
         |> Sourceror.Patch.rename_call(:unless)
 
-      assert expected == Sourceror.patch_string(original, patches)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
 
     test "sigil" do
@@ -78,14 +79,14 @@ defmodule SourcerorTest.PatchTest do
 
       ast = Sourceror.parse_string!(original)
 
-      patches = Sourceror.Patch.rename_call(ast, "F")
-      assert expected == Sourceror.patch_string(original, patches)
+      patch = Sourceror.Patch.rename_call(ast, "F")
+      assert expected == Sourceror.patch_string(original, [patch])
 
-      patches = Sourceror.Patch.rename_call(ast, :F)
-      assert expected == Sourceror.patch_string(original, patches)
+      patch = Sourceror.Patch.rename_call(ast, :F)
+      assert expected == Sourceror.patch_string(original, [patch])
 
-      patches = Sourceror.Patch.rename_call(ast, :sigil_F)
-      assert expected == Sourceror.patch_string(original, patches)
+      patch = Sourceror.Patch.rename_call(ast, :sigil_F)
+      assert expected == Sourceror.patch_string(original, [patch])
 
       assert_raise ArgumentError, fn -> Sourceror.Patch.rename_call(ast, "nope") end
       assert_raise ArgumentError, fn -> Sourceror.Patch.rename_call(ast, :nope) end
@@ -98,8 +99,8 @@ defmodule SourcerorTest.PatchTest do
 
       ast = Sourceror.parse_string!(original)
 
-      patches = Sourceror.Patch.rename_call(ast, :f)
-      assert expected == Sourceror.patch_string(original, patches)
+      patch = Sourceror.Patch.rename_call(ast, :f)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
   end
 
@@ -108,12 +109,12 @@ defmodule SourcerorTest.PatchTest do
       original = ~S"foo"
       expected = ~S"bar"
 
-      patches =
+      patch =
         original
         |> Sourceror.parse_string!()
         |> Sourceror.Patch.rename_identifier(:bar)
 
-      assert expected == Sourceror.patch_string(original, patches)
+      assert expected == Sourceror.patch_string(original, [patch])
     end
   end
 
