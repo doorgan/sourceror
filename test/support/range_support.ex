@@ -3,7 +3,7 @@ defmodule SourcerorTest.RangeSupport do
 
   def decorate(code, range) do
     code
-    |> Sourceror.patch_string([%{range: range, change: &"«#{&1}»"}])
+    |> Sourceror.patch_string([%Sourceror.Patch{range: range, change: &"«#{&1}»"}])
     |> String.trim_trailing()
   end
 end

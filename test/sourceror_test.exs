@@ -1,5 +1,9 @@
 defmodule SourcerorTest do
   use ExUnit.Case, async: true
+
+  alias Sourceror.Patch
+  alias Sourceror.Range
+
   doctest Sourceror
 
   defmacrop assert_same(string, opts \\ []) do
@@ -615,7 +619,7 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_range(quoted) == %{
+      assert Sourceror.get_range(quoted) == %Range{
                start: [line: 1, column: 1],
                end: [line: 3, column: 4]
              }
@@ -628,7 +632,7 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_range(quoted) == %{
+      assert Sourceror.get_range(quoted) == %Range{
                start: [line: 1, column: 1],
                end: [line: 3, column: 2]
              }
@@ -646,17 +650,17 @@ defmodule SourcerorTest do
 
       {_, _, [parens, without_parens, nested_without_parens, _]} = quoted
 
-      assert Sourceror.get_range(parens) == %{
+      assert Sourceror.get_range(parens) == %Range{
                start: [line: 1, column: 1],
                end: [line: 1, column: 7]
              }
 
-      assert Sourceror.get_range(without_parens) == %{
+      assert Sourceror.get_range(without_parens) == %Range{
                start: [line: 2, column: 1],
                end: [line: 2, column: 6]
              }
 
-      assert Sourceror.get_range(nested_without_parens) == %{
+      assert Sourceror.get_range(nested_without_parens) == %Range{
                start: [line: 3, column: 1],
                end: [line: 3, column: 10]
              }
@@ -906,17 +910,17 @@ defmodule SourcerorTest do
       original = ~S"foo bar baz"
 
       patches = [
-        %{
+        %Patch{
           change: "something long",
-          range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+          range: %Range{start: [line: 1, column: 5], end: [line: 1, column: 8]}
         },
-        %{
+        %Patch{
           change: "a",
-          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
+          range: %Range{start: [line: 1, column: 1], end: [line: 1, column: 4]}
         },
-        %{
+        %Patch{
           change: "c",
-          range: %{start: [line: 1, column: 9], end: [line: 1, column: 12]}
+          range: %Range{start: [line: 1, column: 9], end: [line: 1, column: 12]}
         }
       ]
 
@@ -927,21 +931,21 @@ defmodule SourcerorTest do
       original = ~S"foo bar baz"
 
       patches = [
-        %{
+        %Patch{
           change: "something long",
-          range: %{start: [line: 1, column: 5], end: [line: 1, column: 8]}
+          range: %Range{start: [line: 1, column: 5], end: [line: 1, column: 8]}
         },
-        %{
+        %Patch{
           change: "a",
-          range: %{start: [line: 1, column: 1], end: [line: 1, column: 4]}
+          range: %Range{start: [line: 1, column: 1], end: [line: 1, column: 4]}
         },
-        %{
+        %Patch{
           change: """
           [
             next
           ]
           """,
-          range: %{start: [line: 1, column: 9], end: [line: 1, column: 12]}
+          range: %Range{start: [line: 1, column: 9], end: [line: 1, column: 12]}
         }
       ]
 
@@ -967,7 +971,7 @@ defmodule SourcerorTest do
         """
         |> String.trim()
 
-      patch = %{
+      patch = %Patch{
         change: patch_text,
         range: %{start: [line: 1, column: 1], end: [line: 3, column: 4]}
       }
@@ -996,9 +1000,9 @@ defmodule SourcerorTest do
         """
         |> String.trim()
 
-      patch = %{
+      patch = %Patch{
         change: patch_text,
-        range: %{start: [line: 2, column: 13], end: [line: 4, column: 8]}
+        range: %Range{start: [line: 2, column: 13], end: [line: 4, column: 8]}
       }
 
       assert Sourceror.patch_string(original, [patch]) == ~S"""
@@ -1017,7 +1021,7 @@ defmodule SourcerorTest do
       end
       """
 
-      patch = %{
+      patch = %Patch{
         change: """
         [
           1,
