@@ -228,6 +228,33 @@ defmodule SourcerorTest.RangeTest do
                |> String.trim_trailing()
     end
 
+    test "heredocs" do
+      code = ~S'''
+      @moduledoc """
+      This is my funny moduledoc
+      """
+      '''
+
+      zipper =
+        code
+        |> Sourceror.parse_string!()
+        |> Sourceror.Zipper.zip()
+
+      heredoc =
+        zipper
+        |> Sourceror.Zipper.down()
+        |> Sourceror.Zipper.down()
+        |> Sourceror.Zipper.node()
+
+      assert decorate(code, Sourceror.get_range(heredoc)) ==
+               ~S'''
+               @moduledoc «"""
+               This is my funny moduledoc
+               """»
+               '''
+               |> String.trim_trailing()
+    end
+
     test "charlists" do
       code = ~S/'foo'/
       assert decorate(code, to_range(code)) == "«'foo'»"
