@@ -22,6 +22,7 @@ defmodule Sourceror.Zipper do
   """
 
   import Kernel, except: [node: 1]
+  import Sourceror.Identifier, only: [is_reserved_block_name: 1]
 
   alias Sourceror.Zipper, as: Z
 
@@ -197,8 +198,19 @@ defmodule Sourceror.Zipper do
   def remove(%Z{path: nil}),
     do: raise(ArgumentError, message: "Cannot remove the top level node.")
 
-  def remove(%Z{path: path}) do
+  def remove(%Z{path: path} = zipper) do
     case path.left do
+      [{:__block__, meta, [name]} = left | rest] when is_reserved_block_name(name) ->
+        if meta[:format] == :keyword do
+          left
+          |> new(%{path | left: rest})
+          |> do_prev()
+        else
+          zipper
+          |> replace({:__block__, meta, []})
+          |> up()
+        end
+
       [left | rest] ->
         left
         |> new(%{path | left: rest})
