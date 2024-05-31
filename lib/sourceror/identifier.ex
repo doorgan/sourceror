@@ -288,6 +288,32 @@ defmodule Sourceror.Identifier do
            when __is_atomic_literal__(quoted) or __is_atomic_literal_block__(quoted)
 
   @doc """
+  Checks if the given quoted form is a reserved block name.
+
+  ## Examples
+
+      iex> is_reserved_block_name(:do)
+      true
+
+      iex> is_reserved_block_name(:else)
+      true
+
+      iex> is_reserved_block_name(:catch)
+      true
+
+      iex> is_reserved_block_name(:after)
+      true
+
+      iex> is_reserved_block_name(:rescue)
+      true
+
+      iex> is_reserved_block_name(:foo)
+      false
+  """
+  @spec is_reserved_block_name(Macro.t()) :: Macro.t()
+  defguard is_reserved_block_name(name) when name in [:do, :else, :catch, :after, :rescue]
+
+  @doc """
   Checks if the given atom is a valid module alias.
 
   ## Examples
