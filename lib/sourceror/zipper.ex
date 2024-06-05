@@ -107,6 +107,7 @@ defmodule Sourceror.Zipper do
   def down(%Z{node: tree} = zipper) do
     case children(tree) do
       nil -> nil
+      [] -> nil
       [first] -> new(first, %{parent: zipper, left: nil, right: nil})
       [first | rest] -> new(first, %{parent: zipper, left: nil, right: rest})
     end
