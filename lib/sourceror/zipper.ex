@@ -478,6 +478,108 @@ defmodule Sourceror.Zipper do
     do: %{zipper | path: path, supertree: supertree}
 
   @doc """
+  Matches and moves to the location of a `__cursor__` in provided source code.
+
+  Use `___cursor___` to match a cursor in the provided source code. Use `___skip___`
+  to allow for any value for a given node.
+
+  For example:
+
+  ```elixir
+  zipper =
+    \"\"\"
+    if true do
+      10
+    end
+    \"\"\"
+    |> Sourceror.Zipper.zip()
+
+  pattern =
+    \"\"\"
+    if ___skip___ do
+      ___cursor___
+    end
+    \"\"\"
+
+  zipper
+  |> Zipper.move_to_cursor(pattern)
+  |> Zipper.subtree()
+  |> Zipper.node()
+  # => 10
+  ```
+  """
+  @spec move_to_cursor(t(), String.t() | t()) :: t() | nil
+  def move_to_cursor(%Z{} = zipper, pattern) when is_binary(pattern) do
+    pattern
+    |> Sourceror.parse_string!()
+    |> zip()
+    |> then(&do_move_to_cursor(zipper, &1))
+  end
+
+  def move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
+    do_move_to_cursor(zipper, pattern_zipper)
+  end
+
+  defp do_move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
+    cond do
+      is_cursor?(pattern_zipper |> subtree() |> node()) ->
+        zipper
+
+      zippers_match?(zipper, pattern_zipper) ->
+        with zipper when not is_nil(zipper) <- next(zipper),
+             pattern_zipper when not is_nil(pattern_zipper) <- next(pattern_zipper) do
+          do_move_to_cursor(zipper, pattern_zipper)
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  defp is_cursor?(:___cursor___), do: true
+  defp is_cursor?({:___cursor___, _, []}), do: true
+  defp is_cursor?({:___cursor___, _, nil}), do: true
+  defp is_cursor?(_other), do: false
+
+  defp zippers_match?(zipper, pattern_zipper) do
+    zipper_node =
+      zipper
+      |> subtree()
+      |> node()
+
+    pattern_node =
+      pattern_zipper
+      |> subtree()
+      |> node()
+
+    case {zipper_node, pattern_node} do
+      {_, :___ignore___} ->
+        true
+
+      {_, {:___ignore___, _, []}} ->
+        true
+
+      {_, {:___ignore___, _, nil}} ->
+        true
+
+      {{call, _, _}, {call, _, _}} ->
+        true
+
+      {{_, _}, {_, _}} ->
+        true
+
+      {same, same} ->
+        true
+
+      {left, right} when is_list(left) and is_list(right) and length(left) == length(right) ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  @doc """
   Returns a `zipper` to the `node` that satisfies the `predicate` function, or
   `nil` if none is found.
 
