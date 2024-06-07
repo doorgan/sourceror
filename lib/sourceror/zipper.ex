@@ -480,8 +480,7 @@ defmodule Sourceror.Zipper do
   @doc """
   Matches and moves to the location of a `__cursor__` in provided source code.
 
-  Use `___cursor___` to match a cursor in the provided source code. Use `___skip___`
-  to allow for any value for a given node.
+  Use `__cursor__()` to match a cursor in the provided source code. Use `...` to skip any code at a point.
 
   For example:
 
@@ -496,8 +495,8 @@ defmodule Sourceror.Zipper do
 
   pattern =
     \"\"\"
-    if ___skip___ do
-      ___cursor___
+    if ... do
+      __cursor__
     end
     \"\"\"
 
@@ -525,9 +524,9 @@ defmodule Sourceror.Zipper do
       is_cursor?(pattern_zipper |> subtree() |> node()) ->
         zipper
 
-      zippers_match?(zipper, pattern_zipper) ->
-        with zipper when not is_nil(zipper) <- next(zipper),
-             pattern_zipper when not is_nil(pattern_zipper) <- next(pattern_zipper) do
+      match_type = zippers_match(zipper, pattern_zipper) ->
+        with zipper when not is_nil(zipper) <- move(match_type).(zipper),
+             pattern_zipper when not is_nil(pattern_zipper) <- move(match_type).(pattern_zipper) do
           do_move_to_cursor(zipper, pattern_zipper)
         end
 
@@ -536,12 +535,10 @@ defmodule Sourceror.Zipper do
     end
   end
 
-  defp is_cursor?(:___cursor___), do: true
-  defp is_cursor?({:___cursor___, _, []}), do: true
-  defp is_cursor?({:___cursor___, _, nil}), do: true
+  defp is_cursor?({:__cursor__, _, []}), do: true
   defp is_cursor?(_other), do: false
 
-  defp zippers_match?(zipper, pattern_zipper) do
+  defp zippers_match(zipper, pattern_zipper) do
     zipper_node =
       zipper
       |> subtree()
@@ -553,26 +550,20 @@ defmodule Sourceror.Zipper do
       |> node()
 
     case {zipper_node, pattern_node} do
-      {_, :___ignore___} ->
-        true
-
-      {_, {:___ignore___, _, []}} ->
-        true
-
-      {_, {:___ignore___, _, nil}} ->
-        true
+      {_, {:..., _, []}} ->
+        :right
 
       {{call, _, _}, {call, _, _}} ->
-        true
+        :next
 
       {{_, _}, {_, _}} ->
-        true
+        :next
 
       {same, same} ->
-        true
+        :next
 
-      {left, right} when is_list(left) and is_list(right) and length(left) == length(right) ->
-        true
+      {left, right} when is_list(left) and is_list(right) ->
+        :next
 
       _ ->
         false

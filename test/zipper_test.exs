@@ -752,7 +752,7 @@ defmodule SourcerorTest.ZipperTest do
         |> Z.zip()
 
       seek = """
-      ___cursor___
+      __cursor__()
       """
 
       assert code == Z.move_to_cursor(code, seek)
@@ -770,13 +770,14 @@ defmodule SourcerorTest.ZipperTest do
 
       seek = """
       if foo == :bar do
-        ___cursor___
+        __cursor__()
       end
       """
 
       assert new_zipper = Z.move_to_cursor(code, seek)
 
-      assert "IO.puts(\"Hello\")" == new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+      assert "IO.puts(\"Hello\")" ==
+               new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
     end
 
     test "a really complicated example" do
@@ -806,7 +807,7 @@ defmodule SourcerorTest.ZipperTest do
             10
 
           "bar" ->
-            ___cursor___
+            __cursor__()
         end
       end
       """
