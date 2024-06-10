@@ -803,8 +803,8 @@ defmodule SourcerorTest.ZipperTest do
         @foo File.read!("foo.txt")
 
         case @foo do
-          "foo" ->
-            10
+          __ ->
+            __
 
           "bar" ->
             __cursor__()

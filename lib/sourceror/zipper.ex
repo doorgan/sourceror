@@ -480,7 +480,7 @@ defmodule Sourceror.Zipper do
   @doc """
   Matches and moves to the location of a `__cursor__` in provided source code.
 
-  Use `__cursor__()` to match a cursor in the provided source code. Use `...` to skip any code at a point.
+  Use `__cursor__()` to match a cursor in the provided source code. Use `__` to skip any code at a point.
 
   For example:
 
@@ -495,7 +495,7 @@ defmodule Sourceror.Zipper do
 
   pattern =
     \"\"\"
-    if ... do
+    if __ do
       __cursor__
     end
     \"\"\"
@@ -525,8 +525,14 @@ defmodule Sourceror.Zipper do
         zipper
 
       match_type = zippers_match(zipper, pattern_zipper) ->
-        with zipper when not is_nil(zipper) <- move(match_type).(zipper),
-             pattern_zipper when not is_nil(pattern_zipper) <- move(match_type).(pattern_zipper) do
+        move =
+          case match_type do
+            :skip -> &skip/1
+            :next -> &next/1
+          end
+
+        with zipper when not is_nil(zipper) <- move.(zipper),
+             pattern_zipper when not is_nil(pattern_zipper) <- move.(pattern_zipper) do
           do_move_to_cursor(zipper, pattern_zipper)
         end
 
@@ -550,8 +556,8 @@ defmodule Sourceror.Zipper do
       |> node()
 
     case {zipper_node, pattern_node} do
-      {_, {:..., _, []}} ->
-        :right
+      {_, {:__, _, _}} ->
+        :skip
 
       {{call, _, _}, {call, _, _}} ->
         :next
