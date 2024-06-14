@@ -410,6 +410,30 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "topmost/1" do
+    test "returns the top zipper, breaking out of subtrees" do
+      assert Z.zip([1, [2, [3, 4]]])
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.subtree()
+             |> Z.topmost() ==
+               %Z{node: [1, [2, [3, 4]]]}
+    end
+  end
+
+  describe "topmost_root/1" do
+    test "returns the top zipper's node, breaking out of subtrees" do
+      assert Z.zip([1, [2, [3, 4]]])
+             |> Z.next()
+             |> Z.next()
+             |> Z.next()
+             |> Z.subtree()
+             |> Z.topmost_root() ==
+               [1, [2, [3, 4]]]
+    end
+  end
+
   describe "root/1" do
     test "returns the root node" do
       assert Z.zip([1, [2, [3, 4]]]) |> Z.next() |> Z.next() |> Z.next() |> Z.root() ==
