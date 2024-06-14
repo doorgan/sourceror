@@ -95,7 +95,7 @@ defmodule Sourceror.Zipper do
   """
   @spec all_the_way_up(t) :: t
   def all_the_way_up(%Z{supertree: supertree} = zipper) when not is_nil(supertree) do
-    all_the_way_up(into(zipper, supertree))
+    all_the_way_up(into(top(zipper), supertree))
   end
 
   def all_the_way_up(zipper), do: top(zipper)
