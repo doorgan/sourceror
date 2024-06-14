@@ -94,8 +94,8 @@ defmodule Sourceror.Zipper do
   Walks the `zipper` all the way up, breaking out of any subtrees and returns the top-most `zipper`.
   """
   @spec all_the_way_up(t) :: t
-  def all_the_way_up(%Z{supertree: supertree}) when not is_nil(supertree) do
-    all_the_way_up(supertree)
+  def all_the_way_up(%Z{supertree: supertree} = zipper) when not is_nil(supertree) do
+    all_the_way_up(into(zipper, supertree))
   end
 
   def all_the_way_up(zipper), do: top(zipper)
