@@ -44,10 +44,10 @@ defmodule Sourceror.Zipper do
 
   @compile {:inline, new: 1, new: 3}
   defp new(node), do: %Z{node: node}
-  defp new(node, nil, supertree), do: %Z{node: node, supertree: supertree && top(supertree)}
+  defp new(node, nil, supertree), do: %Z{node: node, supertree: supertree}
 
   defp new(node, %{left: _, parent: _, right: _} = path, supertree),
-    do: %Z{node: node, path: path, supertree: supertree && top(supertree)}
+    do: %Z{node: node, path: path, supertree: supertree}
 
   @spec branch?(tree) :: boolean
   def branch?({_, _, args}) when is_list(args), do: true
@@ -98,8 +98,7 @@ defmodule Sourceror.Zipper do
     all_the_way_up(supertree)
   end
 
-  def all_the_way_up(%Z{path: nil} = zipper), do: zipper
-  def all_the_way_up(zipper), do: zipper |> up() |> top()
+  def all_the_way_up(zipper), do: top(zipper)
 
   @doc """
   Walks the `zipper` all the way up and returns the root `node`.
@@ -503,8 +502,8 @@ defmodule Sourceror.Zipper do
   """
   @spec subtree(t) :: t
   @compile {:inline, subtree: 1}
-  def subtree(%Z{supertree: supertree} = zipper),
-    do: %{zipper | path: nil, supertree: into(top(zipper), supertree)}
+  def subtree(%Z{} = zipper),
+    do: %{zipper | path: nil, supertree: zipper}
 
   @doc """
   Runs the function `fun` on the subtree of the currently focused `node` and
