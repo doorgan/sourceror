@@ -45,7 +45,9 @@ defmodule Sourceror.Zipper do
   @compile {:inline, new: 1, new: 3}
   defp new(node), do: %Z{node: node}
   defp new(node, nil, supertree), do: %Z{node: node, supertree: supertree && top(supertree)}
-  defp new(node, %{left: _, parent: _, right: _} = path, supertree), do: %Z{node: node, path: path, supertree: supertree && top(supertree)}
+
+  defp new(node, %{left: _, parent: _, right: _} = path, supertree),
+    do: %Z{node: node, path: path, supertree: supertree && top(supertree)}
 
   @spec branch?(tree) :: boolean
   def branch?({_, _, args}) when is_list(args), do: true
@@ -95,6 +97,7 @@ defmodule Sourceror.Zipper do
   def all_the_way_up(%Z{supertree: supertree}) when not is_nil(supertree) do
     all_the_way_up(supertree)
   end
+
   def all_the_way_up(%Z{path: nil} = zipper), do: zipper
   def all_the_way_up(zipper), do: zipper |> up() |> top()
 
@@ -465,7 +468,9 @@ defmodule Sourceror.Zipper do
 
   @compile {:inline, into: 2}
   defp into(zipper, nil), do: zipper
-  defp into(%Z{path: nil} = zipper, %Z{path: path, supertree: supertree}), do: %{zipper | path: path, supertree: supertree}
+
+  defp into(%Z{path: nil} = zipper, %Z{path: path, supertree: supertree}),
+    do: %{zipper | path: path, supertree: supertree}
 
   @doc """
   Returns a `zipper` to the `node` that satisfies the `predicate` function, or
@@ -498,7 +503,8 @@ defmodule Sourceror.Zipper do
   """
   @spec subtree(t) :: t
   @compile {:inline, subtree: 1}
-  def subtree(%Z{supertree: supertree} = zipper), do: %{zipper | path: nil, supertree: into(top(zipper), supertree)}
+  def subtree(%Z{supertree: supertree} = zipper),
+    do: %{zipper | path: nil, supertree: into(top(zipper), supertree)}
 
   @doc """
   Runs the function `fun` on the subtree of the currently focused `node` and
