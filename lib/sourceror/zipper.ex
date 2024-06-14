@@ -91,20 +91,26 @@ defmodule Sourceror.Zipper do
   def top(zipper), do: zipper |> up() |> top()
 
   @doc """
-  Walks the `zipper` all the way up, breaking out of any subtrees and returns the top-most `zipper`.
+  Walks the `zipper` to the topmost node, breaking out of any subtrees and returns the top-most `zipper`.
   """
-  @spec all_the_way_up(t) :: t
-  def all_the_way_up(%Z{supertree: supertree} = zipper) when not is_nil(supertree) do
-    all_the_way_up(into(top(zipper), supertree))
+  @spec topmost(t) :: t
+  def topmost(%Z{supertree: supertree} = zipper) when not is_nil(supertree) do
+    topmost(into(top(zipper), supertree))
   end
 
-  def all_the_way_up(zipper), do: top(zipper)
+  def topmost(zipper), do: top(zipper)
 
   @doc """
-  Walks the `zipper` all the way up and returns the root `node`.
+  Walks the `zipper` to the top of the current subtree and returns the that `node`.
   """
   @spec root(t) :: tree
   def root(zipper), do: zipper |> top() |> node()
+
+  @doc """
+  Walks the `zipper` to the topmost node, breaking out of any subtrees and returns the root `node`.
+  """
+  @spec topmost_root(t) :: tree
+  def topmost_root(zipper), do: zipper |> topmost() |> node()
 
   @doc """
   Returns the `node` at the `zipper`.
