@@ -5,19 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.3.0 (2024-06-14)
+
+### 1. Enhancements
+
+- [Sourceror] Converted patch and range maps into `Patch` and `Range` structs
+- [Sourceror.Zipper] Added `within/2`
+  last elemetn in a block
+- [Sourceror.Zipper] Add `topmost` and `topmost_root`
+
+### 2. Bug fixes
+
+- [Sourceror] Fix range calculations for heredocs
+- [Sourceror.Zipper] Fixed `remove/1` producing invalid AST when removing the
+- [Sourceror.Zipper] Fixed match on empty children list in `down/1`
+
 ## v1.2.1 (2024-05-23)
 
 ### 1. Bug fixes
+
 - [Sourceror] Fixed line/column metadata for map literals.
 
 ## v1.2.0 (2024-05-22)
 
 ### 1. Enhancements
+
 - [Sourceror.Zipper] Added `subtree/1` to get a zipper for the current node.
 
 ## v1.1.0 (2024-05-09)
 
 ### 1. Bug fixes
+
 - [Sourceror] Fix trailing comments being misplaced
 
 ## v1.0.3 (2024-04-12)
