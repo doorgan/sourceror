@@ -151,8 +151,8 @@ defmodule Sourceror.Comments do
     output
   end
 
-  defp do_extract_comments({_, meta, [quoted]}, [], collapse_comments, true) do
-    {quoted, comments} = do_extract_comments(quoted, [], collapse_comments, false)
+  defp do_extract_comments({_, meta, [quoted]}, acc, collapse_comments, true) do
+    {quoted, comments} = do_extract_comments(quoted, acc, collapse_comments, false)
     quoted = update_empty_quoted(quoted)
 
     {start, span} = span(quoted)
