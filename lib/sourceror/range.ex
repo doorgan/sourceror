@@ -342,6 +342,11 @@ defmodule Sourceror.Range do
     get_range_for_qualified_call_with_arguments(quoted)
   end
 
+  # Qualified double call eg. Mod.unquote(foo)(bar)
+  defp do_get_range({{{:., _, _}, _, _}, _, _} = quoted) do
+    get_range_for_qualified_call_with_arguments(quoted)
+  end
+
   # Anonymous function call with arguments
   defp do_get_range({{:., _, [_left]}, _meta, _args} = quoted) do
     get_range_for_qualified_call_with_arguments(quoted)
@@ -502,11 +507,30 @@ defmodule Sourceror.Range do
     end
   end
 
+  defp get_range_for_qualified_call_with_arguments(
+         {{{:., _, [left | _]}, _, _}, _, args} = quoted
+       ) do
+    if Sourceror.has_closing_line?(quoted) do
+      get_range_for_node_with_closing_line(quoted)
+    else
+      get_range_for_pair(left, List.last(args))
+    end
+  end
+
   defp get_range_for_node_with_closing_line({:fn, _, _} = quoted) do
     start_position = Sourceror.get_start_position(quoted)
     end_position = Sourceror.get_end_position(quoted)
 
     end_position = Keyword.update!(end_position, :column, &(&1 + 3))
+
+    new(start_position, end_position)
+  end
+
+  defp get_range_for_node_with_closing_line({{{:., _, [left | _]}, _, _}, _, args}) do
+    start_position = get_range(left).start
+    end_position = get_range(List.last(args) || left).end
+
+    end_position = Keyword.update!(end_position, :column, &(&1 + 1))
 
     new(start_position, end_position)
   end
