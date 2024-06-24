@@ -877,6 +877,12 @@ defmodule SourcerorTest.RangeTest do
       assert decorate(code, to_range(code)) == "«foo.\"b-a-r\"(1)»"
     end
 
+    test "qualified double calls" do
+      code = ~S/Mod.unquote(foo)(bar)/
+
+      assert decorate(code, to_range(code)) == "«Mod.unquote(foo)(bar)»"
+    end
+
     test "qualified calls without parens" do
       code = ~S/foo.bar baz/
       assert decorate(code, to_range(code)) == "«foo.bar baz»"
@@ -1185,6 +1191,26 @@ defmodule SourcerorTest.RangeTest do
           end
         end)
       end)
+    end
+  end
+
+  describe "regressions" do
+    test "call with keyword :do block" do
+      code = ~S"""
+      def rpc_call(pid, call = %Call{method: unquote(method_name)}),
+        do: GenServer.unquote(genserver_method)(pid, call)
+      """
+
+      call = code |> Sourceror.parse_string!()
+
+      assert %Sourceror.Range{} = range = Sourceror.Range.get_range(call)
+
+      assert decorate(code, range) ==
+               ~S"""
+               «def rpc_call(pid, call = %Call{method: unquote(method_name)}),
+                 do: GenServer.unquote(genserver_method)(pid, call)»
+               """
+               |> String.trim_trailing()
     end
   end
 end
