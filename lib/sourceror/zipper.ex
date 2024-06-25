@@ -478,6 +478,105 @@ defmodule Sourceror.Zipper do
     do: %{zipper | path: path, supertree: supertree}
 
   @doc """
+  Matches and moves to the location of a `__cursor__` in provided source code.
+
+  Use `__cursor__()` to match a cursor in the provided source code. Use `__` to skip any code at a point.
+
+  For example:
+
+  ```elixir
+  zipper =
+    \"\"\"
+    if true do
+      10
+    end
+    \"\"\"
+    |> Sourceror.Zipper.zip()
+
+  pattern =
+    \"\"\"
+    if __ do
+      __cursor__
+    end
+    \"\"\"
+
+  zipper
+  |> Zipper.move_to_cursor(pattern)
+  |> Zipper.subtree()
+  |> Zipper.node()
+  # => 10
+  ```
+  """
+  @spec move_to_cursor(t(), String.t() | t()) :: t() | nil
+  def move_to_cursor(%Z{} = zipper, pattern) when is_binary(pattern) do
+    pattern
+    |> Sourceror.parse_string!()
+    |> zip()
+    |> then(&do_move_to_cursor(zipper, &1))
+  end
+
+  def move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
+    do_move_to_cursor(zipper, pattern_zipper)
+  end
+
+  defp do_move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
+    cond do
+      is_cursor?(pattern_zipper |> subtree() |> node()) ->
+        zipper
+
+      match_type = zippers_match(zipper, pattern_zipper) ->
+        move =
+          case match_type do
+            :skip -> &skip/1
+            :next -> &next/1
+          end
+
+        with zipper when not is_nil(zipper) <- move.(zipper),
+             pattern_zipper when not is_nil(pattern_zipper) <- move.(pattern_zipper) do
+          do_move_to_cursor(zipper, pattern_zipper)
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  defp is_cursor?({:__cursor__, _, []}), do: true
+  defp is_cursor?(_other), do: false
+
+  defp zippers_match(zipper, pattern_zipper) do
+    zipper_node =
+      zipper
+      |> subtree()
+      |> node()
+
+    pattern_node =
+      pattern_zipper
+      |> subtree()
+      |> node()
+
+    case {zipper_node, pattern_node} do
+      {_, {:__, _, _}} ->
+        :skip
+
+      {{call, _, _}, {call, _, _}} ->
+        :next
+
+      {{_, _}, {_, _}} ->
+        :next
+
+      {same, same} ->
+        :next
+
+      {left, right} when is_list(left) and is_list(right) ->
+        :next
+
+      _ ->
+        false
+    end
+  end
+
+  @doc """
   Returns a `zipper` to the `node` that satisfies the `predicate` function, or
   `nil` if none is found.
 

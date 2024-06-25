@@ -739,4 +739,82 @@ defmodule SourcerorTest.ZipperTest do
              """
     end
   end
+
+  describe "move_to_cursor/2" do
+    test "if the cursor is top level, it matches everything" do
+      code =
+        """
+        if foo == :bar do
+          IO.puts("Hello")
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = """
+      __cursor__()
+      """
+
+      assert code == Z.move_to_cursor(code, seek)
+    end
+
+    test "if the cursor is inside of a block" do
+      code =
+        """
+        if foo == :bar do
+          IO.puts("Hello")
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = """
+      if foo == :bar do
+        __cursor__()
+      end
+      """
+
+      assert new_zipper = Z.move_to_cursor(code, seek)
+
+      assert "IO.puts(\"Hello\")" ==
+               new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+    end
+
+    test "a really complicated example" do
+      code =
+        """
+        defmodule Foo do
+          @foo File.read!("foo.txt")
+
+          case @foo do
+            "foo" ->
+              10
+
+            "bar" ->
+              20
+          end
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = """
+      defmodule Foo do
+        @foo File.read!("foo.txt")
+
+        case @foo do
+          __ ->
+            __
+
+          "bar" ->
+            __cursor__()
+        end
+      end
+      """
+
+      assert new_zipper = Z.move_to_cursor(code, seek)
+
+      assert "20" == new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+    end
+  end
 end
