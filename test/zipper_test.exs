@@ -777,7 +777,7 @@ defmodule SourcerorTest.ZipperTest do
       assert new_zipper = Z.move_to_cursor(code, seek)
 
       assert "IO.puts(\"Hello\")" ==
-               new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+               new_zipper |> Z.node() |> Sourceror.to_string()
     end
 
     test "a really complicated example" do
@@ -814,7 +814,7 @@ defmodule SourcerorTest.ZipperTest do
 
       assert new_zipper = Z.move_to_cursor(code, seek)
 
-      assert "20" == new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+      assert "20" == new_zipper |> Z.node() |> Sourceror.to_string()
     end
   end
 end

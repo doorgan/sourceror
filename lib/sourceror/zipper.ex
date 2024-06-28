@@ -478,7 +478,7 @@ defmodule Sourceror.Zipper do
     do: %{zipper | path: path, supertree: supertree}
 
   @doc """
-  Matches and moves to the location of a `__cursor__` in provided source code.
+  Matches `zipper` against the given pattern, moving to the location of `__cursor__`.
 
   Use `__cursor__()` to match a cursor in the provided source code. Use `__` to skip any code at a point.
 
@@ -502,7 +502,6 @@ defmodule Sourceror.Zipper do
 
   zipper
   |> Zipper.move_to_cursor(pattern)
-  |> Zipper.subtree()
   |> Zipper.node()
   # => 10
   ```
@@ -512,49 +511,29 @@ defmodule Sourceror.Zipper do
     pattern
     |> Sourceror.parse_string!()
     |> zip()
-    |> then(&do_move_to_cursor(zipper, &1))
+    |> then(&move_to_cursor(zipper, &1))
+  end
+
+  def move_to_cursor(%Z{} = zipper, %Z{node: {:__cursor__, _, []}}) do
+    zipper
   end
 
   def move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
-    do_move_to_cursor(zipper, pattern_zipper)
-  end
-
-  defp do_move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
-    cond do
-      is_cursor?(pattern_zipper |> subtree() |> node()) ->
-        zipper
-
-      match_type = zippers_match(zipper, pattern_zipper) ->
-        move =
-          case match_type do
-            :skip -> &skip/1
-            :next -> &next/1
-          end
-
-        with zipper when not is_nil(zipper) <- move.(zipper),
-             pattern_zipper when not is_nil(pattern_zipper) <- move.(pattern_zipper) do
-          do_move_to_cursor(zipper, pattern_zipper)
-        end
-
-      true ->
-        nil
+    case match_zippers(zipper, pattern_zipper) do
+      :skip -> move_zippers(zipper, pattern_zipper, &skip/1)
+      :next -> move_zippers(zipper, pattern_zipper, &next/1)
+      _ -> nil
     end
   end
 
-  defp is_cursor?({:__cursor__, _, []}), do: true
-  defp is_cursor?(_other), do: false
+  defp move_zippers(zipper, pattern_zipper, move) do
+    with %Z{} = zipper <- move.(zipper),
+         %Z{} = pattern_zipper <- move.(pattern_zipper) do
+      move_to_cursor(zipper, pattern_zipper)
+    end
+  end
 
-  defp zippers_match(zipper, pattern_zipper) do
-    zipper_node =
-      zipper
-      |> subtree()
-      |> node()
-
-    pattern_node =
-      pattern_zipper
-      |> subtree()
-      |> node()
-
+  defp match_zippers(%Z{node: zipper_node}, %Z{node: pattern_node}) do
     case {zipper_node, pattern_node} do
       {_, {:__, _, _}} ->
         :skip
