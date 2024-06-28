@@ -740,6 +740,94 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "search_pattern/2 with cursor" do
+    test "matches everything at top level" do
+      code =
+        """
+        if foo == :bar do
+          IO.puts("Hello")
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = """
+      __cursor__()
+      """
+
+      assert code == Z.search_pattern(code, seek)
+    end
+
+    test "matches sub-expression with cursor" do
+      code =
+        """
+        if foo == :bar do
+          IO.puts("Hello")
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = """
+      IO.puts(__cursor__())
+      """
+
+      assert ~S["Hello"] ==
+               code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
+    end
+
+    test "matches sub-expression with cursor and ignored elements" do
+      code =
+        """
+        if foo == :bar do
+          "Hello" |> IO.puts()
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = """
+      __ |> __cursor__()
+      """
+
+      assert "IO.puts()" ==
+               code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
+    end
+  end
+
+  describe "search_pattern/2 without cursor" do
+    test "matches everything when pattern is exact match" do
+      code =
+        """
+        if foo == :bar do
+          IO.puts("Hello")
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = ~S[if(foo == :bar, do: IO.puts("Hello"))]
+
+      assert code == Z.search_pattern(code, seek)
+    end
+
+    test "matches sub-expression" do
+      code =
+        """
+        if foo == :bar do
+          IO.puts("Hello")
+        end
+        """
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = ~S[IO.puts("Hello")]
+
+      assert ~S[IO.puts("Hello")] ==
+               code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
+    end
+  end
+
   describe "move_to_cursor/2" do
     test "if the cursor is top level, it matches everything" do
       code =
@@ -777,7 +865,7 @@ defmodule SourcerorTest.ZipperTest do
       assert new_zipper = Z.move_to_cursor(code, seek)
 
       assert "IO.puts(\"Hello\")" ==
-               new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+               new_zipper |> Z.node() |> Sourceror.to_string()
     end
 
     test "a really complicated example" do
@@ -814,7 +902,7 @@ defmodule SourcerorTest.ZipperTest do
 
       assert new_zipper = Z.move_to_cursor(code, seek)
 
-      assert "20" == new_zipper |> Z.subtree() |> Z.node() |> Sourceror.to_string()
+      assert "20" == new_zipper |> Z.node() |> Sourceror.to_string()
     end
   end
 end

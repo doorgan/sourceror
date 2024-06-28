@@ -478,7 +478,84 @@ defmodule Sourceror.Zipper do
     do: %{zipper | path: path, supertree: supertree}
 
   @doc """
-  Matches and moves to the location of a `__cursor__` in provided source code.
+  Searches `zipper` for the given pattern, moving to that pattern or to the
+  location of `__cursor__()` in that pattern.
+  """
+  @spec search_pattern(t(), String.t() | t()) :: t() | nil
+  def search_pattern(%Z{} = zipper, pattern) when is_binary(pattern) do
+    pattern
+    |> Sourceror.parse_string!()
+    |> zip()
+    |> then(&search_pattern(zipper, &1))
+  end
+
+  def search_pattern(%Z{} = zipper, %Z{} = pattern_zipper) do
+    if contains_cursor?(pattern_zipper) do
+      search_to_cursor(zipper, pattern_zipper)
+    else
+      search_to_exact(zipper, pattern_zipper)
+    end
+  end
+
+  defp search_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
+    with match_kind when is_atom(match_kind) <- match_zippers(zipper, pattern_zipper),
+         %Z{} = new_zipper <- move_to_cursor(zipper, pattern_zipper) do
+      new_zipper
+    else
+      _ ->
+        zipper |> next() |> search_to_cursor(pattern_zipper)
+    end
+  end
+
+  defp search_to_cursor(nil, _), do: nil
+
+  defp search_to_exact(%Z{} = zipper, %Z{} = pattern_zipper) do
+    if similar_or_skip?(zipper.node, pattern_zipper.node) do
+      zipper
+    else
+      zipper |> next() |> search_to_exact(pattern_zipper)
+    end
+  end
+
+  defp search_to_exact(nil, _), do: nil
+
+  defp contains_cursor?(%Z{} = zipper) do
+    !!find(zipper, &match?({:__cursor__, _, []}, &1))
+  end
+
+  defp similar_or_skip?(_, {:__, _, _}), do: true
+
+  defp similar_or_skip?({:__block__, _, [left]}, right) do
+    similar_or_skip?(left, right)
+  end
+
+  defp similar_or_skip?(left, {:__block__, _, [right]}) do
+    similar_or_skip?(left, right)
+  end
+
+  defp similar_or_skip?({call1, _, args1}, {call2, _, args2}) do
+    similar_or_skip?(call1, call2) and similar_or_skip?(args1, args2)
+  end
+
+  defp similar_or_skip?({l1, r1}, {l2, r2}) do
+    similar_or_skip?(l1, l2) and similar_or_skip?(r1, r2)
+  end
+
+  defp similar_or_skip?(list1, list2) when is_list(list1) and is_list(list2) do
+    length(list1) == length(list2) and
+      [list1, list2]
+      |> Enum.zip()
+      |> Enum.all?(fn {el1, el2} ->
+        similar_or_skip?(el1, el2)
+      end)
+  end
+
+  defp similar_or_skip?(same, same), do: true
+
+  defp similar_or_skip?(_, _), do: false
+
+  @doc """
+  Matches `zipper` against the given pattern, moving to the location of `__cursor__()`.
 
   Use `__cursor__()` to match a cursor in the provided source code. Use `__` to skip any code at a point.
 
@@ -496,13 +573,12 @@ defmodule Sourceror.Zipper do
   pattern =
     \"\"\"
     if __ do
-      __cursor__
+      __cursor__()
     end
     \"\"\"
 
   zipper
   |> Zipper.move_to_cursor(pattern)
-  |> Zipper.subtree()
   |> Zipper.node()
   # => 10
   ```
@@ -512,54 +588,37 @@ defmodule Sourceror.Zipper do
     pattern
     |> Sourceror.parse_string!()
     |> zip()
-    |> then(&do_move_to_cursor(zipper, &1))
+    |> then(&move_to_cursor(zipper, &1))
+  end
+
+  def move_to_cursor(%Z{} = zipper, %Z{node: {:__cursor__, _, []}}) do
+    zipper
   end
 
   def move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
-    do_move_to_cursor(zipper, pattern_zipper)
-  end
-
-  defp do_move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
-    cond do
-      is_cursor?(pattern_zipper |> subtree() |> node()) ->
-        zipper
-
-      match_type = zippers_match(zipper, pattern_zipper) ->
-        move =
-          case match_type do
-            :skip -> &skip/1
-            :next -> &next/1
-          end
-
-        with zipper when not is_nil(zipper) <- move.(zipper),
-             pattern_zipper when not is_nil(pattern_zipper) <- move.(pattern_zipper) do
-          do_move_to_cursor(zipper, pattern_zipper)
-        end
-
-      true ->
-        nil
+    case match_zippers(zipper, pattern_zipper) do
+      :skip -> move_zippers(zipper, pattern_zipper, &skip/1)
+      :next -> move_zippers(zipper, pattern_zipper, &next/1)
+      _ -> nil
     end
   end
 
-  defp is_cursor?({:__cursor__, _, []}), do: true
-  defp is_cursor?(_other), do: false
+  defp move_zippers(zipper, pattern_zipper, move) do
+    with %Z{} = zipper <- move.(zipper),
+         %Z{} = pattern_zipper <- move.(pattern_zipper) do
+      move_to_cursor(zipper, pattern_zipper)
+    end
+  end
 
-  defp zippers_match(zipper, pattern_zipper) do
-    zipper_node =
-      zipper
-      |> subtree()
-      |> node()
-
-    pattern_node =
-      pattern_zipper
-      |> subtree()
-      |> node()
-
+  defp match_zippers(%Z{node: zipper_node}, %Z{node: pattern_node}) do
     case {zipper_node, pattern_node} do
       {_, {:__, _, _}} ->
         :skip
 
       {{call, _, _}, {call, _, _}} ->
+        :next
+
+      {{{call, _, _}, _, _}, {{call, _, _}, _, _}} ->
         :next
 
       {{_, _}, {_, _}} ->
@@ -589,9 +648,9 @@ defmodule Sourceror.Zipper do
     do_find(zipper, move(direction), predicate)
   end
 
-  def do_find(nil, _move, _predicate), do: nil
+  defp do_find(nil, _move, _predicate), do: nil
 
-  def do_find(%Z{node: tree} = zipper, move, predicate) do
+  defp do_find(%Z{node: tree} = zipper, move, predicate) do
     if predicate.(tree) do
       zipper
     else
