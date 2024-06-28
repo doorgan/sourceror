@@ -589,9 +589,9 @@ defmodule Sourceror.Zipper do
     do_find(zipper, move(direction), predicate)
   end
 
-  def do_find(nil, _move, _predicate), do: nil
+  defp do_find(nil, _move, _predicate), do: nil
 
-  def do_find(%Z{node: tree} = zipper, move, predicate) do
+  defp do_find(%Z{node: tree} = zipper, move, predicate) do
     if predicate.(tree) do
       zipper
     else
