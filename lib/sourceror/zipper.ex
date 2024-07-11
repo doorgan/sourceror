@@ -84,6 +84,74 @@ defmodule Sourceror.Zipper do
   def zip(node), do: new(node)
 
   @doc """
+  Creates a `zipper` from a tree `node` focused at the innermost descendant containing `position`.
+
+  Returns `{:ok, zipper}` if `position` is within `node`, else `:error`.
+
+  Modifying `node` prior to using `at/2` is not recommended as added or
+  changed descendants may not contain accurate position metadata used to
+  find the focus.
+  """
+  @spec at(Macro.t(), Sourceror.position()) :: {:ok, t} | :error
+  def at(node, position) when is_list(position) do
+    with {:ok, path} <- fetch_path_to(node, position) do
+      case path do
+        [{node, [], []}, {{:__block__, _, [node]}, _, _} = block_wrapper | ancestors] ->
+          {:ok, new_from_path([block_wrapper | ancestors])}
+
+        _ ->
+          {:ok, new_from_path(path)}
+      end
+    end
+  end
+
+  defp new_from_path([{node, [], []}]) do
+    new(node)
+  end
+
+  defp new_from_path([{node, left, right} | ancestors]) do
+    path = %{left: left, right: right, parent: new_from_path(ancestors)}
+    new(node, path, nil)
+  end
+
+  defp fetch_path_to(node, position) do
+    if node_contains?(node, position) do
+      {:ok, path_to(position, [{node, [], []}])}
+    else
+      :error
+    end
+  end
+
+  defp path_to(position, [{parent, _parent_left, _parent_right} | _] = path) do
+    {left, node_and_right} =
+      parent
+      |> children()
+      |> Enum.split_while(fn child ->
+        not node_contains?(child, position)
+      end)
+
+    case node_and_right do
+      [] ->
+        path
+
+      [node | right] ->
+        reversed_left = Enum.reverse(left)
+        path_to(position, [{node, reversed_left, right} | path])
+    end
+  end
+
+  defp node_contains?(node, position) do
+    case Sourceror.get_range(node) do
+      %Sourceror.Range{} = range ->
+        Sourceror.compare_positions(position, range.start) in [:gt, :eq] and
+          Sourceror.compare_positions(position, range.end) == :lt
+
+      nil ->
+        false
+    end
+  end
+
+  @doc """
   Walks the `zipper` to the top of the current subtree and returns that `zipper`.
   """
   @spec top(t) :: t

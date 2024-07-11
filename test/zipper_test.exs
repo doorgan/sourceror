@@ -1,7 +1,8 @@
 defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
-
   doctest Sourceror.Zipper, import: true, except: [:moduledoc]
+
+  import SourcerorTest.CursorSupport, only: [pop_cursor: 1]
 
   alias Sourceror.Zipper, as: Z
 
@@ -903,6 +904,70 @@ defmodule SourcerorTest.ZipperTest do
       assert new_zipper = Z.move_to_cursor(code, seek)
 
       assert "20" == new_zipper |> Z.node() |> Sourceror.to_string()
+    end
+  end
+
+  describe "at/2" do
+    defp zipper_at_cursor(code_with_cursor) do
+      {position, code} = pop_cursor(code_with_cursor)
+      code |> Sourceror.parse_string!() |> Z.at(position)
+    end
+
+    test "creates a zipper focused on an inner literal at the given position" do
+      assert {:ok, zipper} =
+               zipper_at_cursor("""
+               def foo do
+                 [1, 2, |3, 4, 5]
+               end
+               """)
+
+      assert {:__block__, _, [3]} = zipper |> Z.node()
+
+      assert [
+               {:__block__, _, [1]},
+               {:__block__, _, [2]},
+               {:__block__, _, [3]},
+               {:__block__, _, [4]},
+               {:__block__, _, [5]}
+             ] = zipper |> Z.up() |> Z.node()
+
+      assert {:def, _, _} = zipper |> Z.root()
+    end
+
+    test "creates a zipper focused on a container if position isn't in any children" do
+      assert {:ok, zipper} =
+               zipper_at_cursor("""
+               def foo do
+                 [1|, 2, 3, 4, 5]
+               end
+               """)
+
+      assert {:__block__, _, [[_, _, _, _, _]]} = zipper |> Z.node()
+      assert {:def, _, _} = zipper |> Z.root()
+    end
+
+    test "creates a zipper focused on an alias segment" do
+      assert {:ok, zipper} = zipper_at_cursor("alias Foo.{Bar, |Baz}")
+
+      assert {:__aliases__, _, [:Baz]} = zipper |> Z.node()
+      assert {:__aliases__, _, [:Bar]} = zipper |> Z.left() |> Z.node()
+      assert {:alias, _, _} = zipper |> Z.root()
+    end
+
+    test "creates a zipper focused on a qualified call" do
+      assert {:ok, zipper} = zipper_at_cursor("Foo.|bar(1, 2, 3)")
+
+      assert {:., _, [{:__aliases__, _, _}, :bar]} = zipper |> Z.node()
+      assert {:__block__, _, [1]} = zipper |> Z.right() |> Z.node()
+    end
+
+    test "returns :error if there is no node containing the given position" do
+      assert :error =
+               zipper_at_cursor("""
+               def foo do
+                 [1, 2, 3, 4, 5]
+               end|
+               """)
     end
   end
 end
