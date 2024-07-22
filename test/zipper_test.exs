@@ -739,6 +739,46 @@ defmodule SourcerorTest.ZipperTest do
              config :unrelated, key: :dont_change_me\
              """
     end
+
+    test "uses any modified supertree" do
+      code = """
+      config :target, key: :change_me
+
+      config :unrelated, key: :dont_change_me
+      """
+
+      updated =
+        code
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+        |> Z.find(&match?({:config, _, [{:__block__, _, [:target]} | _]}, &1))
+        # This is simulating a "modify and append code" operation (rare, but good for testing this case)
+        |> Z.within(fn zipper ->
+          zipper
+          |> Map.update!(:supertree, fn supertree ->
+            upwards = Z.up(supertree)
+            {:__block__, _, code} = upwards.node
+
+            upwards
+            |> Z.replace(
+              {:__block__, [],
+               List.insert_at(code, Enum.count(supertree.path.left || []) + 1, :new_code)}
+            )
+            |> Z.find(&(&1 == zipper.node))
+          end)
+          |> Z.find(&match?({{:__block__, _, [:key]}, _value}, &1))
+          |> Z.update(fn {key, _value} -> {key, {:__block__, [], [:changed]}} end)
+        end)
+        |> Z.root()
+        |> Sourceror.to_string()
+
+      assert updated == """
+             config :target, key: :changed
+
+             :new_code
+             config :unrelated, key: :dont_change_me\
+             """
+    end
   end
 
   describe "search_pattern/2 with cursor" do
