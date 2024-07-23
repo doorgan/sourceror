@@ -1226,4 +1226,20 @@ defmodule SourcerorTest do
              """
     end
   end
+
+  describe "strip_meta/1" do
+    test "will strip all meta data from AST" do
+      original = ~S"""
+      hello world do
+        :ok
+      end
+      """
+
+      quoted = Sourceror.parse_string!(original)
+
+      assert Sourceror.strip_meta(quoted) == {
+        {:hello, {}, [{:world, {}, nil}, [{{:__block__, {}, [:do]}, {:__block__, {}, [:ok]}}]]}, []
+      }
+    end
+  end
 end
