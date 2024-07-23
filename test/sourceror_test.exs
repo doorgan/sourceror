@@ -1238,8 +1238,10 @@ defmodule SourcerorTest do
       quoted = Sourceror.parse_string!(original)
 
       assert Sourceror.strip_meta(quoted) == {
-        {:hello, {}, [{:world, {}, nil}, [{{:__block__, {}, [:do]}, {:__block__, {}, [:ok]}}]]}, []
-      }
+               {:hello, {},
+                [{:world, {}, nil}, [{{:__block__, {}, [:do]}, {:__block__, {}, [:ok]}}]]},
+               []
+             }
     end
   end
 end
