@@ -892,6 +892,19 @@ defmodule Sourceror do
     |> Enum.join()
   end
 
+  @doc """
+  A convenience utility function for stripping all meta data out of
+  a quoted expression. This is useful when debugging for readability of very large
+  ASTs.
+  """
+  @spec strip_meta(quoted :: Macro.t()) :: Macro.t()
+  def strip_meta(quoted) do
+    Macro.prewalk(quoted, [], fn
+      {name, _meta, args}, acc -> {{name, {}, args}, acc}
+      other, acc -> {other, acc}
+    end)
+  end
+
   defp do_patch_string(lines, [], seen, _), do: Enum.reverse(lines) ++ seen
 
   defp do_patch_string([], _, seen, _), do: seen
