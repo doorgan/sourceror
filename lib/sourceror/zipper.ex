@@ -726,6 +726,24 @@ defmodule Sourceror.Zipper do
     end
   end
 
+  @spec find_value(t, (tree -> any)) :: any | nil
+  def find_value(%Z{} = zipper, direction \\ :next, fun)
+      when direction in [:next, :prev] and is_function(fun, 1) do
+    do_find_value(zipper, move(direction), fun)
+  end
+
+  defp do_find_value(nil, _move, _fun), do: nil
+
+  defp do_find_value(%Z{node: tree} = zipper, move, fun) do
+    result = fun.(tree)
+
+    if result do
+      result
+    else
+      zipper |> move.() |> do_find_value(move, fun)
+    end
+  end
+
   defp move(:next), do: &next/1
   defp move(:prev), do: &prev/1
 

@@ -571,6 +571,66 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "find_value/3" do
+    test "finds a zipper and returns the value" do
+      zipper = Z.zip([1, [2, [3, 4], 5]])
+
+      assert Z.find_value(zipper, fn
+               4 -> 4
+               _ -> false
+             end) == 4
+
+      assert Z.find_value(zipper, :next, fn
+               4 -> 4
+               _ -> false
+             end) == 4
+    end
+
+    test "returns nil if nothing was found" do
+      zipper = Z.zip([1, [2, [3, 4], 5]])
+
+      assert Z.find_value(zipper, fn
+               9 -> 9
+               _ -> false
+             end) == nil
+
+      assert Z.find_value(zipper, :prev, fn
+               9 -> 9
+               _ -> false
+             end) == nil
+    end
+
+    test "finds a zipper with a predicate in direction :prev" do
+      zipper =
+        [1, [2, [3, 4], 5]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.find_value(zipper, :prev, fn
+               2 -> 2
+               _ -> false
+             end) == 2
+    end
+
+    test "retruns nil if nothing was found in direction :prev" do
+      zipper =
+        [1, [2, [3, 4], 5]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.find_value(zipper, :prev, fn
+               9 -> 9
+               _ -> false
+             end) == nil
+    end
+  end
+
   describe "subtree/1" do
     test "returns a new zipper isolated on the focused of the parent zipper" do
       zipper =
