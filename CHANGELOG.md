@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Sourceror] Added `strip_meta/1`
 - [Sourceror.Zipper] Added `search_pattern/2`
 - [Sourceror.Zipper] Added `at/2`
+- [Sourceror.Zipper] Added `find_value/3`
 - [Sourceror.Zipper] Allow updating the outer tree with `within/2`
 
 ## v1.4.0 (2024-06-24)
