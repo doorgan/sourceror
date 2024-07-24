@@ -903,6 +903,7 @@ defmodule Sourceror do
       {name, _meta, args}, acc -> {{name, {}, args}, acc}
       other, acc -> {other, acc}
     end)
+    |> elem(0)
   end
 
   defp do_patch_string(lines, [], seen, _), do: Enum.reverse(lines) ++ seen
