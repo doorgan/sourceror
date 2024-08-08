@@ -665,11 +665,13 @@ defmodule SourcerorTest.RangeTest do
       code = ~S"fn -> :ok end"
       assert decorate(code, to_range(code)) == "«fn -> :ok end»"
 
-      code = ~S"""
-      fn ->
-        :ok
-      end
-      """
+      code =
+        ~S"""
+        fn ->
+          :ok
+        end
+        """
+        |> String.trim()
 
       assert decorate(code, to_range(code)) ==
                """
@@ -679,9 +681,11 @@ defmodule SourcerorTest.RangeTest do
                """
                |> String.trim()
 
-      code = ~S"""
-      fn -> end
-      """
+      code =
+        ~S"""
+        fn -> end
+        """
+        |> String.trim()
 
       assert decorate(code, to_range(code)) ==
                """
@@ -689,10 +693,12 @@ defmodule SourcerorTest.RangeTest do
                """
                |> String.trim()
 
-      code = ~S"""
-      fn ->
-      end
-      """
+      code =
+        ~S"""
+        fn ->
+        end
+        """
+        |> String.trim()
 
       assert decorate(code, to_range(code)) ==
                """
@@ -862,10 +868,10 @@ defmodule SourcerorTest.RangeTest do
       assert decorate(code, to_range(code)) == "«foo.bar.(\nbaz)»"
 
       code = ~S/foo.bar("baz#{2}qux")/
-      assert decorate(code, to_range(code)) == ~S"«foo.bar(\"baz#{2}qux\")»"
+      assert decorate(code, to_range(code)) == ~S|«foo.bar("baz#{2}qux")»|
 
       code = ~S/foo.bar("baz#{2}qux", [])/
-      assert decorate(code, to_range(code)) == ~S"«foo.bar(\"baz#{2}qux\", [])»"
+      assert decorate(code, to_range(code)) == ~S|«foo.bar("baz#{2}qux", [])»|
 
       code = ~S/foo."b-a-r"/
       assert decorate(code, to_range(code)) == "«foo.\"b-a-r\"»"
@@ -1042,11 +1048,13 @@ defmodule SourcerorTest.RangeTest do
       code = ~S[<<1, 2, foo>>]
       assert decorate(code, to_range(code)) == "«<<1, 2, foo>>»"
 
-      code = ~S"""
-      <<1, 2,
+      code =
+        ~S"""
+        <<1, 2,
 
-       foo>>
-      """
+         foo>>
+        """
+        |> String.trim()
 
       assert decorate(code, to_range(code)) ==
                """

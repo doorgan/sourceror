@@ -286,11 +286,11 @@ defmodule SourcerorTest do
     end
 
     test "raises on invalid string" do
-      assert_raise SyntaxError, fn ->
+      assert_raise Sourceror.LibElixir.SyntaxError, fn ->
         Sourceror.parse_string!(":ok end")
       end
 
-      assert_raise TokenMissingError, fn ->
+      assert_raise Sourceror.LibElixir.TokenMissingError, fn ->
         Sourceror.parse_string!("do :ok")
       end
     end
@@ -562,7 +562,7 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+      assert Sourceror.get_end_position(quoted) == [line: 3, column: 3]
 
       quoted =
         ~S"""
