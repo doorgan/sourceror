@@ -5,6 +5,7 @@ defmodule Sourceror do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
+  alias Sourceror.LibElixir
   alias Sourceror.TraversalState
 
   @line_fields ~w[closing do end end_of_expression]a
@@ -24,12 +25,6 @@ defmodule Sourceror do
 
   @type traversal_function :: (Macro.t(), TraversalState.t() -> {Macro.t(), TraversalState.t()})
 
-  @code_module (if Version.match?(System.version(), "~> 1.13") do
-                  Code
-                else
-                  Sourceror.Code
-                end)
-
   @doc """
   A wrapper around `Code.string_to_quoted_with_comments!/2` for compatibility
   with pre 1.13 Elixir versions.
@@ -38,7 +33,7 @@ defmodule Sourceror do
     map_literal_fix? = Version.match?(System.version(), "< 1.17.0")
 
     quote bind_quoted: [
-            code_module: @code_module,
+            code_module: LibElixir.Code,
             string: string,
             opts: opts,
             map_literal_fix?: map_literal_fix?
@@ -56,7 +51,7 @@ defmodule Sourceror do
     map_literal_fix? = Version.match?(System.version(), "< 1.17.0")
 
     quote bind_quoted: [
-            code_module: @code_module,
+            code_module: LibElixir.Code,
             string: string,
             opts: opts,
             map_literal_fix?: map_literal_fix?
@@ -96,7 +91,7 @@ defmodule Sourceror do
   Elixir versions.
   """
   defmacro quoted_to_algebra(quoted, opts) do
-    quote bind_quoted: [code_module: @code_module, quoted: quoted, opts: opts] do
+    quote bind_quoted: [code_module: LibElixir.Code, quoted: quoted, opts: opts] do
       if opts |> Keyword.get(:quoted_to_algebra) |> is_function(2) do
         opts[:quoted_to_algebra].(quoted, opts)
       else
@@ -539,7 +534,11 @@ defmodule Sourceror do
   end
 
   def get_start_position({_, meta, _}, default) do
-    position = Keyword.take(meta, [:line, :column])
+    line = Keyword.get(meta, :line, default[:line])
+    column = Keyword.get(meta, :column, default[:column])
+
+    position = [line: line, column: column]
+
     Keyword.merge(default, position)
   end
 
@@ -565,7 +564,7 @@ defmodule Sourceror do
       ...> end
       ...> "\"" |>  Sourceror.parse_string!()
       iex> Sourceror.get_end_position(quoted)
-      [line: 3, column: 1]
+      [line: 3, column: 3]
 
       iex> quoted = ~S"\""
       ...> foo(
