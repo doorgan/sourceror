@@ -571,6 +571,72 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "find_all/3" do
+    test "finds zippers with a predicate" do
+      zipper = Z.zip([1, [2, [3, 4], 5]])
+
+      assert Z.find_all(zipper, fn
+               x when is_integer(x) -> rem(x, 2) == 0
+               _other -> false
+             end)
+             |> Enum.map(&Z.node(&1)) == [2, 4]
+
+      assert Z.find_all(zipper, :next, fn
+               x when is_integer(x) -> rem(x, 2) == 0
+               _other -> false
+             end)
+             |> Enum.map(&Z.node(&1)) == [2, 4]
+    end
+
+    test "returns empty list if nothing was found" do
+      zipper = Z.zip([1, [2, [3, 4], 5]])
+
+      assert Z.find_all(zipper, fn
+               x when is_integer(x) -> x == 9
+               _other -> false
+             end) == []
+
+      assert Z.find_all(zipper, :prev, fn
+               x when is_integer(x) -> x == 9
+               _other -> false
+             end) == []
+    end
+
+    test "finds a zippers with a predicate in direction :prev" do
+      zipper =
+        [1, [2, [3, 4], 5]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.find_all(zipper, :prev, fn
+               x when is_integer(x) -> rem(x, 2) == 0
+               _other -> false
+             end)
+             |> Enum.map(&Z.node(&1)) == [4, 2]
+    end
+
+    test "retruns empty list if nothing was found in direction :prev" do
+      zipper =
+        [1, [2, [3, 4], 5]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+        |> Z.next()
+
+      assert Z.find_all(zipper, :prev, fn x -> x == 9 end) == []
+    end
+  end
+
   describe "find_value/3" do
     test "finds a zipper and returns the value" do
       zipper = Z.zip([1, [2, [3, 4], 5]])
