@@ -726,6 +726,29 @@ defmodule Sourceror.Zipper do
     end
   end
 
+  @doc """
+  Returns a list of `zippers` to each `node` that satisfies the `predicate` function, or
+  an empty list if none are found.
+
+  The optional second parameters specifies the `direction`, defaults to
+  `:next`.
+  """
+  @spec find_all(t, direction :: :prev | :next, predicate :: (tree -> any)) :: t | []
+  def find_all(%Z{} = zipper, direction \\ :next, predicate)
+      when direction in [:next, :prev] and is_function(predicate, 1) do
+    do_find_all(zipper, move(direction), predicate, [])
+  end
+
+  defp do_find_all(nil, _move, _predicate, buffer), do: Enum.reverse(buffer)
+
+  defp do_find_all(%Z{node: tree} = zipper, move, predicate, buffer) do
+    if predicate.(tree) do
+      zipper |> move.() |> do_find_all(move, predicate, [zipper | buffer])
+    else
+      zipper |> move.() |> do_find_all(move, predicate, buffer)
+    end
+  end
+
   @spec find_value(t, (tree -> any)) :: any | nil
   def find_value(%Z{} = zipper, direction \\ :next, fun)
       when direction in [:next, :prev] and is_function(fun, 1) do
