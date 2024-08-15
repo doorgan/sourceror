@@ -78,7 +78,7 @@ defmodule Sourceror.MixProject do
       {:excoveralls, "~> 0.15", only: [:test]},
       {:lib_elixir,
        github: "zachallaun/lib_elixir",
-       ref: "dda978a0ac1dc48d075aaec97c3639fc16ab5f13",
+       ref: "1a23de6275922b575f32d524064e95c153bb6d5a",
        runtime: false},
       {:sobelow, "~> 0.11", only: :dev}
     ]
