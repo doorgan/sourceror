@@ -562,7 +562,7 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+      assert Sourceror.get_end_position(quoted) == [line: 3, column: 3]
 
       quoted =
         ~S"""
