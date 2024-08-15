@@ -28,7 +28,7 @@ defmodule Sourceror.MixProject do
       lib_elixir: [
         namespace: Sourceror.LibElixir,
         ref: "v1.17.2",
-        modules: [Code, :elixir_tokenizer, Inspect.Algebra]
+        modules: [Code, :elixir_tokenizer, Inspect.Algebra, Mix.Tasks.Format]
       ]
     ]
   end
