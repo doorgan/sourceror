@@ -733,7 +733,7 @@ defmodule Sourceror.Zipper do
   The optional second parameters specifies the `direction`, defaults to
   `:next`.
   """
-  @spec find_all(t, direction :: :prev | :next, predicate :: (tree -> any)) :: t | []
+  @spec find_all(t, direction :: :prev | :next, predicate :: (tree -> any)) :: [t]
   def find_all(%Z{} = zipper, direction \\ :next, predicate)
       when direction in [:next, :prev] and is_function(predicate, 1) do
     do_find_all(zipper, move(direction), predicate, [])
