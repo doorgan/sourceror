@@ -189,8 +189,11 @@ defmodule Sourceror.Zipper do
   @doc """
   Returns the `zipper` of the leftmost child of the `node` at this `zipper`, or
   `nil` if there's no children.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec down(t) :: t | nil
+  @spec down(nil) :: nil
   def down(%Z{node: tree, supertree: supertree} = zipper) do
     case children(tree) do
       nil -> nil
@@ -199,6 +202,8 @@ defmodule Sourceror.Zipper do
       [first | rest] -> new(first, %{parent: zipper, left: nil, right: rest}, supertree)
     end
   end
+
+  def down(nil), do: nil
 
   @doc """
   Returns the `zipper` for the parent `node` of the given `zipper`, or `nil` if
@@ -216,8 +221,11 @@ defmodule Sourceror.Zipper do
   @doc """
   Returns the `zipper` of the left sibling of the `node` at this `zipper`, or
   `nil`.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec left(t) :: t | nil
+  @spec left(nil) :: nil
   def left(zipper)
 
   def left(%Z{node: tree, path: %{left: [ltree | l], right: r} = path, supertree: supertree}),
@@ -227,21 +235,28 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Returns the leftmost sibling of the `node` at this `zipper`, or itself.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec leftmost(t) :: t
+  @spec leftmost(nil) :: nil
   def leftmost(%Z{node: tree, path: %{left: [_ | _] = l} = path, supertree: supertree}) do
     [left | rest] = Enum.reverse(l)
     r = rest ++ [tree] ++ (path.right || [])
     new(left, %{path | left: nil, right: r}, supertree)
   end
 
-  def leftmost(zipper), do: zipper
+  def leftmost(%Z{} = zipper), do: zipper
+  def leftmost(nil), do: nil
 
   @doc """
   Returns the zipper of the right sibling of the `nod`e at this `zipper`, or
   nil.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec right(t) :: t | nil
+  @spec right(nil) :: nil
   def right(zipper)
 
   def right(%Z{node: tree, path: %{right: [rtree | r]} = path, supertree: supertree}),
@@ -251,15 +266,19 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Returns the rightmost sibling of the `node` at this `zipper`, or itself.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec rightmost(t) :: t
+  @spec rightmost(nil) :: nil
   def rightmost(%Z{node: tree, path: %{right: [_ | _] = r} = path, supertree: supertree}) do
     [right | rest] = Enum.reverse(r)
     l = rest ++ [tree] ++ (path.left || [])
     new(right, %{path | left: l, right: nil}, supertree)
   end
 
-  def rightmost(zipper), do: zipper
+  def rightmost(%Z{} = zipper), do: zipper
+  def rightmost(nil), do: nil
 
   @doc """
   Replaces the current `node` in the `zipper` with a new `node`.
@@ -380,10 +399,16 @@ defmodule Sourceror.Zipper do
 
   @doc """
   Returns the following `zipper` in depth-first pre-order.
+
+  If passed `nil`, this function returns `nil`.
   """
+  @spec next(t) :: t | nil
+  @spec next(nil) :: nil
   def next(%Z{node: tree} = zipper) do
     if branch?(tree) && down(zipper), do: down(zipper), else: skip(zipper)
   end
+
+  def next(nil), do: nil
 
   @doc """
   Returns the `zipper` of the right sibling of the `node` at this `zipper`, or
@@ -399,11 +424,15 @@ defmodule Sourceror.Zipper do
 
   The function `skip/1` behaves like the `:skip` in `traverse_while/2` and
   `traverse_while/3`.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec skip(t, direction :: :next | :prev) :: t | nil
+  @spec skip(nil, direction :: :next | :prev) :: nil
   def skip(zipper, direction \\ :next)
-  def skip(zipper, :next), do: right(zipper) || next_up(zipper)
-  def skip(zipper, :prev), do: left(zipper) || prev_up(zipper)
+  def skip(%Z{} = zipper, :next), do: right(zipper) || next_up(zipper)
+  def skip(%Z{} = zipper, :prev), do: left(zipper) || prev_up(zipper)
+  def skip(nil, _direction), do: nil
 
   defp next_up(zipper) do
     if parent = up(zipper), do: right(parent) || next_up(parent)
@@ -445,7 +474,7 @@ defmodule Sourceror.Zipper do
   The function must return a `zipper`.
   """
   @spec traverse(t, (t -> t)) :: t
-  def traverse(zipper, fun) do
+  def traverse(%Z{} = zipper, fun) do
     zipper |> subtree() |> do_traverse(fun) |> into(zipper)
   end
 
@@ -548,8 +577,11 @@ defmodule Sourceror.Zipper do
   @doc """
   Searches `zipper` for the given pattern, moving to that pattern or to the
   location of `__cursor__()` in that pattern.
+
+  If passed `nil`, this function returns `nil`.
   """
-  @spec search_pattern(t(), String.t() | t()) :: t() | nil
+  @spec search_pattern(t, String.t() | t) :: t | nil
+  @spec search_pattern(nil, String.t() | t) :: nil
   def search_pattern(%Z{} = zipper, pattern) when is_binary(pattern) do
     pattern
     |> Sourceror.parse_string!()
@@ -564,6 +596,8 @@ defmodule Sourceror.Zipper do
       search_to_exact(zipper, pattern_zipper)
     end
   end
+
+  def search_pattern(nil, _pattern), do: nil
 
   defp search_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
     with match_kind when is_atom(match_kind) <- match_zippers(zipper, pattern_zipper),
@@ -627,7 +661,9 @@ defmodule Sourceror.Zipper do
 
   Use `__cursor__()` to match a cursor in the provided source code. Use `__` to skip any code at a point.
 
-  For example:
+  If passed `nil`, this function returns `nil`.
+
+  ## Examples
 
   ```elixir
   zipper =
@@ -651,7 +687,8 @@ defmodule Sourceror.Zipper do
   # => 10
   ```
   """
-  @spec move_to_cursor(t(), String.t() | t()) :: t() | nil
+  @spec move_to_cursor(t, String.t() | t) :: t | nil
+  @spec move_to_cursor(nil, String.t() | t) :: nil
   def move_to_cursor(%Z{} = zipper, pattern) when is_binary(pattern) do
     pattern
     |> Sourceror.parse_string!()
@@ -670,6 +707,8 @@ defmodule Sourceror.Zipper do
       _ -> nil
     end
   end
+
+  def move_to_cursor(nil), do: nil
 
   defp move_zippers(zipper, pattern_zipper, move) do
     with %Z{} = zipper <- move.(zipper),
@@ -709,12 +748,19 @@ defmodule Sourceror.Zipper do
 
   The optional second parameters specifies the `direction`, defaults to
   `:next`.
+
+  If passed `nil`, this function returns `nil`.
   """
   @spec find(t, direction :: :prev | :next, predicate :: (tree -> any)) :: t | nil
-  def find(%Z{} = zipper, direction \\ :next, predicate)
+  @spec find(nil, direction :: :prev | :next, predicate :: (tree -> any)) :: nil
+  def find(zipper, direction \\ :next, predicate)
+
+  def find(%Z{} = zipper, direction, predicate)
       when direction in [:next, :prev] and is_function(predicate, 1) do
     do_find(zipper, move(direction), predicate)
   end
+
+  def find(nil, _direction, _predicate), do: nil
 
   defp do_find(nil, _move, _predicate), do: nil
 
@@ -732,12 +778,19 @@ defmodule Sourceror.Zipper do
 
   The optional second parameters specifies the `direction`, defaults to
   `:next`.
+
+  If passed `nil`, this function returns the empty list.
   """
   @spec find_all(t, direction :: :prev | :next, predicate :: (tree -> any)) :: [t]
-  def find_all(%Z{} = zipper, direction \\ :next, predicate)
+  @spec find_all(nil, direction :: :prev | :next, predicate :: (tree -> any)) :: []
+  def find_all(zipper, direction \\ :next, predicate)
+
+  def find_all(%Z{} = zipper, direction, predicate)
       when direction in [:next, :prev] and is_function(predicate, 1) do
     do_find_all(zipper, move(direction), predicate, [])
   end
+
+  def find_all(nil, _direction, _predicate), do: nil
 
   defp do_find_all(nil, _move, _predicate, buffer), do: Enum.reverse(buffer)
 
@@ -749,11 +802,21 @@ defmodule Sourceror.Zipper do
     end
   end
 
-  @spec find_value(t, (tree -> any)) :: any | nil
-  def find_value(%Z{} = zipper, direction \\ :next, fun)
+  @doc """
+  Like `find/3`, but returns the first non-falsy value returned by `fun`.
+
+  If passed `nil`, this function returns `nil`.
+  """
+  @spec find_value(t, (tree -> term)) :: term | nil
+  @spec find_value(nil, (tree -> term)) :: nil
+  def find_value(zipper, direction \\ :next, fun)
+
+  def find_value(%Z{} = zipper, direction, fun)
       when direction in [:next, :prev] and is_function(fun, 1) do
     do_find_value(zipper, move(direction), fun)
   end
+
+  def find_value(nil, _direction, _fun), do: nil
 
   defp do_find_value(nil, _move, _fun), do: nil
 
