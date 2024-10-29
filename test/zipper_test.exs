@@ -1,6 +1,6 @@
 defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
-  doctest Sourceror.Zipper, import: true, except: [:moduledoc]
+  doctest Sourceror.Zipper, import: true
 
   import SourcerorTest.CursorSupport, only: [pop_cursor: 1]
 
@@ -810,7 +810,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> Z.next()
              |> inspect(custom_options: [zippers: :raw, sort_maps: true]) ==
-               "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
+               "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil, supertree: nil}, right: [3]}, supertree: nil}"
     end
 
     test "default_inspect_as/1 sets a default" do
