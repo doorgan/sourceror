@@ -803,6 +803,20 @@ defmodule SourcerorTest.ZipperTest do
              """
     end
 
+    test ":as_code option displays subtree root" do
+      zipper = "[x = 1 + 2]" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert zipper
+             |> Z.down()
+             |> Z.subtree()
+             |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               #subtree root
+               x = 1 + 2
+             >\
+             """
+    end
+
     test ":raw option formats the zipper as a struct" do
       zipper = Z.zip([1, [2], 3])
 

@@ -129,6 +129,9 @@ defmodule Sourceror.Zipper.Inspect do
     )
   end
 
+  defp get_prefix(%Z{path: nil, supertree: supertree}, opts) when not is_nil(supertree),
+    do: concat([line(), internal("#subtree root", opts), line()])
+
   defp get_prefix(%Z{path: nil}, opts), do: concat([line(), internal("#root", opts), line()])
 
   defp get_prefix(%Z{path: %{left: [_ | _]}}, opts),
