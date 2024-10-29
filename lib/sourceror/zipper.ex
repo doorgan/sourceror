@@ -842,6 +842,18 @@ defmodule Sourceror.Zipper do
     do: %{zipper | path: nil, supertree: zipper}
 
   @doc """
+  Moves to the top and breaks out of a subtree.
+
+  Returns `nil` if `zipper` is not a subtree.
+  """
+  @spec supertree(t) :: t | nil
+  def supertree(%Z{supertree: supertree} = zipper) when not is_nil(supertree) do
+    zipper |> top() |> into(zipper.supertree)
+  end
+
+  def supertree(%Z{}), do: nil
+
+  @doc """
   Runs the function `fun` on the subtree of the currently focused `node` and
   returns the updated `zipper`.
 

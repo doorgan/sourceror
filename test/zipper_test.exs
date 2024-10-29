@@ -709,6 +709,29 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "supertree/1" do
+    test "breaks out of a single subtree level" do
+      zipper =
+        [1, [2, [3, 4, 5]]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.subtree()
+        |> Z.next()
+        |> Z.next()
+        |> Z.subtree()
+        |> Z.next()
+
+      assert zipper.node == 3
+      assert zipper |> Z.root() == [3, 4, 5]
+      assert zipper |> Z.supertree() |> Z.node() == [3, 4, 5]
+      assert zipper |> Z.supertree() |> Z.root() == [2, [3, 4, 5]]
+      assert zipper |> Z.supertree() |> Z.supertree() |> Z.node() == [2, [3, 4, 5]]
+      assert zipper |> Z.supertree() |> Z.supertree() |> Z.root() == [1, [2, [3, 4, 5]]]
+      assert zipper |> Z.supertree() |> Z.supertree() |> Z.supertree() == nil
+    end
+  end
+
   describe "Zipper.Inspect" do
     test "inspect/2 defaults to using zippers: :as_ast" do
       zipper = Z.zip([1, [2], 3])
