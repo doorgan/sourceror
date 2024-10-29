@@ -1,6 +1,6 @@
 defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
-  doctest Sourceror.Zipper, import: true, except: [:moduledoc]
+  doctest Sourceror.Zipper, import: true
 
   import SourcerorTest.CursorSupport, only: [pop_cursor: 1]
 
@@ -709,6 +709,29 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "supertree/1" do
+    test "breaks out of a single subtree level" do
+      zipper =
+        [1, [2, [3, 4, 5]]]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.next()
+        |> Z.subtree()
+        |> Z.next()
+        |> Z.next()
+        |> Z.subtree()
+        |> Z.next()
+
+      assert zipper.node == 3
+      assert zipper |> Z.root() == [3, 4, 5]
+      assert zipper |> Z.supertree() |> Z.node() == [3, 4, 5]
+      assert zipper |> Z.supertree() |> Z.root() == [2, [3, 4, 5]]
+      assert zipper |> Z.supertree() |> Z.supertree() |> Z.node() == [2, [3, 4, 5]]
+      assert zipper |> Z.supertree() |> Z.supertree() |> Z.root() == [1, [2, [3, 4, 5]]]
+      assert zipper |> Z.supertree() |> Z.supertree() |> Z.supertree() == nil
+    end
+  end
+
   describe "Zipper.Inspect" do
     test "inspect/2 defaults to using zippers: :as_ast" do
       zipper = Z.zip([1, [2], 3])
@@ -803,6 +826,20 @@ defmodule SourcerorTest.ZipperTest do
              """
     end
 
+    test ":as_code option displays subtree root" do
+      zipper = "[x = 1 + 2]" |> Code.string_to_quoted!() |> Z.zip()
+
+      assert zipper
+             |> Z.down()
+             |> Z.subtree()
+             |> inspect(custom_options: [zippers: :as_code]) == """
+             #Sourceror.Zipper<
+               #subtree root
+               x = 1 + 2
+             >\
+             """
+    end
+
     test ":raw option formats the zipper as a struct" do
       zipper = Z.zip([1, [2], 3])
 
@@ -810,7 +847,7 @@ defmodule SourcerorTest.ZipperTest do
              |> Z.next()
              |> Z.next()
              |> inspect(custom_options: [zippers: :raw, sort_maps: true]) ==
-               "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil}, right: [3]}}"
+               "%Sourceror.Zipper{node: [2], path: %{left: [1], parent: %Sourceror.Zipper{node: [1, [2], 3], path: nil, supertree: nil}, right: [3]}, supertree: nil}"
     end
 
     test "default_inspect_as/1 sets a default" do

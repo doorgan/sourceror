@@ -40,7 +40,7 @@ defmodule Sourceror.Zipper.Inspect do
 
   Using the zipper defined above as an example:
 
-      iex> zipper |> inspect(custom_options: [zipper: :as_code]) |> IO.puts()
+      iex> zipper |> inspect(custom_options: [zippers: :as_code]) |> IO.puts()
       #Sourceror.Zipper<
         #root
         def my_function do
@@ -48,13 +48,13 @@ defmodule Sourceror.Zipper.Inspect do
         end
       >
 
-      iex> zipper |> Z.next() |> inspect(custom_options: [zipper: :as_code]) |> IO.puts()
+      iex> zipper |> Z.next() |> inspect(custom_options: [zippers: :as_code]) |> IO.puts()
       #Sourceror.Zipper<
         my_function
         #...
       >
 
-      iex> zipper |> Z.next() |> inspect(custom_options: [zipper: :raw], pretty: true) |> IO.puts()
+      iex> zipper |> Z.next() |> inspect(custom_options: [zippers: :raw], pretty: true) |> IO.puts()
       %Sourceror.Zipper{
         node: {:my_function, [line: 1], nil},
         path: %{
@@ -105,7 +105,7 @@ defmodule Sourceror.Zipper.Inspect do
     open = color("%Sourceror.Zipper{", :map, opts)
     sep = color(",", :map, opts)
     close = color("}", :map, opts)
-    list = [node: zipper.node, path: zipper.path]
+    list = zipper |> Map.from_struct() |> Enum.to_list()
     fun = fn kw, opts -> Inspect.List.keyword(kw, opts) end
 
     container_doc(open, list, close, opts, fun, separator: sep)
@@ -128,6 +128,9 @@ defmodule Sourceror.Zipper.Inspect do
       ])
     )
   end
+
+  defp get_prefix(%Z{path: nil, supertree: supertree}, opts) when not is_nil(supertree),
+    do: concat([line(), internal("#subtree root", opts), line()])
 
   defp get_prefix(%Z{path: nil}, opts), do: concat([line(), internal("#root", opts), line()])
 
