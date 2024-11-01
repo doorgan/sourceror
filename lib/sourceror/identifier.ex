@@ -280,7 +280,7 @@ defmodule Sourceror.Identifier do
       iex> is_atomic_literal({:__block__, [], [{:node, [], nil}]})
       false
 
-      iex> is_atomic_literal('foo')
+      iex> is_atomic_literal(~c'foo')
       false
   """
   @spec is_atomic_literal(Macro.t()) :: Macro.t()

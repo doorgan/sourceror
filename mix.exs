@@ -10,6 +10,7 @@ defmodule Sourceror.MixProject do
       name: "Sourceror",
       version: @version,
       elixir: "~> 1.12",
+      compilers: [:lib_elixir] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       erlc_paths: erlc_paths(Mix.env()),
@@ -23,6 +24,11 @@ defmodule Sourceror.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
+      ],
+      lib_elixir: [
+        namespace: Sourceror.LibElixir,
+        ref: "v1.17.2",
+        modules: [Code, :elixir_tokenizer, Inspect.Algebra, Mix.Tasks.Format]
       ]
     ]
   end
@@ -70,6 +76,10 @@ defmodule Sourceror.MixProject do
       {:ex_check, "~> 0.15.0", only: [:dev], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.15", only: [:test]},
+      {:lib_elixir,
+       github: "zachallaun/lib_elixir",
+       ref: "1a23de6275922b575f32d524064e95c153bb6d5a",
+       runtime: false},
       {:sobelow, "~> 0.11", only: :dev}
     ]
   end
