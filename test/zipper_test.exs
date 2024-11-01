@@ -980,6 +980,21 @@ defmodule SourcerorTest.ZipperTest do
                code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
     end
 
+    test "matches list sub-expressions with cursor" do
+      code =
+        "[[:foo, :bar], :baz]"
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      seek = "[__cursor__(), :bar]"
+
+      assert ":foo" == code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
+
+      seek = "[__cursor__(), :baz]"
+
+      assert "[:foo, :bar]" == code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
+    end
+
     test "matches sub-expression with cursor and ignored elements" do
       code =
         """
@@ -996,6 +1011,40 @@ defmodule SourcerorTest.ZipperTest do
 
       assert "IO.puts()" ==
                code |> Z.search_pattern(seek) |> Z.node() |> Sourceror.to_string()
+    end
+
+    test "only matches if outer expression still matches" do
+      code =
+        "[[:foo, :bar], :baz]"
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+
+      bad_seek = "[__cursor__(), :buzz]"
+
+      assert nil == Z.search_pattern(code, bad_seek)
+    end
+
+    test "continues past current zipper focus" do
+      code =
+        [[[:foo], :bar], :baz]
+        |> Z.zip()
+        |> Z.next()
+
+      assert [[:foo], :bar] = code.node
+
+      assert %Z{node: :baz} = Z.search_pattern(code, ":baz")
+    end
+
+    test "doesn't continue past current zipper focus in subtree" do
+      code =
+        [[[:foo], :bar], :baz]
+        |> Z.zip()
+        |> Z.next()
+        |> Z.subtree()
+
+      assert [[:foo], :bar] = code.node
+
+      assert nil == Z.search_pattern(code, ":baz")
     end
   end
 
@@ -1107,6 +1156,16 @@ defmodule SourcerorTest.ZipperTest do
       assert new_zipper = Z.move_to_cursor(code, seek)
 
       assert "20" == new_zipper |> Z.node() |> Sourceror.to_string()
+    end
+
+    test "requires that elements after the cursor match" do
+      code =
+        [[[:foo], :bar], :baz]
+        |> Z.zip()
+
+      seek = "[[[:foo], __cursor__()], :NOMATCH]"
+
+      assert nil == Z.move_to_cursor(code, seek)
     end
   end
 

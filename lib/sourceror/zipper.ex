@@ -575,10 +575,39 @@ defmodule Sourceror.Zipper do
     do: %{zipper | path: path, supertree: supertree}
 
   @doc """
-  Searches `zipper` for the given pattern, moving to that pattern or to the
-  location of `__cursor__()` in that pattern.
+  Searches forward in `zipper` for the given pattern, moving to that
+  pattern or a location inside that pattern.
+
+  Note that the search may continue outside of `zipper` in a depth-first
+  order. If this isn't desirable, call this function with a `subtree/1`.
 
   If passed `nil`, this function returns `nil`.
+
+  There are two special forms that can be used inside patterns:
+
+    * `__cursor__()` - if the pattern matches, the zipper will be focused
+      at the location of `__cursor__()`, if present
+    * `__` - "wildcard match" that will match a single node of any form.
+
+  ## Examples
+
+      iex> zipper =
+      ...>   \"""
+      ...>   defmodule Example do
+      ...>     def my_function(arg1, arg2) do
+      ...>       arg1 + arg2
+      ...>     end
+      ...>   end
+      ...>   \"""
+      ...>   |> Sourceror.parse_string!()
+      ...>   |> zip()
+      ...> found = search_pattern(zipper, "my_function(arg1, arg2)")
+      ...> {:my_function, _, [{:arg1, _, _}, {:arg2, _, _}]} = found.node
+      ...> found = search_pattern(zipper, "my_function(__, __)")
+      ...> {:my_function, _, [{:arg1, _, _}, {:arg2, _, _}]} = found.node
+      ...> found = search_pattern(zipper, "def my_function(__, __cursor__()), __")
+      ...> {:arg2, _, _} = found.node
+
   """
   @spec search_pattern(t, String.t() | t) :: t | nil
   @spec search_pattern(nil, String.t() | t) :: nil
@@ -590,102 +619,47 @@ defmodule Sourceror.Zipper do
   end
 
   def search_pattern(%Z{} = zipper, %Z{} = pattern_zipper) do
-    if contains_cursor?(pattern_zipper) do
-      search_to_cursor(zipper, pattern_zipper)
-    else
-      search_to_exact(zipper, pattern_zipper)
+    case find_pattern(zipper, pattern_zipper, :error) do
+      {:ok, found} -> found
+      :error -> zipper |> next() |> search_pattern(pattern_zipper)
     end
   end
 
   def search_pattern(nil, _pattern), do: nil
 
-  defp search_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
-    with match_kind when is_atom(match_kind) <- match_zippers(zipper, pattern_zipper),
-         %Z{} = new_zipper <- move_to_cursor(zipper, pattern_zipper) do
-      new_zipper
-    else
-      _ ->
-        zipper |> next() |> search_to_cursor(pattern_zipper)
-    end
-  end
-
-  defp search_to_cursor(nil, _), do: nil
-
-  defp search_to_exact(%Z{} = zipper, %Z{} = pattern_zipper) do
-    if similar_or_skip?(zipper.node, pattern_zipper.node) do
-      zipper
-    else
-      zipper |> next() |> search_to_exact(pattern_zipper)
-    end
-  end
-
-  defp search_to_exact(nil, _), do: nil
-
-  defp contains_cursor?(%Z{} = zipper) do
-    !!find(zipper, &match?({:__cursor__, _, []}, &1))
-  end
-
-  defp similar_or_skip?(_, {:__, _, _}), do: true
-
-  defp similar_or_skip?({:__block__, _, [left]}, right) do
-    similar_or_skip?(left, right)
-  end
-
-  defp similar_or_skip?(left, {:__block__, _, [right]}) do
-    similar_or_skip?(left, right)
-  end
-
-  defp similar_or_skip?({call1, _, args1}, {call2, _, args2}) do
-    similar_or_skip?(call1, call2) and similar_or_skip?(args1, args2)
-  end
-
-  defp similar_or_skip?({l1, r1}, {l2, r2}) do
-    similar_or_skip?(l1, l2) and similar_or_skip?(r1, r2)
-  end
-
-  defp similar_or_skip?(list1, list2) when is_list(list1) and is_list(list2) do
-    length(list1) == length(list2) and
-      [list1, list2]
-      |> Enum.zip()
-      |> Enum.all?(fn {el1, el2} ->
-        similar_or_skip?(el1, el2)
-      end)
-  end
-
-  defp similar_or_skip?(same, same), do: true
-
-  defp similar_or_skip?(_, _), do: false
-
   @doc """
   Matches `zipper` against the given pattern, moving to the location of `__cursor__()`.
 
-  Use `__cursor__()` to match a cursor in the provided source code. Use `__` to skip any code at a point.
+  This function only moves `zipper` if the current node matches the pattern.
+  To search for a pattern in `zipper`, use `search_pattern/2`.
+
+  There are two special forms that can be used inside patterns:
+
+    * `__cursor__()` - if the pattern matches, the zipper will be focused
+      at the location of `__cursor__()`, if present
+    * `__` - "wildcard match" that will match a single node of any form.
 
   If passed `nil`, this function returns `nil`.
 
   ## Examples
 
-  ```elixir
-  zipper =
-    \"\"\"
-    if true do
-      10
-    end
-    \"\"\"
-    |> Sourceror.Zipper.zip()
+      iex> zipper =
+      ...>   \"""
+      ...>   if true do
+      ...>     10
+      ...>   end
+      ...>   \"""
+      ...>   |> Sourceror.parse_string!()
+      ...>   |> zip()
+      iex> pattern =
+      ...>   \"""
+      ...>   if __ do
+      ...>     __cursor__()
+      ...>   end
+      ...>   \"""
+      iex> found = move_to_cursor(zipper, pattern)
+      iex> {:__block__, _, [10]} = found.node
 
-  pattern =
-    \"\"\"
-    if __ do
-      __cursor__()
-    end
-    \"\"\"
-
-  zipper
-  |> Zipper.move_to_cursor(pattern)
-  |> Zipper.node()
-  # => 10
-  ```
   """
   @spec move_to_cursor(t, String.t() | t) :: t | nil
   @spec move_to_cursor(nil, String.t() | t) :: nil
@@ -696,49 +670,73 @@ defmodule Sourceror.Zipper do
     |> then(&move_to_cursor(zipper, &1))
   end
 
-  def move_to_cursor(%Z{} = zipper, %Z{node: {:__cursor__, _, []}}) do
-    zipper
-  end
-
   def move_to_cursor(%Z{} = zipper, %Z{} = pattern_zipper) do
-    case match_zippers(zipper, pattern_zipper) do
-      :skip -> move_zippers(zipper, pattern_zipper, &skip/1)
-      :next -> move_zippers(zipper, pattern_zipper, &next/1)
-      _ -> nil
+    case find_pattern(zipper, pattern_zipper, :error) do
+      {:ok, found} -> found
+      :error -> nil
     end
   end
 
-  def move_to_cursor(nil), do: nil
+  def move_to_cursor(nil, _pattern), do: nil
 
-  defp move_zippers(zipper, pattern_zipper, move) do
-    with %Z{} = zipper <- move.(zipper),
-         %Z{} = pattern_zipper <- move.(pattern_zipper) do
-      move_to_cursor(zipper, pattern_zipper)
-    end
-  end
+  defp find_pattern(%Z{} = zipper, %Z{} = pattern_zipper, result) do
+    case pattern_zipper.node do
+      {:__cursor__, _, []} ->
+        find_pattern(skip(zipper), next(pattern_zipper), {:ok, zipper})
 
-  defp match_zippers(%Z{node: zipper_node}, %Z{node: pattern_node}) do
-    case {zipper_node, pattern_node} do
-      {_, {:__, _, _}} ->
-        :skip
-
-      {{call, _, _}, {call, _, _}} ->
-        :next
-
-      {{{call, _, _}, _, _}, {{call, _, _}, _, _}} ->
-        :next
-
-      {{_, _}, {_, _}} ->
-        :next
-
-      {same, same} ->
-        :next
-
-      {left, right} when is_list(left) and is_list(right) ->
-        :next
+      {:__, _, nil} ->
+        find_pattern(skip(zipper), next(pattern_zipper), result)
 
       _ ->
-        false
+        case {move_similar_zippers(zipper, pattern_zipper), result} do
+          {{next_zipper, next_pattern_zipper}, {:ok, _}} ->
+            find_pattern(next_zipper, next_pattern_zipper, result)
+
+          {{next_zipper, next_pattern_zipper}, :error} ->
+            find_pattern(next_zipper, next_pattern_zipper, {:ok, zipper})
+
+          {nil, _} ->
+            :error
+        end
+    end
+  end
+
+  defp find_pattern(_zipper, nil, result), do: result
+  defp find_pattern(nil, _pattern, _result), do: :error
+
+  # Moves a pair of zippers one step so long as the outermost structure
+  # matches. Notably, this function unwraps single-element blocks, so
+  # {:__block__, _, [:foo]} and :foo would match, and the zippers would
+  # be moved to the next node.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  defp move_similar_zippers(%Z{} = zipper, %Z{} = pattern_zipper) do
+    case {zipper.node, pattern_zipper.node} do
+      {{:__block__, _, [_left]}, _right} ->
+        move_similar_zippers(next(zipper), pattern_zipper)
+
+      {_left, {:__block__, _, [_right]}} ->
+        move_similar_zippers(zipper, next(pattern_zipper))
+
+      {_, {:__, _, nil}} ->
+        {skip(zipper), skip(pattern_zipper)}
+
+      {{call, _, _}, {call, _, _}} when is_atom(call) ->
+        {next(zipper), next(pattern_zipper)}
+
+      {{{_, _, _}, _, _}, {{_, _, _}, _, _}} ->
+        {next(zipper), next(pattern_zipper)}
+
+      {{_, _}, {_, _}} ->
+        {next(zipper), next(pattern_zipper)}
+
+      {same, same} ->
+        {skip(zipper), skip(pattern_zipper)}
+
+      {left, right} when is_list(left) and is_list(right) and length(left) == length(right) ->
+        {next(zipper), next(pattern_zipper)}
+
+      _ ->
+        nil
     end
   end
 
