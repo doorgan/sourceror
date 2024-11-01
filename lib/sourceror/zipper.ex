@@ -708,6 +708,7 @@ defmodule Sourceror.Zipper do
   # matches. Notably, this function unwraps single-element blocks, so
   # {:__block__, _, [:foo]} and :foo would match, and the zippers would
   # be moved to the next node.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp move_similar_zippers(%Z{} = zipper, %Z{} = pattern_zipper) do
     case {zipper.node, pattern_zipper.node} do
       {{:__block__, _, [_left]}, _right} ->
