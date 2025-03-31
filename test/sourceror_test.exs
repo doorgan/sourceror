@@ -280,6 +280,28 @@ defmodule SourcerorTest do
     end
   end
 
+  describe "parse_string/2" do
+    test "allows setting the line" do
+      string = "hello"
+
+      assert {:ok, {:hello, meta, _}} = Sourceror.parse_string(string)
+      assert meta[:line] == 1
+
+      assert {:ok, {:hello, meta, _}} = Sourceror.parse_string(string, line: 42)
+      assert meta[:line] == 42
+    end
+
+    test "allows setting the column" do
+      string = "hello"
+
+      assert {:ok, {:hello, meta, _}} = Sourceror.parse_string(string)
+      assert meta[:column] == 1
+
+      assert {:ok, {:hello, meta, _}} = Sourceror.parse_string(string, column: 42)
+      assert meta[:column] == 42
+    end
+  end
+
   describe "parse_string!/2" do
     test "returns an empty block for an emtpy string" do
       assert Sourceror.parse_string!("") == {:__block__, [], []}
@@ -293,6 +315,26 @@ defmodule SourcerorTest do
       assert_raise TokenMissingError, fn ->
         Sourceror.parse_string!("do :ok")
       end
+    end
+
+    test "allows setting the line" do
+      string = "hello"
+
+      assert {:hello, meta, _} = Sourceror.parse_string!(string)
+      assert meta[:line] == 1
+
+      assert {:hello, meta, _} = Sourceror.parse_string!(string, line: 42)
+      assert meta[:line] == 42
+    end
+
+    test "allows setting the column" do
+      string = "hello"
+
+      assert {:hello, meta, _} = Sourceror.parse_string!(string)
+      assert meta[:column] == 1
+
+      assert {:hello, meta, _} = Sourceror.parse_string!(string, column: 42)
+      assert meta[:column] == 42
     end
   end
 

@@ -115,10 +115,17 @@ defmodule Sourceror do
       the node. For example, comments right before the `end` keyword.
 
   Comments are the same maps returned by `Code.string_to_quoted_with_comments/2`.
+
+  ## Options
+
+    - `:line` - the line number where the source code starts. Defaults to `1`.
+    - `:column` - the column number where the source code starts. Defaults to `1`.
   """
-  @spec parse_string(String.t()) :: {:ok, Macro.t()} | {:error, term()}
-  def parse_string(source) do
-    with {:ok, quoted, comments} <- string_to_quoted(source, to_quoted_opts()) do
+  @spec parse_string(String.t(), Keyword.t()) :: {:ok, Macro.t()} | {:error, term()}
+  def parse_string(source, opts \\ []) do
+    opts = Keyword.take(opts, [:line, :column])
+
+    with {:ok, quoted, comments} <- string_to_quoted(source, opts ++ to_quoted_opts()) do
       {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
     end
   end
@@ -127,8 +134,10 @@ defmodule Sourceror do
   Same as `parse_string/1` but raises on error.
   """
   @spec parse_string!(String.t()) :: Macro.t()
-  def parse_string!(source) do
-    {quoted, comments} = string_to_quoted!(source, to_quoted_opts())
+  def parse_string!(source, opts \\ []) do
+    opts = Keyword.take(opts, [:line, :column])
+
+    {quoted, comments} = string_to_quoted!(source, opts ++ to_quoted_opts())
     Sourceror.Comments.merge_comments(quoted, comments)
   end
 
