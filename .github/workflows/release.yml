@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 jobs:
   release:
@@ -11,8 +11,8 @@ jobs:
     name: Release
     strategy:
       matrix:
-        otp: ['26']
-        elixir: ['1.15.0']
+        otp: ["26"]
+        elixir: ["1.15.0"]
     env:
       HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
     steps:
@@ -22,7 +22,7 @@ jobs:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
       - name: Restore dependencies cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: deps
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-release-deps-${{ hashFiles('**/mix.lock') }}

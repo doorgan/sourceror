@@ -391,7 +391,7 @@ defmodule Sourceror.Range do
   end
 
   # Stepped ranges
-  defp do_get_range({:"..//", _, [left, _middle, right]}) do
+  defp do_get_range({:..//, _, [left, _middle, right]}) do
     get_range_for_pair(left, right)
   end
 
