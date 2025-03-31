@@ -9,23 +9,23 @@ jobs:
     strategy:
       matrix:
         include:
-          - elixir: '1.12.3'
-            otp: '24.3'
+          - elixir: "1.12.3"
+            otp: "24.3"
             run_vendored_tests: true
-          - elixir: '1.13.4'
-            otp: '24.3'
-          - elixir: '1.13.4'
-            otp: '25.0.2'
-          - elixir: '1.14.3'
-            otp: '25.2'
-          - elixir: '1.15.5'
-            otp: '26'
+          - elixir: "1.13.4"
+            otp: "24.3"
+          - elixir: "1.13.4"
+            otp: "25.0.2"
+          - elixir: "1.14.3"
+            otp: "25.2"
+          - elixir: "1.15.5"
+            otp: "26"
             check_formatted: true
             run_credo: true
             run_coveralls: true
             run_dialyzer: true
-          - elixir: '1.16.0'
-            otp: '26'
+          - elixir: "1.16.0"
+            otp: "26"
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
@@ -37,7 +37,7 @@ jobs:
           version-type: strict
 
       - name: Restore dependencies cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: deps
           key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('**/mix.lock') }}
@@ -50,7 +50,7 @@ jobs:
 
       - name: Retrieve PLT Cache
         if: matrix.run_dialyzer
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         id: plt-cache
         with:
           path: priv/plts
