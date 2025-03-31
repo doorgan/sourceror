@@ -20,12 +20,14 @@ jobs:
             otp: "25.2"
           - elixir: "1.15.5"
             otp: "26"
+          - elixir: "1.16.0"
+            otp: "26"
+          - elixir: "1.18.3"
+            otp: "27"
             check_formatted: true
             run_credo: true
             run_coveralls: true
             run_dialyzer: true
-          - elixir: "1.16.0"
-            otp: "26"
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
