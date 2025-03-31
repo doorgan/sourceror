@@ -131,7 +131,7 @@ defmodule Sourceror do
   end
 
   @doc """
-  Same as `parse_string/1` but raises on error.
+  Same as `parse_string/2` but raises on error.
   """
   @spec parse_string!(String.t()) :: Macro.t()
   def parse_string!(source, opts \\ []) do
@@ -685,7 +685,7 @@ defmodule Sourceror do
   Additionally, certain syntax constructs desugar into ASTs without a
   meaningful range. In these cases, `get_range/1` returns `nil`.
 
-  This function is most useful when used after `Sourceror.parse_string/1`,
+  This function is most useful when used after `Sourceror.parse_string/2`,
   before any kind of modification to the AST.
 
       iex> quoted = ~S"\""
