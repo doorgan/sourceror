@@ -119,11 +119,77 @@ defmodule Sourceror do
   ## Options
 
     - `:line` - the line number where the source code starts. Defaults to `1`.
-    - `:column` - the column number where the source code starts. Defaults to `1`.
+    - `:column` - the column number the source code is indented at. Defaults to `1`.
+    - `:start_column`- If set, the column number where the source code starts.
+
+  ## Column and start column
+
+  When parsing Elixir code, you can set the `:line` and `:column` options to change
+  the starting position of the source code. This is useful when you are parsing
+  a substring of a larger source code.
+
+  If setting the `:column` option, the `:column` metadata will be shifted by `:column`
+  spaces, for example here:
+
+      iex> string = ~S"\""
+      ...> def foo do
+      ...>   :ok
+      ...> end
+      ...> "\""
+      iex> {:def, meta, _} = Sourceror.parse_string!(string, column: 20)
+      iex> meta[:column]
+      20
+      iex> meta[:end]
+      [line: 3, column: 20]
+
+  However, if the parsed code does not originally start at the first column, you
+  will get unexpected results. For example, if the full code is this:
+
+      def foo(items) do
+        Enum.map(items, fn item ->
+          item
+        end)
+      end
+
+  And you extract the substring corresponding to the anonymous function, parsing that
+  fragment would yield incorrect column numbers:
+
+      iex> string = ~S"\""
+      ...> fn item ->
+      ...>       item
+      ...>     end
+      ...> "\""
+      iex> {:fn, meta, _} = Sourceror.parse_string!(string, column: 18)
+      iex> meta[:column]
+      18
+      iex> meta[:closing]
+      [line: 3, column: 22]
+
+  The result here is that the `:column` metadata is shifted by 18 spaces, producing
+  the correct result for the `fn` keyword, but incorrect results for the `end` position.
+  Likewise, the `item` node will have an incorrect column number as well.
+
+  To address this issue, you can use the `:start_column` option. This option will
+  set the column number where the source code starts by including some padding to
+  the start of the string, such that it would match the exact position the code snippet
+  would have by being part of the original source code:
+
+      iex> string = ~S"\""
+      ...> fn item ->
+      ...>       item
+      ...>     end
+      ...> "\""
+      iex> {:fn, meta, _} = Sourceror.parse_string!(string, start_column: 18)
+      iex> meta[:column]
+      18
+      iex> meta[:closing]
+      [line: 3, column: 5]
   """
   @spec parse_string(String.t(), Keyword.t()) :: {:ok, Macro.t()} | {:error, term()}
   def parse_string(source, opts \\ []) do
-    opts = Keyword.take(opts, [:line, :column])
+    opts = Keyword.take(opts, [:line, :column, :start_column])
+
+    source = maybe_pad_start_column(source, opts)
 
     with {:ok, quoted, comments} <- string_to_quoted(source, opts ++ to_quoted_opts()) do
       {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
@@ -135,7 +201,9 @@ defmodule Sourceror do
   """
   @spec parse_string!(String.t()) :: Macro.t()
   def parse_string!(source, opts \\ []) do
-    opts = Keyword.take(opts, [:line, :column])
+    opts = Keyword.take(opts, [:line, :column, :start_column])
+
+    source = maybe_pad_start_column(source, opts)
 
     {quoted, comments} = string_to_quoted!(source, opts ++ to_quoted_opts())
     Sourceror.Comments.merge_comments(quoted, comments)
@@ -150,6 +218,16 @@ defmodule Sourceror do
       warn_on_unnecessary_quotes: false,
       emit_warnings: false
     ]
+  end
+
+  defp maybe_pad_start_column(source, opts) do
+    case Keyword.get(opts, :start_column) do
+      start_column when is_integer(start_column) ->
+        String.duplicate(" ", start_column - 1) <> source
+
+      _ ->
+        source
+    end
   end
 
   @doc """
