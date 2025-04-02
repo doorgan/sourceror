@@ -336,6 +336,49 @@ defmodule SourcerorTest do
       assert {:hello, meta, _} = Sourceror.parse_string!(string, column: 42)
       assert meta[:column] == 42
     end
+
+    test "supports first line column padding" do
+      string =
+        """
+        defmodule Foo do
+          def my_func() do
+            Enum.map(1..2, fn i ->
+              i + 20
+            end)
+          end
+        end
+        """
+
+      fn_node =
+        string
+        |> Sourceror.parse_string!()
+        |> Sourceror.Zipper.zip()
+        |> Sourceror.Zipper.search_pattern("""
+        fn i ->
+          i + 20
+        end
+        """)
+        |> Sourceror.Zipper.node()
+
+      fn_meta = Sourceror.get_meta(fn_node)
+
+      fn_substring =
+        """
+        fn i ->
+              i + 20
+            end
+        """
+
+      parsed =
+        Sourceror.parse_string!(fn_substring,
+          line: fn_meta[:line],
+          start_column: fn_meta[:column]
+        )
+
+      parsed = Macro.update_meta(parsed, &Keyword.delete(&1, :end_of_expression))
+
+      assert fn_node == parsed
+    end
   end
 
   describe "parse_expression/2" do
