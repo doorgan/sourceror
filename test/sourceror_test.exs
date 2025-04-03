@@ -622,7 +622,11 @@ defmodule SourcerorTest do
         """
         |> Sourceror.parse_string!()
 
-      assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+      if Version.match?(System.version(), ">= 1.17.0") do
+        assert Sourceror.get_end_position(quoted) == [line: 3, column: 3]
+      else
+        assert Sourceror.get_end_position(quoted) == [line: 3, column: 1]
+      end
 
       quoted =
         ~S"""

@@ -593,7 +593,9 @@ defmodule Sourceror do
       ...> end
       ...> "\"" |>  Sourceror.parse_string!()
       iex> Sourceror.get_end_position(quoted)
-      [line: 3, column: 1]
+      #{if Version.match?(System.version(), "< 1.17.0"),
+    do: "[line: 3, column: 1]",
+    else: "[line: 3, column: 3]"}
 
       iex> quoted = ~S"\""
       ...> foo(
