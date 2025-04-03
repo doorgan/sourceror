@@ -212,6 +212,10 @@ defmodule Sourceror do
   entirely, use `locals_without_parens: []`.
 
   ## Options
+    * `:formatter` - A function that will perform the formatting. It must accept
+      the quoted expression and a keyword list with the options. The function
+      must return a string.
+
     * `:indent` - how many indentations to insert at the start of each line.
       Note that this only prepends the indents without checking the indentation
       of nested blocks. Defaults to `0`.
@@ -231,8 +235,16 @@ defmodule Sourceror do
   """
   @spec to_string(Macro.t(), keyword) :: String.t()
   def to_string(quoted, opts \\ []) do
+    format_fn =
+      case opts[:formatter] do
+        format_fn when is_function(format_fn, 2) ->
+          format_fn
+
+        _ ->
+          &format_quoted/2
+      end
+
     indent = Keyword.get(opts, :indent, 0)
-    line_length = Keyword.get(opts, :line_length, 98)
 
     indent_str =
       case Keyword.get(opts, :indent_type, :spaces) do
@@ -242,9 +254,7 @@ defmodule Sourceror do
       end
 
     quoted
-    |> to_algebra(opts)
-    |> Inspect.Algebra.format(line_length)
-    |> IO.iodata_to_binary()
+    |> format_fn.(opts)
     |> indent(indent_str, indent)
     |> splice(quoted, opts[:format])
   end
@@ -264,6 +274,15 @@ defmodule Sourceror do
   end
 
   defp splice(text, _quoted, _format), do: text
+
+  defp format_quoted(quoted, opts) do
+    line_length = Keyword.get(opts, :line_length, 98)
+
+    quoted
+    |> to_algebra(opts)
+    |> Inspect.Algebra.format(line_length)
+    |> IO.iodata_to_binary()
+  end
 
   @doc false
   def to_algebra(quoted, opts \\ []) do

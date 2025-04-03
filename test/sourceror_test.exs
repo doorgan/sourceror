@@ -530,6 +530,24 @@ defmodule SourcerorTest do
                  trailing_comma: true
                )
     end
+
+    test "supports different formatters" do
+      format_fn =
+        fn quoted, _opts ->
+          Macro.to_string(quoted)
+        end
+
+      code = ~S"""
+      # Hello world
+      foo.bar()
+      """
+
+      quoted = Sourceror.parse_string!(code)
+
+      assert Sourceror.to_string(quoted) == String.trim(code)
+
+      assert Sourceror.to_string(quoted, formatter: format_fn) == "foo.bar()"
+    end
   end
 
   describe "correct_lines/2" do
