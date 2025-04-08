@@ -386,8 +386,18 @@ defmodule Sourceror.Range do
   end
 
   # Binary operators
-  defp do_get_range({op, _, [left, right]}) when is_binary_op(op) do
-    get_range_for_pair(left, right)
+  defp do_get_range({op, meta, [left, right]}) when is_binary_op(op) do
+    if meta[:parens] && meta[:parens][:closing] do
+      start_pos = Keyword.take(meta[:parens], [:line, :column])
+
+      end_pos =
+        Keyword.take(meta[:parens][:closing], [:line, :column])
+        |> Keyword.update!(:column, &(&1 + 1))
+
+      new(start_pos, end_pos)
+    else
+      get_range_for_pair(left, right)
+    end
   end
 
   # Stepped ranges
