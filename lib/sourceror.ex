@@ -123,7 +123,9 @@ defmodule Sourceror do
   """
   @spec parse_string(String.t(), Keyword.t()) :: {:ok, Macro.t()} | {:error, term()}
   def parse_string(source, opts \\ []) do
-    opts = Keyword.take(opts, [:line, :column])
+    opts = Keyword.take(opts, [:line, :column, :indentation])
+
+    {source, opts} = maybe_apply_columns_fix(source, opts)
 
     with {:ok, quoted, comments} <- string_to_quoted(source, opts ++ to_quoted_opts()) do
       {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
@@ -135,10 +137,53 @@ defmodule Sourceror do
   """
   @spec parse_string!(String.t()) :: Macro.t()
   def parse_string!(source, opts \\ []) do
-    opts = Keyword.take(opts, [:line, :column])
+    opts = Keyword.take(opts, [:line, :column, :indentation])
+
+    {source, opts} = maybe_apply_columns_fix(source, opts)
 
     {quoted, comments} = string_to_quoted!(source, opts ++ to_quoted_opts())
     Sourceror.Comments.merge_comments(quoted, comments)
+  end
+
+  cond do
+    Version.match?(System.version(), ">= 1.16.0 and < 1.19.0") ->
+      defp maybe_apply_columns_fix(source, opts) do
+        {source, opts} =
+          case Keyword.get(opts, :column) do
+            start_column when is_integer(start_column) ->
+              source = String.duplicate(" ", start_column - 1) <> source
+              opts = Keyword.delete(opts, :column)
+              {source, opts}
+
+            _ ->
+              {source, opts}
+          end
+
+        apply_indentation_fix(source, opts)
+      end
+
+    Version.match?(System.version(), "< 1.19.0") ->
+      defp maybe_apply_columns_fix(source, opts) do
+        apply_indentation_fix(source, opts)
+      end
+
+    true ->
+      defp maybe_apply_columns_fix(source, opts) do
+        {source, opts}
+      end
+  end
+
+  defp apply_indentation_fix(source, opts) do
+    case Keyword.get(opts, :indentation) do
+      indentation when is_integer(indentation) ->
+        opts = Keyword.delete(opts, :indentation)
+        source = indent(source, " ", indentation - 1)
+
+        {source, opts}
+
+      _ ->
+        {source, opts}
+    end
   end
 
   defp to_quoted_opts do
