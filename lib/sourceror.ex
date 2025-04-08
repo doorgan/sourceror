@@ -120,6 +120,8 @@ defmodule Sourceror do
 
     - `:line` - the line number where the source code starts. Defaults to `1`.
     - `:column` - the column number where the source code starts. Defaults to `1`.
+    - `:indentation` - the indentation level of the source code. This is useful
+      when the code parsed is embedded within another document. Defaults to `0`.
   """
   @spec parse_string(String.t(), Keyword.t()) :: {:ok, Macro.t()} | {:error, term()}
   def parse_string(source, opts \\ []) do
