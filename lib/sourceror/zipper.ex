@@ -105,6 +105,51 @@ defmodule Sourceror.Zipper do
     end
   end
 
+  @doc """
+  Creates a `zipper` from a tree `node` focused at the innermost descendant contained by `range`.
+
+  Returns `{:ok, zipper}` if `node` is within `range`, else `:error`.
+
+  Modifying `node` prior to using `within_range/2` is not recommended as added or
+  changed descendants may not contain accurate position metadata used to
+  find the focus.
+  """
+  @spec within_range(Macro.t(), Sourceror.Range.t()) :: {:ok, t} | :error
+  def within_range(node, %Sourceror.Range{} = range) do
+    {_, {candidate, _}} =
+      node
+      |> zip()
+      |> traverse({nil, nil}, fn zipper, {candidate, candidate_range} ->
+        node = node(zipper)
+
+        node_range = Sourceror.get_range(node)
+
+        case candidate do
+          nil ->
+            if node_within?(node, range) do
+              {zipper, {zipper, node_range}}
+            else
+              {zipper, {candidate, candidate_range}}
+            end
+
+          _ ->
+            if node_within?(node, range) and node_within?(node, candidate_range) do
+              {zipper, {zipper, node_range}}
+            else
+              {zipper, {candidate, candidate_range}}
+            end
+        end
+      end)
+
+    case candidate do
+      nil ->
+        :error
+
+      zipper ->
+        {:ok, zipper}
+    end
+  end
+
   defp new_from_path([{node, [], []}]) do
     new(node)
   end
@@ -127,7 +172,13 @@ defmodule Sourceror.Zipper do
       parent
       |> children()
       |> Enum.split_while(fn child ->
-        not node_contains?(child, position)
+        case position do
+          %Sourceror.Range{} = range ->
+            not node_within?(child, range)
+
+          _ ->
+            not node_contains?(child, position)
+        end
       end)
 
     case node_and_right do
@@ -137,6 +188,17 @@ defmodule Sourceror.Zipper do
       [node | right] ->
         reversed_left = Enum.reverse(left)
         path_to(position, [{node, reversed_left, right} | path])
+    end
+  end
+
+  defp node_within?(node, range) do
+    case Sourceror.get_range(node) do
+      %Sourceror.Range{} = node_range ->
+        Sourceror.compare_positions(node_range.start, range.start) in [:gt, :eq] and
+          Sourceror.compare_positions(node_range.end, range.end) in [:lt, :eq]
+
+      nil ->
+        false
     end
   end
 

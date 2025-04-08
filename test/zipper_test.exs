@@ -2,7 +2,7 @@ defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
   doctest Sourceror.Zipper, import: true
 
-  import SourcerorTest.CursorSupport, only: [pop_cursor: 1]
+  import SourcerorTest.CursorSupport, only: [pop_cursor: 1, pop_range: 1]
 
   alias Sourceror.Zipper, as: Z
 
@@ -1230,6 +1230,35 @@ defmodule SourcerorTest.ZipperTest do
                  [1, 2, 3, 4, 5]
                end|
                """)
+    end
+  end
+
+  describe "within_range/2" do
+    defp zipper_at_range(code_with_range) do
+      {range, code} = pop_range(code_with_range)
+      code |> Sourceror.parse_string!() |> Z.within_range(range)
+    end
+
+    test "creates a zipper focused on an inner literal within the given range" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 [1, «2», 3, 4, 5]
+               end
+               """)
+
+      assert {:__block__, _, [2]} = zipper |> Z.node()
+    end
+
+    test "creates a zipper focused on the first contained node if multiple siblings match" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 [1,« 2, 3», 4, 5]
+               end
+               """)
+
+      assert {:__block__, _, [2]} = zipper |> Z.node()
     end
   end
 end
