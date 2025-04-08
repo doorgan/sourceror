@@ -5,19 +5,19 @@ on: [pull_request, push]
 jobs:
   ci:
     name: ci
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
           - elixir: "1.12.3"
-            otp: "24.3"
+            otp: "24.3.4"
             run_vendored_tests: true
           - elixir: "1.13.4"
-            otp: "24.3"
+            otp: "24.3.4"
           - elixir: "1.13.4"
             otp: "25.0.2"
           - elixir: "1.14.3"
-            otp: "25.2"
+            otp: "25.3.2"
           - elixir: "1.15.5"
             otp: "26"
           - elixir: "1.16.0"
