@@ -336,6 +336,55 @@ defmodule SourcerorTest do
       assert {:hello, meta, _} = Sourceror.parse_string!(string, column: 42)
       assert meta[:column] == 42
     end
+
+    test "the column is reset after the first line" do
+      string = ~S"""
+      foo do
+        bar
+      end
+      """
+
+      assert {:foo, foo_meta,
+              [
+                [{{:__block__, _, [:do]}, {:bar, bar_meta, _}}]
+              ]} = Sourceror.parse_string!(string, column: 10)
+
+      assert foo_meta[:column] == 10
+      # Would be 13 if it didn't reset
+      assert bar_meta[:column] == 3
+    end
+
+    test "allows setting the indentation" do
+      string = ~S"""
+      foo do
+        bar
+      end
+      """
+
+      assert {:foo, foo_meta,
+              [
+                [{{:__block__, _, [:do]}, {:bar, bar_meta, _}}]
+              ]} = Sourceror.parse_string!(string, indentation: 5)
+
+      assert foo_meta[:column] == 5
+      assert bar_meta[:column] == 7
+    end
+
+    test "allows setting both column and indentation" do
+      string = ~S"""
+      foo do
+        bar
+      end
+      """
+
+      assert {:foo, foo_meta,
+              [
+                [{{:__block__, _, [:do]}, {:bar, bar_meta, _}}]
+              ]} = Sourceror.parse_string!(string, column: 10, indentation: 5)
+
+      assert foo_meta[:column] == 14
+      assert bar_meta[:column] == 7
+    end
   end
 
   describe "parse_expression/2" do
