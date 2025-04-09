@@ -1249,10 +1249,10 @@ defmodule SourcerorTest.RangeTest do
 
     test "end pos of anonymous function" do
       code = ~S"""
-      Enum.map(filenames, fn
+                          fn
         1 -> File.read!(arg1)
         arg1 -> File.read!(arg1)
-      end)
+      end
       """
 
       quoted = Sourceror.parse_string!(code)
@@ -1270,12 +1270,14 @@ defmodule SourcerorTest.RangeTest do
 
       assert %Sourceror.Range{} = range = Sourceror.Range.get_range(fn_node)
 
+      assert range.end == [line: 4, column: 4]
+
       assert decorate(code, range) ==
                ~S"""
-               Enum.map(filenames, «fn
+                                   «fn
                  1 -> File.read!(arg1)
                  arg1 -> File.read!(arg1)
-               end»)
+               end»
                """
                |> String.trim_trailing()
     end
