@@ -32,7 +32,7 @@ defmodule SourcerorTest.CursorSupport do
       start_line = length(lines_before)
       end_line = start_line + length(range_lines) - 1
 
-      start_column = String.length(last_before_line)
+      start_column = String.length(last_before_line) + 1
       end_column = range_lines |> List.last() |> String.length()
 
       end_column =
@@ -44,7 +44,7 @@ defmodule SourcerorTest.CursorSupport do
 
       range = %Sourceror.Range{
         start: [line: start_line, column: start_column],
-        end: [line: end_line, column: end_column + 1]
+        end: [line: end_line, column: end_column]
       }
 
       text = before_text <> range_text <> after_text

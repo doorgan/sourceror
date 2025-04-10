@@ -1260,5 +1260,92 @@ defmodule SourcerorTest.ZipperTest do
 
       assert {:__block__, _, [2]} = zipper |> Z.node()
     end
+
+    test "creates a zipper focused on a function call name" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 «bar»(1, 2, 3)
+               end
+               """)
+
+      assert {:bar, _, [_, _, _]} = zipper |> Z.node()
+    end
+
+    test "creates a zipper focused on a qualified call when the range covers the call name" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 Foo.«bar»(1, 2, 3)
+               end
+               """)
+
+      assert {:., _, [{:__aliases__, _, [:Foo]}, :bar]} = zipper |> Z.node()
+    end
+
+    test "creates a zipper focused on a qualified call alias when the range covers the alias" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 «Foo».bar(1, 2, 3)
+               end
+               """)
+
+      assert {:__aliases__, _, [:Foo]} = zipper |> Z.node()
+    end
+
+    test "creates a zipper focused on the whole qualified call" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 «Foo.bar»(1, 2, 3)
+               end
+               """)
+
+      assert {:., _, [{:__aliases__, _, [:Foo]}, :bar]} = zipper |> Z.node()
+    end
+
+    test "creates a zipper on a qualified call suffix" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 «baz.bar»(1, 2, 3)
+               end
+               """)
+
+      assert {:., _, [{:baz, _, _}, :bar]} = zipper |> Z.node()
+    end
+
+    test "creates a zipper on the entire qualified call" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 «Foo.baz(1, 2, 3)»
+               end
+               """)
+
+      assert {{:., _, [{:__aliases__, _, [:Foo]}, :baz]}, _, [_, _, _]} =
+               zipper |> Z.node()
+    end
+
+    test "creates a zipper on an operand of a binary operator" do
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 1 + «2»
+               end
+               """)
+
+      assert {:__block__, _, [2]} = zipper |> Z.node()
+
+      assert {:ok, zipper} =
+               zipper_at_range("""
+               def foo do
+                 «1» + 2
+               end
+               """)
+
+      assert {:__block__, _, [1]} = zipper |> Z.node()
+    end
   end
 end

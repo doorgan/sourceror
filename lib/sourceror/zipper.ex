@@ -105,51 +105,6 @@ defmodule Sourceror.Zipper do
     end
   end
 
-  @doc """
-  Creates a `zipper` from a tree `node` focused at the innermost descendant contained by `range`.
-
-  Returns `{:ok, zipper}` if `node` is within `range`, else `:error`.
-
-  Modifying `node` prior to using `within_range/2` is not recommended as added or
-  changed descendants may not contain accurate position metadata used to
-  find the focus.
-  """
-  @spec within_range(Macro.t(), Sourceror.Range.t()) :: {:ok, t} | :error
-  def within_range(node, %Sourceror.Range{} = range) do
-    {_, {candidate, _}} =
-      node
-      |> zip()
-      |> traverse({nil, nil}, fn zipper, {candidate, candidate_range} ->
-        node = node(zipper)
-
-        node_range = Sourceror.get_range(node)
-
-        case candidate do
-          nil ->
-            if node_within?(node, range) do
-              {zipper, {zipper, node_range}}
-            else
-              {zipper, {candidate, candidate_range}}
-            end
-
-          _ ->
-            if node_within?(node, range) and node_within?(node, candidate_range) do
-              {zipper, {zipper, node_range}}
-            else
-              {zipper, {candidate, candidate_range}}
-            end
-        end
-      end)
-
-    case candidate do
-      nil ->
-        :error
-
-      zipper ->
-        {:ok, zipper}
-    end
-  end
-
   defp new_from_path([{node, [], []}]) do
     new(node)
   end
@@ -191,7 +146,84 @@ defmodule Sourceror.Zipper do
     end
   end
 
-  defp node_within?(node, range) do
+  defp node_contains?(node, position) do
+    case Sourceror.get_range(node) do
+      %Sourceror.Range{} = range ->
+        Sourceror.compare_positions(position, range.start) in [:gt, :eq] and
+          Sourceror.compare_positions(position, range.end) == :lt
+
+      nil ->
+        false
+    end
+  end
+
+  @doc """
+  Creates a `zipper` from a tree `node` focused at the innermost descendant contained by `range`.
+
+  Returns `{:ok, zipper}` if `node` is within `range`, else `:error`.
+
+  Modifying `node` prior to using `within_range/2` is not recommended as added or
+  changed descendants may not contain accurate position metadata used to
+  find the focus.
+  """
+  @spec within_range(Macro.t(), Sourceror.Range.t()) :: {:ok, t} | :error
+  def within_range(node, %Sourceror.Range{} = range) do
+    {_, {candidate, _}} =
+      node
+      |> zip()
+      |> traverse_while({nil, nil}, fn zipper, {candidate, candidate_range} ->
+        node = node(zipper)
+
+        node_range = Sourceror.get_range(node)
+
+        if node_range == range do
+          {:halt, zipper, {zipper, node_range}}
+        else
+          case candidate do
+            nil ->
+              if range_within?(range, node_range) do
+                {:cont, zipper, {zipper, node_range}}
+              else
+                {:skip, zipper, {candidate, candidate_range}}
+              end
+
+            _ ->
+              if node_within?(node, range) and range_within?(node_range, candidate_range) do
+                {:cont, zipper, {zipper, node_range}}
+              else
+                {:cont, zipper, {candidate, candidate_range}}
+              end
+          end
+        end
+      end)
+
+    case candidate do
+      nil ->
+        :error
+
+      zipper ->
+        {:ok, zipper}
+    end
+  end
+
+  defp range_within?(range_1, range_2) do
+    Sourceror.compare_positions(range_1.start, range_2.start) in [:gt, :eq] and
+      Sourceror.compare_positions(range_1.end, range_2.end) in [:lt, :eq]
+  end
+
+  defp node_within?({:., _, _} = node, range) do
+    case Sourceror.get_range(node) do
+      %Sourceror.Range{} = node_range ->
+        Sourceror.compare_positions(range.start, node_range.start) in [:gt, :eq] and
+          Sourceror.compare_positions(node_range.end, range.end) in [:lt, :eq]
+
+      nil ->
+        false
+    end
+  end
+
+  defp node_within?({call, _, args} = node, range)
+       when is_list(args) and call not in [:__block__, :__aliases__] do
     case Sourceror.get_range(node) do
       %Sourceror.Range{} = node_range ->
         Sourceror.compare_positions(node_range.start, range.start) in [:gt, :eq] and
@@ -202,11 +234,55 @@ defmodule Sourceror.Zipper do
     end
   end
 
-  defp node_contains?(node, position) do
+  defp node_within?({:__aliases__, _, segments} = node, range)
+       when is_list(segments) do
     case Sourceror.get_range(node) do
-      %Sourceror.Range{} = range ->
-        Sourceror.compare_positions(position, range.start) in [:gt, :eq] and
-          Sourceror.compare_positions(position, range.end) == :lt
+      %Sourceror.Range{} = node_range ->
+        start_matches? = Sourceror.compare_positions(node_range.start, range.start) == :eq
+        end_matches? = Sourceror.compare_positions(range.end, node_range.end) == :eq
+
+        # We want to consider the case where there is a dot after the alias too, but
+        # not cases where the range end goes beyond that
+        potentially_end_matches? =
+          Sourceror.compare_positions(
+            range.end,
+            Keyword.update!(node_range.end, :column, &(&1 + 1))
+          ) == :eq
+
+        start_matches? and (end_matches? or potentially_end_matches?)
+
+      nil ->
+        false
+    end
+  end
+
+  defp node_within?({identifier, _, ctx} = node, range)
+       when is_atom(identifier) and is_atom(ctx) do
+    case Sourceror.get_range(node) do
+      %Sourceror.Range{} = node_range ->
+        start_matches? = Sourceror.compare_positions(node_range.start, range.start) == :eq
+        end_matches? = Sourceror.compare_positions(range.end, node_range.end) == :eq
+
+        # We want to consider the case where there is a dot after the identifier too, but
+        # not cases where the range end goes beyond that
+        potentially_end_matches? =
+          Sourceror.compare_positions(
+            range.end,
+            Keyword.update!(node_range.end, :column, &(&1 + 1))
+          ) == :eq
+
+        start_matches? and (end_matches? or potentially_end_matches?)
+
+      nil ->
+        false
+    end
+  end
+
+  defp node_within?(node, range) do
+    case Sourceror.get_range(node) do
+      %Sourceror.Range{} = node_range ->
+        Sourceror.compare_positions(node_range.start, range.start) in [:gt, :eq] and
+          Sourceror.compare_positions(node_range.end, range.end) in [:eq, :lt]
 
       nil ->
         false
