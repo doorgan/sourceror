@@ -2,7 +2,7 @@ defmodule SourcerorTest.ZipperTest do
   use ExUnit.Case, async: true
   doctest Sourceror.Zipper, import: true
 
-  import SourcerorTest.CursorSupport, only: [pop_cursor: 1]
+  import SourcerorTest.CursorSupport, only: [pop_cursor: 1, pop_range: 1]
 
   alias Sourceror.Zipper, as: Z
 
@@ -1229,6 +1229,189 @@ defmodule SourcerorTest.ZipperTest do
                def foo do
                  [1, 2, 3, 4, 5]
                end|
+               """)
+    end
+  end
+
+  describe "at_range/2" do
+    defp zipper_at_range(code_with_range) do
+      {range, code} = pop_range(code_with_range)
+      code |> Sourceror.parse_string!() |> Z.zip() |> Z.at_range(range)
+    end
+
+    test "creates a zipper focused on an inner literal equal to the given range" do
+      assert %{node: {:__block__, _, [2]}} =
+               zipper_at_range("""
+               def foo do
+                 [1, «2», 3, 4, 5]
+               end
+               """)
+    end
+
+    test "creates a zipper focused on the last container node if multiple siblings match" do
+      assert %{
+               node: [
+                 {:__block__, _, [1]},
+                 {:__block__, _, [2]},
+                 {:__block__, _, [3]},
+                 {:__block__, _, [4]},
+                 {:__block__, _, [5]}
+               ]
+             } =
+               zipper_at_range("""
+               def foo do
+                 [1, «2, 3», 4, 5]
+               end
+               """)
+    end
+
+    test "creates a zipper focused on the last container node even if range is not a real node" do
+      assert %{node: {:foo, _, [{:arg, _, nil}]}} =
+               zipper_at_range("""
+               def «foo»(arg) do
+                 arg
+               end
+               """)
+    end
+
+    test "creates a zipper focused on an alias segment" do
+      assert %{node: {:__aliases__, _, [:Baz]}} =
+               zipper_at_range("""
+               alias Foo.{Bar, «Baz»}
+               """)
+    end
+
+    test "creates a zipper focused on an alias group" do
+      assert %{
+               node:
+                 {{:., _, [{_, _, [:Foo]}, :{}]}, _,
+                  [
+                    {:__aliases__, _, [:Bar]},
+                    {:__aliases__, _, [:Baz]}
+                  ]}
+             } =
+               zipper_at_range("""
+               alias Foo.«{Bar, Baz}»
+               """)
+    end
+
+    test "creates a zipper focused on the whole alias" do
+      assert %{node: {:alias, _, _}} =
+               zipper_at_range("""
+               «alias» Foo.{Bar, Baz}
+               """)
+    end
+
+    test "creates a zipper focused on the last container node for a multiline range" do
+      assert %{node: {:fn, _, _}} =
+               zipper_at_range("""
+               Enum.map(filenames, fn «f ->
+                 f <> ".txt"
+               end»)
+               """)
+    end
+
+    test "creates a zipper focused on a function call name" do
+      assert %{node: {:bar, _, [_, _, _]}} =
+               zipper_at_range("""
+               def foo do
+                 «bar»(1, 2, 3)
+               end
+               """)
+    end
+
+    test "creates a zipper focused on a qualified call when the range covers the call name" do
+      assert %{node: {:., _, [{:__aliases__, _, [:Foo]}, :bar]}} =
+               zipper_at_range("""
+               def foo do
+                 Foo.«bar»(1, 2, 3)
+               end
+               """)
+    end
+
+    test "creates a zipper focused on a qualified call alias when the range covers the alias" do
+      assert %{node: {:__aliases__, _, [:Foo]}} =
+               zipper_at_range("""
+               def foo do
+                 «Foo».bar(1, 2, 3)
+               end
+               """)
+    end
+
+    test "creates a zipper focused on the whole qualified call" do
+      assert %{node: {:., _, [{:__aliases__, _, [:Foo]}, :bar]}} =
+               zipper_at_range("""
+               def foo do
+                 «Foo.bar»(1, 2, 3)
+               end
+               """)
+    end
+
+    test "creates a zipper focused on a qualified call suffix" do
+      assert %{node: {:., _, [{:baz, _, _}, :bar]}} =
+               zipper_at_range("""
+               def foo do
+                 «baz.bar»(1, 2, 3)
+               end
+               """)
+    end
+
+    test "creates a zipper focused on a map key usage" do
+      assert %{node: {{:., _, [{:baz, _, _}, :bar]}, _, []}} =
+               zipper_at_range("""
+               def foo do
+                 «baz.bar»
+               end
+               """)
+    end
+
+    test "creates a zipper focused on the entire qualified call" do
+      assert %{node: {{:., _, [{:__aliases__, _, [:Foo]}, :baz]}, _, [_, _, _]}} =
+               zipper_at_range("""
+               def foo do
+                 «Foo.baz(1, 2, 3)»
+               end
+               """)
+    end
+
+    test "creates a zipper focused on an operand of a binary operator" do
+      assert %{node: {:__block__, _, [2]}} =
+               zipper_at_range("""
+               def foo do
+                 1 + «2»
+               end
+               """)
+
+      assert %{node: {:__block__, _, [1]}} =
+               zipper_at_range("""
+               def foo do
+                 «1» + 2
+               end
+               """)
+    end
+
+    test "creates a zipper focused on the second function header" do
+      assert %{node: {:bar, _, nil}} =
+               zipper_at_range("""
+               defmodule Foo do
+                 def foo do
+                   1 + 2
+                 end
+
+                 def «bar» do
+                   1 + 2
+                 end
+               end
+               """)
+    end
+
+    test "returns nil if there is no node that contains the range" do
+      assert nil ==
+               zipper_at_range("""
+               def foo(arg) do
+                 arg
+               end
+               « »
                """)
     end
   end

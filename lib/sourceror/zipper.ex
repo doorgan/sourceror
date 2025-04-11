@@ -152,6 +152,59 @@ defmodule Sourceror.Zipper do
   end
 
   @doc """
+  Walks the `zipper` to the innermost node that contains the
+  `range` or to the first node that perfectly matches it.
+
+  Returns `nil` if the `range` is not contained in the `zipper`.
+
+  Modifying `zipper` prior to using `at_range/2` is not recommended as added or changed
+  descendants may not contain accurate position metadata used to find the focus.
+  """
+  @spec at_range(t, Sourceror.Range.t()) :: t | nil
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  def at_range(zipper, %Sourceror.Range{} = range) do
+    zipper
+    |> Z.traverse_while(nil, fn
+      %{node: node} = zipper, acc ->
+        node_range = Sourceror.get_range(node)
+
+        cond do
+          is_nil(node_range) ->
+            {:cont, zipper, acc}
+
+          # range ends before node start
+          # halting to avoid unnecessary traversals
+          Sourceror.compare_positions(range.end, node_range.start) == :lt ->
+            {:halt, zipper, acc}
+
+          # range starts after node end
+          # no need to traverse node's children
+          Sourceror.compare_positions(range.start, node_range.end) == :gt ->
+            {:skip, zipper, acc}
+
+          # range starts before node start
+          Sourceror.compare_positions(range.start, node_range.start) == :lt ->
+            {:cont, zipper, acc}
+
+          # range ends after node end
+          Sourceror.compare_positions(range.end, node_range.end) == :gt ->
+            {:cont, zipper, acc}
+
+          # range is the same as parent's so they are the "same"
+          # (you may comment this and take look at the broken test)
+          not is_nil(acc) and is_tuple(acc.node) and
+              Sourceror.get_range(acc.node) == node_range ->
+            {:cont, zipper, acc}
+
+          # range is inside node
+          true ->
+            {:cont, zipper, zipper}
+        end
+    end)
+    |> elem(1)
+  end
+
+  @doc """
   Walks the `zipper` to the top of the current subtree and returns that `zipper`.
   """
   @spec top(t) :: t
