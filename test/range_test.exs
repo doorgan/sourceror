@@ -1212,5 +1212,74 @@ defmodule SourcerorTest.RangeTest do
                """
                |> String.trim_trailing()
     end
+
+    # Previous to the introduction of `:parens` metadat in 1.18 it was
+    # impossible to accurately get this case due to missing metadata
+    if Version.match?(System.version(), ">= 1.18.0") do
+      test "block inside guard" do
+        code = ~S"""
+        defmodule Foo do
+          def foo(arg) when (arg.valid? == true) do
+            arg
+          end
+        end
+        """
+
+        quoted = Sourceror.parse_string!(code)
+
+        block =
+          quoted
+          |> Sourceror.Zipper.zip()
+          |> Sourceror.Zipper.search_pattern("(arg.valid? == true)")
+          |> Sourceror.Zipper.node()
+
+        assert %Sourceror.Range{} = range = Sourceror.Range.get_range(block)
+
+        assert decorate(code, range) ==
+                 ~S"""
+                 defmodule Foo do
+                   def foo(arg) when «(arg.valid? == true)» do
+                     arg
+                   end
+                 end
+                 """
+                 |> String.trim_trailing()
+      end
+    end
+
+    test "end pos of anonymous function" do
+      code = ~S"""
+                          fn
+        1 -> File.read!(arg1)
+        arg1 -> File.read!(arg1)
+      end
+      """
+
+      quoted = Sourceror.parse_string!(code)
+
+      fn_node =
+        quoted
+        |> Sourceror.Zipper.zip()
+        |> Sourceror.Zipper.search_pattern(~S"""
+        fn
+          1 -> File.read!(arg1)
+          arg1 -> File.read!(arg1)
+        end
+        """)
+        |> Sourceror.Zipper.node()
+
+      assert %Sourceror.Range{} = range = Sourceror.Range.get_range(fn_node)
+
+      assert range.end == [line: 4, column: 4]
+
+      assert decorate(code, range) ==
+               ~S"""
+                                   «fn
+                 1 -> File.read!(arg1)
+                 arg1 -> File.read!(arg1)
+               end»
+               """
+               |> String.trim_trailing()
+    end
   end
 end
