@@ -1390,6 +1390,21 @@ defmodule SourcerorTest.ZipperTest do
                """)
     end
 
+    test "creates a zipper focused on the second function header" do
+      assert %{node: {:bar, _, nil}} =
+               zipper_at_range("""
+               defmodule Foo do
+                 def foo do
+                   1 + 2
+                 end
+
+                 def «bar» do
+                   1 + 2
+                 end
+               end
+               """)
+    end
+
     test "returns nil if there is no node that contains the range" do
       assert nil ==
                zipper_at_range("""

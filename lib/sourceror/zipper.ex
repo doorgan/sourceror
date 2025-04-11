@@ -176,6 +176,11 @@ defmodule Sourceror.Zipper do
           Sourceror.compare_positions(range.end, node_range.start) == :lt ->
             {:halt, zipper, acc}
 
+          # range starts after node end
+          # no need to traverse node's children
+          Sourceror.compare_positions(range.start, node_range.end) == :gt ->
+            {:skip, zipper, acc}
+
           # range starts before node start
           Sourceror.compare_positions(range.start, node_range.start) == :lt ->
             {:cont, zipper, acc}
