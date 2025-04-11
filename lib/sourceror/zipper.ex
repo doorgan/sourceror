@@ -161,6 +161,7 @@ defmodule Sourceror.Zipper do
   descendants may not contain accurate position metadata used to find the focus.
   """
   @spec at_range(t, Sourceror.Range.t()) :: t | nil
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def at_range(zipper, %Sourceror.Range{} = range) do
     zipper
     |> Z.traverse_while(nil, fn
