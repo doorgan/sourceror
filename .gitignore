@@ -25,6 +25,8 @@ sourceror-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
+/benchmarks/output
+
 # Compiled parser.
 /src/*_parser.erl
 

@@ -65,6 +65,8 @@ defmodule Sourceror.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:benchee, "~> 1.3", only: [:dev], runtime: false},
+      {:benchee_html, "~> 1.0", only: :dev},
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.2", only: [:dev], runtime: false},
       {:ex_check, "~> 0.15.0", only: [:dev], runtime: false},
