@@ -1,4 +1,14 @@
 defmodule Sourceror.FastZipper do
+  @moduledoc """
+  High performance alternative to `Sourceror.Zipper`.
+
+  This implementation is experimental and may change in the future.
+  Use this module *only* if performance is a concern and the experimental
+  nature of this module is worth the performance savings.
+
+  This implementation is also NOT compatible with `Sourceror.Zipper`.
+  """
+
   import Kernel, except: [node: 1]
   import Sourceror.Identifier, only: [is_reserved_block_name: 1]
 
@@ -23,8 +33,7 @@ defmodule Sourceror.FastZipper do
 
   @type tree :: Macro.t()
 
-  @compile {:inline,
-            new: 1, new: 3, left: 1, right: 1, up: 1, down: 1, children: 1, branch?: 1}
+  @compile {:inline, new: 1, new: 3, left: 1, right: 1, up: 1, down: 1, children: 1, branch?: 1}
   defp new(node), do: zipper(node: node)
   defp new(node, nil, supertree), do: zipper(node: node, supertree: supertree)
 
@@ -639,11 +648,11 @@ defmodule Sourceror.FastZipper do
       ...>   |> Sourceror.parse_string!()
       ...>   |> zip()
       ...> found = search_pattern(zipper, "my_function(arg1, arg2)")
-      ...> {:my_function, _, [{:arg1, _, _}, {:arg2, _, _}]} = found.node
+      ...> {:my_function, _, [{:arg1, _, _}, {:arg2, _, _}]} = node(found)
       ...> found = search_pattern(zipper, "my_function(__, __)")
-      ...> {:my_function, _, [{:arg1, _, _}, {:arg2, _, _}]} = found.node
+      ...> {:my_function, _, [{:arg1, _, _}, {:arg2, _, _}]} = node(found)
       ...> found = search_pattern(zipper, "def my_function(__, __cursor__()), __")
-      ...> {:arg2, _, _} = found.node
+      ...> {:arg2, _, _} = node(found)
 
   """
   @spec search_pattern(t, String.t() | t) :: t | nil
@@ -695,7 +704,7 @@ defmodule Sourceror.FastZipper do
       ...>   end
       ...>   \"""
       iex> found = move_to_cursor(zipper, pattern)
-      iex> {:__block__, _, [10]} = found.node
+      iex> {:__block__, _, [10]} = node(found)
 
   """
   @spec move_to_cursor(t, String.t() | t) :: t | nil
@@ -883,7 +892,7 @@ defmodule Sourceror.FastZipper do
   """
   @spec supertree(t) :: t | nil
   def supertree(zipper(supertree: supertree) = zipper) when not is_nil(supertree) do
-    zipper |> top() |> into(zipper(:supertree))
+    zipper |> top() |> into(zipper(zipper, :supertree))
   end
 
   def supertree(zipper()), do: nil
@@ -896,6 +905,6 @@ defmodule Sourceror.FastZipper do
   """
   def within(zipper() = zipper, fun) when is_function(fun, 1) do
     updated = zipper |> subtree() |> fun.() |> top()
-    into(updated, updated.supertree || zipper)
+    into(updated, zipper(updated, :supertree) || zipper)
   end
 end
