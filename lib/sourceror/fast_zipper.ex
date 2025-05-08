@@ -7,6 +7,54 @@ defmodule Sourceror.FastZipper do
   nature of this module is worth the performance savings.
 
   This implementation is also NOT compatible with `Sourceror.Zipper`.
+
+  ## Usage
+
+  This implementation uses records instead of structs, so you should use
+  `zipper/1`, `zipper/2`, `path/1` and `path/2` to read, create or update
+  zippers and their paths:
+
+      # Zipper
+      %Zipper{node: 42}
+
+      # FastZipper
+      zipper(node: 42)
+
+      # Zipper
+      zipper.path
+
+      # FastZipper
+      zipper(zipper, :path)
+
+      # Zipper
+      %Zipper{zipper | node: 42}
+
+      # FastZipper
+      zipper(zipper, node: 42)
+
+
+      # Zipper
+      case zipper do
+        %Zipper{node: 42} ->
+          # do something
+
+        %Zipper{node: nil} ->
+          # do something else
+      end
+
+      # FastZipper
+      case zipper do
+        zipper(node: 42) ->
+          # do something
+
+        zipper(node: nil) ->
+      end
+
+      # Zipper
+      zipper.path.left
+
+      # FastZipper
+      zipper |> zipper(:path) |> path(:left)
   """
 
   import Kernel, except: [node: 1]
