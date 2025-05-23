@@ -17,9 +17,14 @@ Benchee.run(
       Macro.traverse(ast, nil, fn quoted, _ -> {quoted, nil} end, fn quoted, _ -> {quoted, nil} end)
     end,
 
-    "Sourceror.Zipper.traverse/2" => fn ast ->
-      zipper = Sourceror.Zipper.zip(ast)
-      Sourceror.Zipper.traverse(zipper, fn quoted -> quoted end)
+    "Styler.Zipper.traverse/2" => fn ast ->
+      zipper = Styler.Zipper.zip(ast)
+      Styler.Zipper.traverse(zipper, fn quoted -> quoted end)
+    end,
+
+    "Styler.FastZipper.traverse/2" => fn ast ->
+      zipper = Styler.FastZipper.zip(ast)
+      Styler.FastZipper.traverse(zipper, fn quoted -> quoted end)
     end,
 
     "Sourceror.FastZipper.traverse/2" => fn ast ->
