@@ -316,7 +316,7 @@ defmodule Sourceror.FastZipper do
   def left(zipper)
 
   def left(zipper(node: tree, path: path(left: [ltree | l], right: r) = path) = zipper),
-      do: zipper(zipper, node: ltree, path: path(path, left: l, right: [tree | r]))
+    do: zipper(zipper, node: ltree, path: path(path, left: l, right: [tree | r]))
 
   def left(_), do: nil
 
@@ -407,7 +407,6 @@ defmodule Sourceror.FastZipper do
       _ ->
         children = path(path, :right)
         zipper(node: parent, path: parent_path) = path(path, :parent)
-
 
         zipper(zipper, node: make_node(parent, children), path: parent_path)
     end
