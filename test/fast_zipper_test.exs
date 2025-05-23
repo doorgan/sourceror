@@ -75,19 +75,19 @@ defmodule SourcerorTest.FastZipperTest do
       assert Z.zip([1, 2]) |> Z.down() ==
                zipper(
                  node: 1,
-                 path: path(left: nil, right: [2], parent: zipper(node: [1, 2]))
+                 path: path(left: [], right: [2], parent: zipper(node: [1, 2]))
                )
 
       assert Z.zip({1, 2}) |> Z.down() ==
                zipper(
                  node: 1,
-                 path: path(left: nil, right: [2], parent: zipper(node: {1, 2}))
+                 path: path(left: [], right: [2], parent: zipper(node: {1, 2}))
                )
 
       assert Z.zip({:foo, [], [1, 2]}) |> Z.down() ==
                zipper(
                  node: 1,
-                 path: path(left: nil, right: [2], parent: zipper(node: {:foo, [], [1, 2]}))
+                 path: path(left: [], right: [2], parent: zipper(node: {:foo, [], [1, 2]}))
                )
 
       assert Z.zip({{:., [], [:a, :b]}, [], [1, 2]}) |> Z.down() ==
@@ -95,7 +95,7 @@ defmodule SourcerorTest.FastZipperTest do
                  node: {:., [], [:a, :b]},
                  path:
                    path(
-                     left: nil,
+                     left: [],
                      right: [1, 2],
                      parent: zipper(node: {{:., [], [:a, :b]}, [], [1, 2]})
                    )

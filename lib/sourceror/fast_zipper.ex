@@ -63,7 +63,7 @@ defmodule Sourceror.FastZipper do
   require Record
 
   Record.defrecord(:zipper, [:node, :path, :supertree])
-  Record.defrecord(:path, [:left, :parent, :right])
+  Record.defrecord(:path, [:parent, left: [], right: []])
 
   @type t ::
           record(:zipper,
@@ -74,19 +74,14 @@ defmodule Sourceror.FastZipper do
 
   @opaque path ::
             record(:path,
-              left: [tree] | nil,
+              left: [tree],
               parent: t,
-              right: [tree] | nil
+              right: [tree]
             )
 
   @type tree :: Macro.t()
 
-  @compile {:inline, new: 1, new: 3, left: 1, right: 1, up: 1, down: 1, children: 1, branch?: 1}
-  defp new(node), do: zipper(node: node)
-  defp new(node, nil, supertree), do: zipper(node: node, supertree: supertree)
-
-  defp new(node, path(left: _, parent: _, right: _) = path, supertree),
-    do: zipper(node: node, path: path, supertree: supertree)
+  @compile {:inline, left: 1, right: 1, up: 1, down: 1, children: 1, branch?: 1}
 
   @spec branch?(tree) :: boolean
   def branch?({_, _, args}) when is_list(args), do: true
@@ -120,7 +115,7 @@ defmodule Sourceror.FastZipper do
   Creates a `zipper` from a tree `node`.
   """
   @spec zip(tree) :: t
-  def zip(node), do: new(node)
+  def zip(node), do: zipper(node: node)
 
   @doc """
   Creates a `zipper` from a tree `node` focused at the innermost descendant containing `position`.
@@ -145,12 +140,12 @@ defmodule Sourceror.FastZipper do
   end
 
   defp new_from_path([{node, [], []}]) do
-    new(node)
+    zipper(node: node)
   end
 
   defp new_from_path([{node, left, right} | ancestors]) do
     path = path(left: left, right: right, parent: new_from_path(ancestors))
-    new(node, path, nil)
+    zipper(node: node, path: path)
   end
 
   defp fetch_path_to(node, position) do
@@ -286,12 +281,12 @@ defmodule Sourceror.FastZipper do
   """
   @spec down(t) :: t | nil
   @spec down(nil) :: nil
-  def down(zipper(node: tree, supertree: supertree) = zipper) do
+  def down(zipper(node: tree) = zipper) do
     case children(tree) do
       nil -> nil
       [] -> nil
-      [first] -> new(first, path(parent: zipper, left: nil, right: nil), supertree)
-      [first | rest] -> new(first, path(parent: zipper, left: nil, right: rest), supertree)
+      [first] -> zipper(zipper, node: first, path: path(parent: zipper))
+      [first | rest] -> zipper(zipper, node: first, path: path(parent: zipper, right: rest))
     end
   end
 
@@ -304,10 +299,10 @@ defmodule Sourceror.FastZipper do
   @spec up(t) :: t | nil
   def up(zipper(path: nil)), do: nil
 
-  def up(zipper(node: tree, path: path, supertree: supertree)) do
-    children = Enum.reverse(path(path, :left) || []) ++ [tree] ++ (path(path, :right) || [])
-    zipper(node: parent, path: parent_path) = path(path, :parent)
-    new(make_node(parent, children), parent_path, supertree)
+  def up(zipper(node: tree, path: path) = zipper) do
+    path(left: l, right: r, parent: zipper(node: parent, path: parent_path)) = path
+    children = Enum.reverse(l, [tree | r])
+    zipper(zipper, node: make_node(parent, children), path: parent_path)
   end
 
   @doc """
@@ -320,10 +315,8 @@ defmodule Sourceror.FastZipper do
   @spec left(nil) :: nil
   def left(zipper)
 
-  def left(
-        zipper(node: tree, path: path(left: [ltree | l], right: r) = path, supertree: supertree)
-      ),
-      do: new(ltree, path(path, left: l, right: [tree | r || []]), supertree)
+  def left(zipper(node: tree, path: path(left: [ltree | l], right: r) = path) = zipper),
+    do: zipper(zipper, node: ltree, path: path(path, left: l, right: [tree | r]))
 
   def left(_), do: nil
 
@@ -334,10 +327,9 @@ defmodule Sourceror.FastZipper do
   """
   @spec leftmost(t) :: t
   @spec leftmost(nil) :: nil
-  def leftmost(zipper(node: tree, path: path(left: [_ | _] = l) = path, supertree: supertree)) do
-    [left | rest] = Enum.reverse(l)
-    r = rest ++ [tree] ++ (path(path, :right) || [])
-    new(left, path(path, left: nil, right: r), supertree)
+  def leftmost(zipper(node: tree, path: path(left: [_ | _] = l, right: r) = path) = zipper) do
+    [left | r] = Enum.reverse(l, [tree | r])
+    zipper(zipper, node: left, path: path(path, right: r, left: []))
   end
 
   def leftmost(zipper() = zipper), do: zipper
@@ -353,8 +345,8 @@ defmodule Sourceror.FastZipper do
   @spec right(nil) :: nil
   def right(zipper)
 
-  def right(zipper(node: tree, path: path(right: [rtree | r]) = path, supertree: supertree)),
-    do: new(rtree, path(path, right: r, left: [tree | path(path, :left) || []]), supertree)
+  def right(zipper(node: tree, path: path(right: [rtree | r]) = path) = zipper),
+    do: zipper(zipper, node: rtree, path: path(path, right: r, left: [tree | path(path, :left)]))
 
   def right(_), do: nil
 
@@ -365,10 +357,9 @@ defmodule Sourceror.FastZipper do
   """
   @spec rightmost(t) :: t
   @spec rightmost(nil) :: nil
-  def rightmost(zipper(node: tree, path: path(right: [_ | _] = r) = path, supertree: supertree)) do
-    [right | rest] = Enum.reverse(r)
-    l = rest ++ [tree] ++ (path(path, :left) || [])
-    new(right, path(path, left: l, right: nil), supertree)
+  def rightmost(zipper(node: tree, path: path(right: [_ | _] = r, left: l) = path) = zipper) do
+    [right | l] = Enum.reverse(r, [tree | l])
+    zipper(zipper, node: right, path: path(path, left: l, right: []))
   end
 
   def rightmost(zipper() = zipper), do: zipper
@@ -399,13 +390,11 @@ defmodule Sourceror.FastZipper do
   def remove(zipper(path: nil)),
     do: raise(ArgumentError, message: "Cannot remove the top level node.")
 
-  def remove(zipper(path: path, supertree: supertree) = zipper) do
+  def remove(zipper(path: path) = zipper) do
     case path(path, :left) do
       [{:__block__, meta, [name]} = left | rest] when is_reserved_block_name(name) ->
         if meta[:format] == :keyword do
-          left
-          |> new(path(path, left: rest), supertree)
-          |> do_prev()
+          zipper |> zipper(node: left, path: path(path, left: rest)) |> do_prev()
         else
           zipper
           |> replace({:__block__, meta, []})
@@ -413,17 +402,13 @@ defmodule Sourceror.FastZipper do
         end
 
       [left | rest] ->
-        left
-        |> new(path(path, left: rest), supertree)
-        |> do_prev()
+        zipper |> zipper(node: left, path: path(path, left: rest)) |> do_prev()
 
       _ ->
-        children = path(path, :right) || []
+        children = path(path, :right)
         zipper(node: parent, path: parent_path) = path(path, :parent)
 
-        parent
-        |> make_node(children)
-        |> new(parent_path, supertree)
+        zipper(zipper, node: make_node(parent, children), path: parent_path)
     end
   end
 
@@ -438,8 +423,8 @@ defmodule Sourceror.FastZipper do
   def insert_left(zipper(path: nil), _),
     do: raise(ArgumentError, message: "Can't insert siblings at the top level.")
 
-  def insert_left(zipper(node: tree, path: path, supertree: supertree), child) do
-    new(tree, path(path, left: [child | path(path, :left) || []]), supertree)
+  def insert_left(zipper(path: path(left: left) = path) = zipper, child) do
+    zipper(zipper, path: path(path, left: [child | left]))
   end
 
   @doc """
@@ -453,18 +438,16 @@ defmodule Sourceror.FastZipper do
   def insert_right(zipper(path: nil), _),
     do: raise(ArgumentError, message: "Can't insert siblings at the top level.")
 
-  def insert_right(zipper(node: tree, path: path, supertree: supertree), child) do
-    new(tree, path(path, right: [child | path(path, :right) || []]), supertree)
+  def insert_right(zipper(path: path(right: right) = path) = zipper, child) do
+    zipper(zipper, path: path(path, right: [child | right]))
   end
 
   @doc """
   Inserts the `child` as the leftmost `child` of the `node` at this `zipper`,
   without moving.
   """
-  def insert_child(zipper(node: tree, path: path, supertree: supertree), child) do
-    tree
-    |> do_insert_child(child)
-    |> new(path, supertree)
+  def insert_child(zipper(node: tree) = zipper, child) do
+    zipper(zipper, node: do_insert_child(tree, child))
   end
 
   defp do_insert_child(list, child) when is_list(list), do: [child | list]
@@ -478,10 +461,8 @@ defmodule Sourceror.FastZipper do
   Inserts the `child` as the rightmost `child` of the `node` at this `zipper`,
   without moving.
   """
-  def append_child(zipper(node: tree, path: path, supertree: supertree), child) do
-    tree
-    |> do_append_child(child)
-    |> new(path, supertree)
+  def append_child(zipper(node: tree) = zipper, child) do
+    zipper(zipper, node: do_append_child(tree, child))
   end
 
   defp do_append_child(list, child) when is_list(list), do: list ++ [child]
