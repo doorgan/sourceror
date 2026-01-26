@@ -19,11 +19,15 @@ jobs:
           - elixir: "1.14.3"
             otp: "25.3.2"
           - elixir: "1.15.5"
-            otp: "26"
+            otp: "26.2.5"
           - elixir: "1.16.0"
-            otp: "26"
+            otp: "26.2.5"
           - elixir: "1.18.3"
-            otp: "27"
+            otp: "27.3.4"
+          - elixir: "1.19.1"
+            otp: "28.3.1"
+          - elixir: "1.19.5"
+            otp: "28.3.1"
             check_formatted: true
             run_credo: true
             run_coveralls: true

@@ -192,8 +192,7 @@ defmodule Sourceror.Range do
           get_range_for_pair(first, last)
 
         [charlist] when is_list(charlist) ->
-          string = List.to_string(charlist)
-          do_get_range({:__block__, meta, [string]})
+          get_range_for_charlist_block(charlist, meta)
 
         [] ->
           nil
@@ -467,6 +466,15 @@ defmodule Sourceror.Range do
 
   # Catch-all
   defp do_get_range(_), do: nil
+
+  defp get_range_for_charlist_block(charlist, meta) do
+    if charlist != [] and Enum.all?(charlist, &is_integer/1) do
+      string = List.to_string(charlist)
+      do_get_range({:__block__, meta, [string]})
+    else
+      get_range_for_pair(List.first(charlist), List.last(charlist))
+    end
+  end
 
   defp get_range_for_unqualified_call({_call, meta, args} = quoted) do
     if Sourceror.has_closing_line?(quoted) do

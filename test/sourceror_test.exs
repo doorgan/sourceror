@@ -552,17 +552,31 @@ defmodule SourcerorTest do
 
     test "with optional quoted_to_algebra" do
       quoted_to_algebra = fn _quoted, opts ->
+        import Inspect.Algebra
+
         assert is_function(opts[:quoted_to_algebra], 2)
         assert opts[:trailing_comma] == true
 
-        {:doc_group,
-         {:doc_group,
-          {:doc_cons,
-           {:doc_nest,
-            {:doc_cons, "[",
-             {:doc_cons, {:doc_break, "", :strict},
-              {:doc_force, {:doc_group, {:doc_cons, "1", ","}, :self}}}}, 2, :break},
-           {:doc_cons, {:doc_break, "", :strict}, "]"}}, :self}, :self}
+        group(
+          group(
+            concat(
+              nest(
+                concat(
+                  "[",
+                  concat(
+                    break(""),
+                    force_unfit(group(concat("1", ","), :self))
+                  )
+                ),
+                2,
+                :break
+              ),
+              concat(break(""), "]")
+            ),
+            :self
+          ),
+          :self
+        )
       end
 
       code = """

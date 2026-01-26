@@ -169,7 +169,7 @@ defmodule Sourceror do
 
     true ->
       defp maybe_apply_columns_fix(source, opts) do
-        {source, opts}
+        apply_indentation_fix(source, opts)
       end
   end
 
