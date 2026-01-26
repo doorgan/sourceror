@@ -296,6 +296,11 @@ defmodule SourcerorTest.RangeTest do
                |> String.trim_trailing()
     end
 
+    test "charlists with concatenation" do
+      code = ~S/['(L' ++ foo, '+', 'R' ++ bar, ')']/
+      assert decorate(code, to_range(code)) == "«['(L' ++ foo, '+', 'R' ++ bar, ')']»"
+    end
+
     test "charlists with interpolations" do
       code = ~S/'foo#{2}bar'/
       assert decorate(code, to_range(code)) == ~S/«'foo#{2}bar'»/
@@ -862,10 +867,10 @@ defmodule SourcerorTest.RangeTest do
       assert decorate(code, to_range(code)) == "«foo.bar.(\nbaz)»"
 
       code = ~S/foo.bar("baz#{2}qux")/
-      assert decorate(code, to_range(code)) == ~S"«foo.bar(\"baz#{2}qux\")»"
+      assert decorate(code, to_range(code)) == ~S<«foo.bar("baz#{2}qux")»>
 
       code = ~S/foo.bar("baz#{2}qux", [])/
-      assert decorate(code, to_range(code)) == ~S"«foo.bar(\"baz#{2}qux\", [])»"
+      assert decorate(code, to_range(code)) == ~S<«foo.bar("baz#{2}qux", [])»>
 
       code = ~S/foo."b-a-r"/
       assert decorate(code, to_range(code)) == "«foo.\"b-a-r\"»"
