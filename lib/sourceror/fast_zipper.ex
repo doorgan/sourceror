@@ -581,31 +581,65 @@ defmodule Sourceror.FastZipper do
   `node`.
 
   The traversing will continue if `fun` returns `{:cont, zipper}`, skipped for
-  `{:skip, zipper}` and halted for `{:halt, zipper}`. When the traversal is
-  finished, the `zipper` will be back where it began.
+  `{:skip, zipper}`, halted for `{:halt, zipper}`, and the current node removed
+  for `{:remove, zipper}`. When the traversal is finished, the `zipper` will be
+  back where it began unless the subtree root was removed.
+
+  Removing the subtree root halts traversal and removes that subtree from its
+  parent. If there is no parent, an `ArgumentError` is raised.
 
   If the `zipper` is not at the top, just the subtree will be traversed.
 
   The function must return a `zipper`.
   """
-  @spec traverse_while(t, (t -> {:cont, t} | {:halt, t} | {:skip, t})) :: t
+  @spec traverse_while(t, (t -> {:cont, t} | {:halt, t} | {:skip, t} | {:remove, t})) :: t
   def traverse_while(zipper, fun)
 
   def traverse_while(zipper() = zipper, fun) do
-    zipper |> subtree() |> do_traverse_while(fun) |> into(zipper)
+    case zipper |> subtree() |> do_traverse_while(fun) do
+      {:removed_root, nil} ->
+        raise(ArgumentError, message: "Cannot remove the top level node.")
+
+      {:removed_root, supertree} ->
+        remove(supertree)
+
+      zipper() = updated ->
+        into(updated, zipper)
+    end
   end
 
   defp do_traverse_while(zipper, fun) do
     case fun.(zipper) do
       {:cont, zipper} ->
-        if next = next(zipper), do: do_traverse_while(next, fun), else: top(zipper)
+        do_traverse_next(next(zipper), zipper, fun)
 
       {:skip, zipper} ->
-        if skipped = skip(zipper), do: do_traverse_while(skipped, fun), else: top(zipper)
+        do_traverse_next(skip(zipper), zipper, fun)
 
       {:halt, zipper} ->
         top(zipper)
+
+      {:remove, zipper} ->
+        do_traverse_remove(zipper, fun)
     end
+  end
+
+  defp do_traverse_next(nil, zipper, _fun), do: top(zipper)
+
+  defp do_traverse_next(zipper() = next, _zipper, fun) do
+    case do_traverse_while(next, fun) do
+      {:removed_root, _} = removed -> removed
+      zipper() = zipper -> zipper
+    end
+  end
+
+  defp do_traverse_remove(zipper(path: nil) = zipper, _fun) do
+    {:removed_root, nearest_supertree_with_path(zipper(zipper, :supertree))}
+  end
+
+  defp do_traverse_remove(zipper() = zipper, fun) do
+    zipper = remove(zipper)
+    do_traverse_next(next(zipper), zipper, fun)
   end
 
   @doc """
@@ -614,34 +648,75 @@ defmodule Sourceror.FastZipper do
   will be back where it began.
 
   The traversing will continue if `fun` returns `{:cont, zipper, acc}`, skipped
-  for `{:skip, zipper, acc}` and halted for `{:halt, zipper, acc}`
+  for `{:skip, zipper, acc}`, halted for `{:halt, zipper, acc}`, and the current
+  node removed for `{:remove, zipper, acc}`.
+
+  Removing the subtree root halts traversal and removes that subtree from its
+  parent. If there is no parent, an `ArgumentError` is raised.
 
   If the `zipper` is not at the top, just the subtree will be traversed.
   """
   @spec traverse_while(
           t,
           term,
-          (t, term -> {:cont, t, term} | {:halt, t, term} | {:skip, t, term})
+          (t, term ->
+             {:cont, t, term} | {:halt, t, term} | {:skip, t, term} | {:remove, t, term})
         ) :: {t, term}
   def traverse_while(zipper, acc, fun)
 
   def traverse_while(zipper() = zipper, acc, fun) do
-    {updated, acc} = zipper |> subtree() |> do_traverse_while(acc, fun)
-    {into(updated, zipper), acc}
+    case zipper |> subtree() |> do_traverse_while(acc, fun) do
+      {:removed_root, nil, _acc} ->
+        raise(ArgumentError, message: "Cannot remove the top level node.")
+
+      {:removed_root, supertree, acc} ->
+        {remove(supertree), acc}
+
+      {updated, acc} ->
+        {into(updated, zipper), acc}
+    end
   end
 
   defp do_traverse_while(zipper, acc, fun) do
     case fun.(zipper, acc) do
       {:cont, zipper, acc} ->
-        if next = next(zipper), do: do_traverse_while(next, acc, fun), else: {top(zipper), acc}
+        do_traverse_next(next(zipper), zipper, acc, fun)
 
       {:skip, zipper, acc} ->
-        if skip = skip(zipper), do: do_traverse_while(skip, acc, fun), else: {top(zipper), acc}
+        do_traverse_next(skip(zipper), zipper, acc, fun)
 
       {:halt, zipper, acc} ->
         {top(zipper), acc}
+
+      {:remove, zipper, acc} ->
+        do_traverse_remove(zipper, acc, fun)
     end
   end
+
+  defp do_traverse_next(nil, zipper, acc, _fun), do: {top(zipper), acc}
+
+  defp do_traverse_next(zipper() = next, _zipper, acc, fun) do
+    case do_traverse_while(next, acc, fun) do
+      {:removed_root, _supertree, _acc} = removed -> removed
+      {zipper, acc} -> {zipper, acc}
+    end
+  end
+
+  defp do_traverse_remove(zipper(path: nil) = zipper, acc, _fun) do
+    {:removed_root, nearest_supertree_with_path(zipper(zipper, :supertree)), acc}
+  end
+
+  defp do_traverse_remove(zipper() = zipper, acc, fun) do
+    zipper = remove(zipper)
+    do_traverse_next(next(zipper), zipper, acc, fun)
+  end
+
+  defp nearest_supertree_with_path(nil), do: nil
+
+  defp nearest_supertree_with_path(zipper(path: nil, supertree: supertree)),
+    do: nearest_supertree_with_path(supertree)
+
+  defp nearest_supertree_with_path(zipper() = supertree), do: supertree
 
   @compile {:inline, into: 2}
   defp into(zipper, nil), do: zipper
