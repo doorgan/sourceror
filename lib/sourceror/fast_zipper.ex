@@ -586,7 +586,9 @@ defmodule Sourceror.FastZipper do
   back where it began unless the subtree root was removed.
 
   Removing the subtree root halts traversal and removes that subtree from its
-  parent. If there is no parent, an `ArgumentError` is raised.
+  parent. If there is no parent, an `ArgumentError` is raised. When the subtree
+  root is the body of a reserved keyword block (such as `do` or `else`), the
+  body is replaced with an empty block to keep the AST valid.
 
   If the `zipper` is not at the top, just the subtree will be traversed.
 
@@ -601,7 +603,7 @@ defmodule Sourceror.FastZipper do
         raise(ArgumentError, message: "Cannot remove the top level node.")
 
       {:removed_root, supertree} ->
-        remove(supertree)
+        remove_subtree_root_from_supertree(supertree)
 
       zipper() = updated ->
         into(updated, zipper)
@@ -652,7 +654,9 @@ defmodule Sourceror.FastZipper do
   node removed for `{:remove, zipper, acc}`.
 
   Removing the subtree root halts traversal and removes that subtree from its
-  parent. If there is no parent, an `ArgumentError` is raised.
+  parent. If there is no parent, an `ArgumentError` is raised. When the subtree
+  root is the body of a reserved keyword block (such as `do` or `else`), the
+  body is replaced with an empty block to keep the AST valid.
 
   If the `zipper` is not at the top, just the subtree will be traversed.
   """
@@ -670,7 +674,7 @@ defmodule Sourceror.FastZipper do
         raise(ArgumentError, message: "Cannot remove the top level node.")
 
       {:removed_root, supertree, acc} ->
-        {remove(supertree), acc}
+        {remove_subtree_root_from_supertree(supertree), acc}
 
       {updated, acc} ->
         {into(updated, zipper), acc}
@@ -717,6 +721,21 @@ defmodule Sourceror.FastZipper do
     do: nearest_supertree_with_path(supertree)
 
   defp nearest_supertree_with_path(zipper() = supertree), do: supertree
+
+  defp remove_subtree_root_from_supertree(zipper(path: path) = zipper) when not is_nil(path) do
+    case path(path, :left) do
+      [{:__block__, meta, [name]} | _] when is_reserved_block_name(name) ->
+        if meta[:format] == :keyword do
+          empty_meta = Keyword.delete(meta, :format)
+          replace(zipper, {:__block__, empty_meta, []})
+        else
+          remove(zipper)
+        end
+
+      _ ->
+        remove(zipper)
+    end
+  end
 
   @compile {:inline, into: 2}
   defp into(zipper, nil), do: zipper

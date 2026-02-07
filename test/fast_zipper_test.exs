@@ -398,6 +398,30 @@ defmodule SourcerorTest.FastZipperTest do
       assert Z.root(updated) == [1, 4]
     end
 
+    test "removes a single-expression do body and keeps keyword block valid" do
+      code = """
+      defmodule M do
+        def my_fun do
+          :ok
+        end
+      end
+      """
+
+      updated =
+        code
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+        |> Z.find(&match?({:def, _, _}, &1))
+        |> Z.traverse_while(fn z -> {:remove, z} end)
+        |> Z.root()
+        |> Sourceror.to_string()
+
+      assert updated == """
+             defmodule M do
+             end\
+             """
+    end
+
     test "raises when removing the topmost root" do
       assert_raise ArgumentError, fn ->
         Z.traverse_while(Z.zip(42), fn z -> {:remove, z} end)
