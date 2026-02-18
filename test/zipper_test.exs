@@ -362,6 +362,60 @@ defmodule SourcerorTest.ZipperTest do
     test "traverses until end while always skip" do
       assert %Z{path: nil} = [1] |> Z.zip() |> Z.traverse_while(fn z -> {:skip, z} end)
     end
+
+    test "removes a node during traversal" do
+      updated =
+        Z.zip([1, 2, 3])
+        |> Z.traverse_while(fn
+          %Z{node: 2} = z -> {:remove, z}
+          z -> {:cont, z}
+        end)
+
+      assert Z.node(updated) == [1, 3]
+    end
+
+    test "removes the subtree root and returns the parent zipper" do
+      zipper =
+        Z.zip([1, [2, 3], 4])
+        |> Z.down()
+        |> Z.right()
+        |> Z.subtree()
+
+      updated = Z.traverse_while(zipper, fn z -> {:remove, z} end)
+
+      assert Z.node(updated) == 1
+      assert Z.root(updated) == [1, 4]
+    end
+
+    test "removes a single-expression do body and keeps keyword block valid" do
+      code = """
+      defmodule M do
+        def my_fun do
+          :ok
+        end
+      end
+      """
+
+      updated =
+        code
+        |> Sourceror.parse_string!()
+        |> Z.zip()
+        |> Z.find(&match?({:def, _, _}, &1))
+        |> Z.traverse_while(fn z -> {:remove, z} end)
+        |> Z.root()
+        |> Sourceror.to_string()
+
+      assert updated == """
+             defmodule M do
+             end\
+             """
+    end
+
+    test "raises when removing the topmost root" do
+      assert_raise ArgumentError, fn ->
+        Z.traverse_while(Z.zip(42), fn z -> {:remove, z} end)
+      end
+    end
   end
 
   describe "traverse_while/3" do
@@ -399,6 +453,36 @@ defmodule SourcerorTest.ZipperTest do
                |> Z.zip()
                |> Z.traverse_while(nil, fn z, acc -> {:skip, z, acc} end)
                |> elem(0)
+    end
+
+    test "removes a node during traversal" do
+      {updated, _acc} =
+        Z.zip([1, 2, 3])
+        |> Z.traverse_while(nil, fn
+          %Z{node: 2} = z, acc -> {:remove, z, acc}
+          z, acc -> {:cont, z, acc}
+        end)
+
+      assert Z.node(updated) == [1, 3]
+    end
+
+    test "removes the subtree root and returns the parent zipper" do
+      zipper =
+        Z.zip([1, [2, 3], 4])
+        |> Z.down()
+        |> Z.right()
+        |> Z.subtree()
+
+      {updated, _acc} = Z.traverse_while(zipper, nil, fn z, acc -> {:remove, z, acc} end)
+
+      assert Z.node(updated) == 1
+      assert Z.root(updated) == [1, 4]
+    end
+
+    test "raises when removing the topmost root" do
+      assert_raise ArgumentError, fn ->
+        Z.traverse_while(Z.zip(42), nil, fn z, acc -> {:remove, z, acc} end)
+      end
     end
   end
 
