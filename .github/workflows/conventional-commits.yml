@@ -1,0 +1,23 @@
+name: Conventional Commits
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  conventional-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: OneGlobe/actions-conventional-commits@v1
+        with:
+          allowed-commit-types: "build,chore,ci,docs,feat,fix,merge,perf,refactor,revert,style,test"
+          include-commits: "true"
+          allow-merge-commits: "false"
