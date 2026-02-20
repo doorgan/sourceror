@@ -1,0 +1,84 @@
+defmodule Sourceror.Code.FunctionTest do
+  use ExUnit.Case
+
+  describe "move_to_function_call_in_current_scope/4" do
+    test "works on its own" do
+      assert {:ok, zipper} =
+               """
+               x = 5
+               """
+               |> Sourceror.parse_string!()
+               |> Sourceror.Zipper.zip()
+               |> Sourceror.Code.Function.move_to_function_call_in_current_scope(:=, 2)
+
+      assert Sourceror.to_string(zipper.node) == "x = 5"
+    end
+
+    test "works on erlang modules calls" do
+      assert {:ok, zipper} =
+               """
+               hello
+               :logger.add_handler(1, 2, 3)
+               world
+               """
+               |> Sourceror.parse_string!()
+               |> Sourceror.Zipper.zip()
+               |> Sourceror.Code.Function.move_to_function_call_in_current_scope(
+                 {:logger, :add_handler},
+                 3
+               )
+
+      assert Sourceror.to_string(zipper.node) == ":logger.add_handler(1, 2, 3)"
+    end
+
+    test "works when composed inside of a block" do
+      assert {:ok, zipper} =
+               """
+               def thing do
+                x = 5
+
+                other_code
+               end
+               """
+               |> Sourceror.parse_string!()
+               |> Sourceror.Zipper.zip()
+               |> Sourceror.Code.Function.move_to_def(:thing, 0)
+
+      assert {:ok, zipper} =
+               Sourceror.Code.Function.move_to_function_call_in_current_scope(zipper, :=, 2)
+
+      assert Sourceror.to_string(zipper.node) == "x = 5"
+    end
+
+    test "can be used to move multiple times" do
+      assert {:ok, zipper} =
+               """
+               use Foo, [a: 1]
+               use Bar, [a: 2]
+               """
+               |> Sourceror.parse_string!()
+               |> Sourceror.Zipper.zip()
+               |> Sourceror.Code.Function.move_to_function_call_in_current_scope(:use, 2)
+
+      zipper = Sourceror.Zipper.right(zipper)
+
+      assert {:ok, zipper} =
+               Sourceror.Code.Function.move_to_function_call_in_current_scope(zipper, :use, 2)
+
+      assert Sourceror.to_string(zipper.node) == "use Bar, a: 2"
+    end
+  end
+
+  test "argument_equals?/3" do
+    zipper =
+      "config :key, Test"
+      |> Sourceror.parse_string!()
+      |> Sourceror.Zipper.zip()
+
+    assert Sourceror.Code.Function.argument_equals?(zipper, 0, :key) == true
+    assert Sourceror.Code.Function.argument_equals?(zipper, 0, Test) == false
+
+    assert Sourceror.Code.Function.argument_equals?(zipper, 1, :key) == false
+    assert Sourceror.Code.Function.argument_equals?(zipper, 1, Test) == true
+  end
+end
