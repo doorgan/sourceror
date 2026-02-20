@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/doorgan/sourceror/compare/v1.10.1...v1.11.0) (2026-02-20)
+
+
+### Features
+
+* allow removing root nodes in traverse_while ([#196](https://github.com/doorgan/sourceror/issues/196)) ([49f5c18](https://github.com/doorgan/sourceror/commit/49f5c1860c4ff0870cf9105d207f2a210e5ba71e))
+* port Igniter.Code functions ([#198](https://github.com/doorgan/sourceror/issues/198)) ([e3cc41d](https://github.com/doorgan/sourceror/commit/e3cc41d48eb3f6647f89c09391cdb8861023af67))
+
 ## v1.10.1 (2026-01-26)
 
 - [Sourceror] Fixed range calculation for charlists with concatenations.
