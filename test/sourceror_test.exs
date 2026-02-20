@@ -1011,6 +1011,107 @@ defmodule SourcerorTest do
                """
                |> String.trim()
     end
+
+    test "comments do not depend on line numbers" do
+      ast1 =
+        {:__block__, [],
+         [
+           {:import,
+            [
+              trailing_comments: [],
+              leading_comments: [],
+              end_of_expression: [newlines: 0, line: 0, column: 0],
+              line: 0,
+              column: 0
+            ],
+            [
+              {:__aliases__,
+               [
+                 trailing_comments: [],
+                 leading_comments: [],
+                 last: [line: 0, column: 0],
+                 line: 0,
+                 column: 0
+               ], [:Config]}
+            ]},
+           {:config,
+            [
+              leading_comments: [
+                %{
+                  line: 1,
+                  text: "#  Configures the foobar to",
+                  column: 0,
+                  next_eol_count: 0,
+                  previous_eol_count: 1
+                },
+                %{
+                  line: 1,
+                  text: "#  accomplish the barbaz",
+                  column: 0,
+                  next_eol_count: 0,
+                  previous_eol_count: 1
+                }
+              ],
+              trailing_comments: []
+              # line: 0 <- this is whats missing
+            ],
+            [
+              :foo,
+              :bar
+            ]}
+         ]}
+
+      ast2 =
+        {:__block__, [],
+         [
+           {:import,
+            [
+              trailing_comments: [],
+              leading_comments: [],
+              end_of_expression: [newlines: 0, line: 0, column: 0],
+              line: 0,
+              column: 0
+            ],
+            [
+              {:__aliases__,
+               [
+                 trailing_comments: [],
+                 leading_comments: [],
+                 last: [line: 0, column: 0],
+                 line: 0,
+                 column: 0
+               ], [:Config]}
+            ]},
+           {:config,
+            [
+              trailing_comments: [],
+              leading_comments: [
+                %{
+                  line: 0,
+                  text: "#  Configures the foobar to",
+                  column: 0,
+                  next_eol_count: 1,
+                  previous_eol_count: 1
+                },
+                %{
+                  line: 0,
+                  text: "#  accomplish the barbaz",
+                  column: 0,
+                  next_eol_count: 1,
+                  previous_eol_count: 1
+                }
+              ],
+              line: 0,
+              column: 0
+            ],
+            [
+              :foo,
+              :bar
+            ]}
+         ]}
+
+      assert Sourceror.to_string(ast1) == Sourceror.to_string(ast2)
+    end
   end
 
   describe "patch_string/2" do
