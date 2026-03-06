@@ -334,6 +334,127 @@ defmodule Sourceror.Zipper do
   def rightmost(nil), do: nil
 
   @doc """
+  Returns the zero-based child index path needed to reach `zipper` from `ancestor_zipper`.
+
+  This is useful with `follow_path/2` when a transform needs to remember the
+  position of a descendant, rewrite enclosing nodes, and then relocate that
+  same slot in the rewritten tree.
+
+  Paths identify position rather than shape, so equal-looking siblings can have
+  different paths.
+
+  Returns `[]` when both zippers point to the same location and `nil` when
+  `ancestor_zipper` is not an ancestor of `zipper`.
+
+  ## Examples
+
+      iex> if_zipper =
+      ...>   \"""
+      ...>   if flag do
+      ...>     target()
+      ...>     target()
+      ...>   end
+      ...>   \"""
+      ...>   |> Sourceror.parse_string!()
+      ...>   |> zip()
+      ...>   |> find(&match?({:if, _, _}, &1))
+      iex> [first, second] = find_all(if_zipper, fn node -> match?({:target, _, []}, node) end)
+      iex> first_path = path_to_ancestor(first, if_zipper)
+      iex> second_path = path_to_ancestor(second, if_zipper)
+      iex> first_path
+      [1, 0, 1, 0]
+      iex> second_path
+      [1, 0, 1, 1]
+      iex> first_path == second_path
+      false
+      iex> follow_path(if_zipper, first_path) |> Sourceror.Zipper.node() |> Sourceror.to_string()
+      "target()"
+      iex> follow_path(if_zipper, second_path) |> Sourceror.Zipper.node() |> Sourceror.to_string()
+      "target()"
+
+  """
+  @spec path_to_ancestor(t, t) :: [non_neg_integer()] | nil
+  def path_to_ancestor(%Z{} = zipper, %Z{} = ancestor_zipper) do
+    do_path_to_ancestor(zipper, ancestor_zipper, [])
+  end
+
+  @doc """
+  Follows a zero-based child index `path` from `zipper`.
+
+  This is typically paired with `path_to_ancestor/2`: save a descendant path,
+  rewrite an enclosing node, then follow that same path in the rewritten
+  ancestor.
+
+  This does not try to find an equal-looking node somewhere else in the tree,
+  so it avoids ambiguity when siblings are identical.
+
+  Paths are only meaningful while the route they describe still exists. If a
+  rewrite inserts, removes, or reorders children along that route, replaying an
+  old path may point somewhere else or become invalid.
+
+  Returns `nil` when the path is invalid in the current tree.
+
+  ## Examples
+
+      iex> if_zipper =
+      ...>   \"""
+      ...>   if flag do
+      ...>     target()
+      ...>     target()
+      ...>   end
+      ...>   \"""
+      ...>   |> Sourceror.parse_string!()
+      ...>   |> zip()
+      ...>   |> find(&match?({:if, _, _}, &1))
+      iex> second_target = find_all(if_zipper, fn node -> match?({:target, _, []}, node) end) |> Enum.at(1)
+      iex> path = path_to_ancestor(second_target, if_zipper)
+      iex> rewritten =
+      ...>   update(if_zipper, fn
+      ...>     {:if, meta, [condition, clauses]} ->
+      ...>       {:if, meta, [{:active?, [], [condition]}, clauses]}
+      ...>   end)
+      iex> rewritten
+      ...> |> follow_path(path)
+      ...> |> then(fn zipper -> replace(zipper, {:wrapped, [], [Sourceror.Zipper.node(zipper)]}) end)
+      ...> |> topmost_root()
+      ...> |> Sourceror.to_string()
+      "if active?(flag) do\\n  target()\\n  wrapped(target())\\nend"
+
+  """
+  @spec follow_path(t | nil, [non_neg_integer()]) :: t | nil
+  def follow_path(%Z{} = zipper, []), do: zipper
+
+  def follow_path(%Z{} = zipper, [index | rest]) do
+    zipper
+    |> follow_child(index)
+    |> follow_path(rest)
+  end
+
+  def follow_path(nil, _path), do: nil
+
+  defp do_path_to_ancestor(%Z{} = zipper, %Z{} = ancestor_zipper, acc)
+       when zipper == ancestor_zipper,
+       do: acc
+
+  defp do_path_to_ancestor(%Z{path: nil}, %Z{}, _acc), do: nil
+
+  defp do_path_to_ancestor(%Z{path: path} = zipper, %Z{} = ancestor_zipper, acc) do
+    do_path_to_ancestor(path.parent, ancestor_zipper, [child_index(zipper) | acc])
+  end
+
+  defp child_index(%Z{path: %{left: left}}), do: Enum.count(left || [])
+
+  defp follow_child(%Z{} = zipper, index) do
+    zipper
+    |> down()
+    |> move_right(index)
+  end
+
+  defp move_right(nil, _count), do: nil
+  defp move_right(%Z{} = zipper, 0), do: zipper
+  defp move_right(%Z{} = zipper, count), do: zipper |> right() |> move_right(count - 1)
+
+  @doc """
   Replaces the current `node` in the `zipper` with a new `node`.
   """
   @spec replace(t, tree) :: t

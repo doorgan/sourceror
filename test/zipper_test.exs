@@ -168,6 +168,67 @@ defmodule SourcerorTest.ZipperTest do
     end
   end
 
+  describe "path_to_ancestor/2 and follow_path/2" do
+    test "returns an empty path when both zippers point to the same location" do
+      zipper = Z.zip([1, [2, 3], 4]) |> Z.down() |> Z.right()
+
+      assert Z.path_to_ancestor(zipper, zipper) == []
+      assert Z.follow_path(zipper, []) == zipper
+    end
+
+    test "computes and replays a path from an ancestor" do
+      ancestor = Z.zip([1, [2, [3, 4]], 5])
+      zipper = ancestor |> Z.follow_path([1, 1, 0])
+
+      assert Z.node(zipper) == 3
+      assert Z.path_to_ancestor(zipper, ancestor) == [1, 1, 0]
+      assert Z.follow_path(ancestor, [1, 1, 0]) == zipper
+    end
+
+    test "returns nil for unrelated zippers" do
+      zipper = Z.zip([1, 2]) |> Z.down()
+      unrelated = Z.zip([:other])
+
+      assert Z.path_to_ancestor(zipper, unrelated) == nil
+    end
+
+    test "returns nil for invalid paths" do
+      assert Z.follow_path(Z.zip([1, 2]), [2]) == nil
+      assert Z.follow_path(Z.zip([1, 2]), [1, 0]) == nil
+    end
+
+    test "relocates the exact subtree position after rewriting ancestors" do
+      statement = Z.zip([[:dup, :dup], [:dup, :dup]]) |> Z.down() |> Z.right()
+      selected = statement |> Z.down() |> Z.right()
+      path = Z.path_to_ancestor(selected, statement)
+
+      rewritten_statement =
+        statement
+        |> Z.up()
+        |> Z.replace([:new, [:dup, :dup], [:dup, :dup]])
+        |> Z.down()
+        |> Z.right()
+        |> Z.right()
+
+      updated =
+        rewritten_statement
+        |> Z.follow_path(path)
+        |> Z.replace(:changed)
+        |> Z.topmost_root()
+
+      assert updated == [:new, [:dup, :dup], [:dup, :changed]]
+    end
+
+    test "stays within the current subtree when following a path" do
+      subtree = Z.zip([1, [2, 3], 4]) |> Z.down() |> Z.right() |> Z.subtree()
+      focused = Z.follow_path(subtree, [1])
+
+      assert Z.node(focused) == 3
+      assert Z.root(focused) == [2, 3]
+      assert Z.topmost_root(focused) == [1, [2, 3], 4]
+    end
+  end
+
   describe "next/1" do
     test "walks forward in depth-first pre-order" do
       zipper = Z.zip([1, [2, [3, 4]], 5])
