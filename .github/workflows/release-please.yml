@@ -11,9 +11,38 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: elixir
+      - name: Check out release tag
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag_name }}
+      - name: Set up Elixir
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26"
+          elixir-version: "1.15.0"
+      - name: Restore dependencies cache
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-26-1.15.0-release-deps-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-26-1.15.0-release-deps-${{ hashFiles('**/mix.lock') }}
+            ${{ runner.os }}-26-1.15.0-release-deps
+      - name: Fetch dependencies
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: mix deps.get
+      - name: Publish to Hex
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: mix hex.publish --yes
