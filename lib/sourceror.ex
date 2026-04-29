@@ -717,30 +717,26 @@ defmodule Sourceror do
   comparisons.
   """
   @spec compare_positions(position, position) :: :gt | :eq | :lt
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def compare_positions(left, right) do
-    left = coalesce_position(left)
-    right = coalesce_position(right)
+    left_line = left[:line] || 0
+    left_column = left[:column] || 0
+    right_line = right[:line] || 0
+    right_column = right[:column] || 0
 
     cond do
       left == right ->
         :eq
 
-      left[:line] > right[:line] ->
+      left_line > right_line ->
         :gt
 
-      left[:line] == right[:line] and left[:column] > right[:column] ->
+      left_line == right_line and left_column > right_column ->
         :gt
 
       true ->
         :lt
     end
-  end
-
-  defp coalesce_position(position) do
-    line = position[:line] || 0
-    column = position[:column] || 0
-
-    [line: line, column: column]
   end
 
   @doc """
