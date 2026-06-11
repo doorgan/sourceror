@@ -15,7 +15,6 @@ defmodule Sourceror.Code.Keyword do
   @moduledoc """
   Utilities for working with keyword.
   """
-  require Sourceror.Code.Common
   alias Sourceror.Code.Common
   alias Sourceror.Zipper
 
@@ -154,7 +153,6 @@ defmodule Sourceror.Code.Keyword do
       else
         {:new, zipper} -> {:ok, set_keyword_value!(zipper, value)}
         :error -> :error
-        {:ok, _} = other -> other
       end
     end)
   end
