@@ -32,6 +32,8 @@ jobs:
             run_credo: true
             run_coveralls: true
             run_dialyzer: true
+          - elixir: "1.20.1"
+            otp: "28.3.1"
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
