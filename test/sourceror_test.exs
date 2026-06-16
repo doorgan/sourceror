@@ -665,6 +665,10 @@ defmodule SourcerorTest do
       quoted = Sourceror.parse_string!("%{a: 1}")
       assert Sourceror.get_start_position(quoted) == [line: 1, column: 1]
     end
+
+    test "returns the default as a fallback" do
+      assert Sourceror.get_start_position(:erlang, line: 1, column: 2) == [line: 1, column: 2]
+    end
   end
 
   describe "get_end_position/2" do
