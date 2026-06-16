@@ -304,7 +304,9 @@ defmodule SourcerorTest do
 
   describe "parse_string!/2" do
     test "returns an empty block for an emtpy string" do
-      assert Sourceror.parse_string!("") == {:__block__, [], []}
+      # Elixir 1.20+ includes `:line`/`:column` metadata on empty blocks,
+      # so we match the AST shape instead of asserting exact equality.
+      assert {:__block__, _meta, []} = Sourceror.parse_string!("")
     end
 
     test "raises on invalid string" do
