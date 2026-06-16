@@ -616,6 +616,8 @@ defmodule Sourceror do
     Keyword.merge(default, position)
   end
 
+  def get_start_position(_, default), do: default
+
   @doc """
   Returns the end position of the quoted expression. It recursively checks for
   `end`, `closing` and `end_of_expression` positions. If none is found, the
