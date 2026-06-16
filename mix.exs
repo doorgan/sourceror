@@ -17,13 +17,35 @@ defmodule Sourceror.MixProject do
       docs: docs(),
       package: package(),
       dialyzer: dialyzer(),
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test
-      ]
+      test_coverage: [tool: ExCoveralls]
+    ]
+    |> maybe_add_preferred_cli_env()
+  end
+
+  # `:preferred_cli_env` in `def project` is deprecated since Elixir v1.19
+  # in favor of `def cli` with `:preferred_envs`. `def cli` is available
+  # from Elixir v1.14 onwards, so on v1.12/v1.13 we still set the legacy
+  # option in `def project` to avoid breaking the build.
+  defp maybe_add_preferred_cli_env(project) do
+    if Version.match?(System.version(), "< 1.14.0") do
+      Keyword.put(project, :preferred_cli_env, preferred_envs())
+    else
+      project
+    end
+  end
+
+  if Version.match?(System.version(), ">= 1.14.0") do
+    def cli do
+      [preferred_envs: preferred_envs()]
+    end
+  end
+
+  defp preferred_envs do
+    [
+      coveralls: :test,
+      "coveralls.detail": :test,
+      "coveralls.post": :test,
+      "coveralls.html": :test
     ]
   end
 

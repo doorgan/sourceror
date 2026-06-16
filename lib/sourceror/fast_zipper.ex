@@ -859,8 +859,6 @@ defmodule Sourceror.FastZipper do
   end
 
   @compile {:inline, into: 2}
-  defp into(zipper, nil), do: zipper
-
   defp into(zipper(path: nil) = zipper, zipper(path: path, supertree: supertree)),
     do: zipper(zipper, path: path, supertree: supertree)
 
