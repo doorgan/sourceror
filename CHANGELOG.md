@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1](https://github.com/doorgan/sourceror/compare/v1.12.0...v1.12.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* clear all sourceror compilation warnings ([#208](https://github.com/doorgan/sourceror/issues/208)) ([f5bcdf9](https://github.com/doorgan/sourceror/commit/f5bcdf9a0d6fb38bf3735f40fead7f046dfc4b37))
+
+
+### Performance Improvements
+
+* make compare_positions extract metadata once ([#206](https://github.com/doorgan/sourceror/issues/206)) ([7014665](https://github.com/doorgan/sourceror/commit/7014665d95310a02802d694d6771e470444126c0))
+
 ## [1.12.0](https://github.com/doorgan/sourceror/compare/v1.11.0...v1.12.0) (2026-03-06)
 
 
