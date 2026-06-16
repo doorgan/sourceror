@@ -2,7 +2,7 @@ defmodule Sourceror.MixProject do
   use Mix.Project
 
   @repo_url "https://github.com/doorgan/sourceror"
-  @version "1.12.1"
+  @version "1.12.2"
 
   def project do
     [
