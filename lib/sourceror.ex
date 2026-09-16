@@ -127,7 +127,7 @@ defmodule Sourceror do
 
     {source, opts} = maybe_apply_columns_fix(source, opts)
 
-    with {:ok, quoted, comments} <- string_to_quoted(source, opts ++ to_quoted_opts()) do
+    with {:ok, quoted, comments} <- string_to_quoted(source, opts ++ to_quoted_opts(source, opts)) do
       {:ok, Sourceror.Comments.merge_comments(quoted, comments)}
     end
   end
@@ -141,7 +141,7 @@ defmodule Sourceror do
 
     {source, opts} = maybe_apply_columns_fix(source, opts)
 
-    {quoted, comments} = string_to_quoted!(source, opts ++ to_quoted_opts())
+    {quoted, comments} = string_to_quoted!(source, opts ++ to_quoted_opts(source, opts))
     Sourceror.Comments.merge_comments(quoted, comments)
   end
 
@@ -186,15 +186,50 @@ defmodule Sourceror do
     end
   end
 
-  defp to_quoted_opts do
+  defp to_quoted_opts(source, opts) do
     [
-      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
+      literal_encoder: literal_encoder(source, opts),
       token_metadata: true,
       unescape: false,
       columns: true,
       warn_on_unnecessary_quotes: false,
       emit_warnings: false
     ]
+  end
+
+  if Version.match?(System.version(), "< 1.18.0") do
+    # Older parsers omit :format for colon-prefixed literal atoms.
+    defp literal_encoder(source, opts) do
+      lines = source |> String.split("\n") |> List.to_tuple()
+      start_line = Keyword.get(opts, :line, 1)
+      start_column = Keyword.get(opts, :column, 1)
+
+      fn literal, meta ->
+        meta =
+          if literal in [true, false, nil] && is_nil(meta[:format]) && is_nil(meta[:delimiter]) do
+            literal_atom_metadata(meta, lines, start_line, start_column)
+          else
+            meta
+          end
+
+        {:ok, {:__block__, meta, [literal]}}
+      end
+    end
+
+    defp literal_atom_metadata(meta, lines, start_line, start_column) do
+      line = elem(lines, meta[:line] - start_line)
+      column_offset = if meta[:line] == start_line, do: start_column, else: 1
+
+      if String.at(line, meta[:column] - column_offset) == ":" do
+        Keyword.put(meta, :format, :atom)
+      else
+        meta
+      end
+    end
+  else
+    defp literal_encoder(_source, _opts) do
+      &{:ok, {:__block__, &2, [&1]}}
+    end
   end
 
   @doc """
