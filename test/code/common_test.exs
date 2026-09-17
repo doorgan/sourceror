@@ -1,8 +1,9 @@
 defmodule Sourceror.Code.CommonTest do
   alias Sourceror.Code.Common
+  alias Sourceror.Code.Function
   alias Sourceror.Zipper
   use ExUnit.Case
-  require Sourceror.Code.Function
+  require Function
   import ExUnit.CaptureLog
   doctest Sourceror.Code.Common
 
@@ -14,7 +15,7 @@ defmodule Sourceror.Code.CommonTest do
                """
                |> Sourceror.parse_string!()
                |> Sourceror.Zipper.zip()
-               |> Sourceror.Code.Common.move_to_last(&match?({:=, _, [{:bar, _, _}, _]}, &1.node))
+               |> Common.move_to_last(&match?({:=, _, [{:bar, _, _}, _]}, &1.node))
     end
 
     test "move to the last matching node" do
@@ -27,7 +28,7 @@ defmodule Sourceror.Code.CommonTest do
                """
                |> Sourceror.parse_string!()
                |> Sourceror.Zipper.zip()
-               |> Sourceror.Code.Common.move_to_last(&match?({:=, _, [{:foo, _, _}, _]}, &1.node))
+               |> Common.move_to_last(&match?({:=, _, [{:foo, _, _}, _]}, &1.node))
 
       assert Sourceror.to_string(zipper.node) == "foo = 2"
     end
@@ -45,7 +46,7 @@ defmodule Sourceror.Code.CommonTest do
       |> Sourceror.Zipper.zip()
       |> Sourceror.Zipper.down()
       |> Sourceror.Zipper.down()
-      |> Sourceror.Code.Common.within(fn zipper ->
+      |> Common.within(fn zipper ->
         send(self(), {:zipper, Sourceror.Zipper.topmost(zipper)})
 
         {:ok, zipper}
@@ -83,7 +84,7 @@ defmodule Sourceror.Code.CommonTest do
                """
                |> Sourceror.parse_string!()
                |> Sourceror.Zipper.zip()
-               |> Sourceror.Code.Common.move_to_cursor_match_in_scope(pattern)
+               |> Common.move_to_cursor_match_in_scope(pattern)
 
       assert Sourceror.to_string(zipper.node) == "12"
     end
@@ -102,7 +103,7 @@ defmodule Sourceror.Code.CommonTest do
         capture_log(fn ->
           result =
             zipper
-            |> Sourceror.Code.Common.add_code("bar = 2", :after)
+            |> Common.add_code("bar = 2", :after)
             |> Sourceror.Zipper.topmost_root()
             |> Sourceror.to_string()
 
@@ -127,20 +128,20 @@ defmodule Sourceror.Code.CommonTest do
         |> Sourceror.Zipper.zip()
 
       with {:ok, zipper} <- Sourceror.Code.Module.move_to_defmodule(zipper),
-           {:ok, zipper} <- Sourceror.Code.Common.move_to_do_block(zipper),
+           {:ok, zipper} <- Common.move_to_do_block(zipper),
            {:ok, zipper} <-
-             Sourceror.Code.Function.move_to_function_call_in_current_scope(zipper, :if, 2),
-           {:ok, zipper} <- Sourceror.Code.Common.move_to_do_block(zipper),
+             Function.move_to_function_call_in_current_scope(zipper, :if, 2),
+           {:ok, zipper} <- Common.move_to_do_block(zipper),
            {:ok, zipper} <-
-             Sourceror.Code.Function.move_to_function_call(zipper, :=, 2, fn call ->
-               Sourceror.Code.Function.argument_matches_pattern?(
+             Function.move_to_function_call(zipper, :=, 2, fn call ->
+               Function.argument_matches_pattern?(
                  call,
                  0,
                  {:url, _, ctx} when is_atom(ctx)
                )
              end) do
         assert zipper
-               |> Sourceror.Code.Common.add_code("config :app, Foo, url: url")
+               |> Common.add_code("config :app, Foo, url: url")
                |> Sourceror.Zipper.topmost_root()
                |> Sourceror.to_string() ==
                  String.trim_trailing("""
@@ -178,11 +179,11 @@ defmodule Sourceror.Code.CommonTest do
         |> Zipper.zip()
 
       zipper =
-        Sourceror.Code.Common.remove_all_matches(
+        Common.remove_all_matches(
           zipper,
           fn z ->
-            Sourceror.Code.Function.function_call?(z, :attribute, 2) &&
-              Sourceror.Code.Function.argument_equals?(z, 1, :villain)
+            Function.function_call?(z, :attribute, 2) &&
+              Function.argument_equals?(z, 1, :villain)
           end
         )
 
@@ -217,11 +218,11 @@ defmodule Sourceror.Code.CommonTest do
         |> Zipper.zip()
 
       {:ok, zipper} =
-        Sourceror.Code.Common.update_all_matches(
+        Common.update_all_matches(
           zipper,
           fn z ->
-            Sourceror.Code.Function.function_call?(z, :attribute, 2) &&
-              Sourceror.Code.Function.argument_equals?(z, 1, :villain)
+            Function.function_call?(z, :attribute, 2) &&
+              Function.argument_equals?(z, 1, :villain)
           end,
           fn zipper ->
             {:ok,
@@ -265,14 +266,14 @@ defmodule Sourceror.Code.CommonTest do
         |> Zipper.zip()
 
       {:ok, zipper} =
-        Sourceror.Code.Common.update_all_matches(
+        Common.update_all_matches(
           zipper,
           fn z ->
-            Sourceror.Code.Function.function_call?(z, :filters, 1)
+            Function.function_call?(z, :filters, 1)
           end,
           fn zipper ->
             {:ok,
-             Sourceror.Code.Common.replace_code(
+             Common.replace_code(
                zipper,
                quote do
                  filter(:status)
@@ -441,12 +442,12 @@ defmodule Sourceror.Code.CommonTest do
         """
         |> Sourceror.parse_string!()
         |> Zipper.zip()
-        |> Sourceror.Code.Function.move_to_def(:upwards_test, 0)
+        |> Function.move_to_def(:upwards_test, 0)
 
       assert {:ok, %Zipper{node: {:defmodule, _, _}}} =
                Common.move_upwards(
                  zipper,
-                 &Sourceror.Code.Function.function_call?(&1, :defmodule)
+                 &Function.function_call?(&1, :defmodule)
                )
     end
 
@@ -461,7 +462,7 @@ defmodule Sourceror.Code.CommonTest do
         """
         |> Sourceror.parse_string!()
         |> Zipper.zip()
-        |> Sourceror.Code.Function.move_to_def(:upwards_test, 0)
+        |> Function.move_to_def(:upwards_test, 0)
 
       assert Common.move_upwards(zipper, fn _ -> false end) == :error
     end
@@ -477,7 +478,7 @@ defmodule Sourceror.Code.CommonTest do
         """
         |> Sourceror.parse_string!()
         |> Zipper.zip()
-        |> Sourceror.Code.Function.move_to_function_call(:def, 2)
+        |> Function.move_to_function_call(:def, 2)
 
       assert {:ok, %Zipper{node: {:defmodule, _, _}}} = Common.move_upwards(zipper, 4)
     end
@@ -493,7 +494,7 @@ defmodule Sourceror.Code.CommonTest do
         """
         |> Sourceror.parse_string!()
         |> Zipper.zip()
-        |> Sourceror.Code.Function.move_to_function_call(:def, 2)
+        |> Function.move_to_function_call(:def, 2)
 
       assert Common.move_upwards(zipper, 5) == :error
     end
@@ -668,9 +669,9 @@ defmodule Sourceror.Code.CommonTest do
         """
         |> Sourceror.parse_string!()
         |> Sourceror.Zipper.zip()
-        |> Sourceror.Code.Function.move_to_def(:foo, 0)
+        |> Function.move_to_def(:foo, 0)
 
-      zipper = zipper |> Zipper.down() |> Sourceror.Code.Common.rightmost()
+      zipper = zipper |> Zipper.down() |> Common.rightmost()
 
       assert Sourceror.to_string(zipper.node) == "[a: 1, b: 2]"
     end
@@ -688,9 +689,9 @@ defmodule Sourceror.Code.CommonTest do
         """
         |> Sourceror.parse_string!()
         |> Sourceror.Zipper.zip()
-        |> Sourceror.Code.Function.move_to_def(:foo, 0)
+        |> Function.move_to_def(:foo, 0)
 
-      zipper = zipper |> Zipper.down() |> Sourceror.Code.Common.rightmost()
+      zipper = zipper |> Zipper.down() |> Common.rightmost()
 
       assert Sourceror.to_string(zipper.node) == "[a: 1, b: 2]"
     end

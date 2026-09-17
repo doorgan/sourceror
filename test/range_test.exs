@@ -408,6 +408,49 @@ defmodule SourcerorTest.RangeTest do
                |> String.trim_trailing()
     end
 
+    test "bare literals end immediately after the token" do
+      for {code, end_column} <- [{"true", 5}, {"false", 6}, {"nil", 4}] do
+        assert %Sourceror.Range{start: [line: 1, column: 1], end: [line: 1, column: ^end_column]} =
+                 to_range(code)
+
+        source = "[#{code}, :next]"
+        {:__block__, _, [[literal, _]]} = Sourceror.parse_string!(source)
+        assert decorate(source, Sourceror.get_range(literal)) == "[«#{code}», :next]"
+      end
+    end
+
+    test "literal atoms retain their colon and quotes" do
+      for code <- [":true", ":false", ":nil", ~S(:"true"), ~S(:"false"), ~S(:"nil")] do
+        end_column = String.length(code) + 1
+
+        assert %Sourceror.Range{start: [line: 1, column: 1], end: [line: 1, column: ^end_column]} =
+                 to_range(code)
+      end
+    end
+
+    test "literal ranges respect parser position options" do
+      for code <- ["true", "false", "nil", ":true", ":false", ":nil"],
+          parse <- [&Sourceror.parse_string/2, &Sourceror.parse_string!/2],
+          {source, lines} <- [
+            {"[#{code}, #{code}]", [5, 5]},
+            {"[\n  #{code},\n  #{code}\n]", [6, 7]}
+          ] do
+        quoted =
+          case parse.(source, line: 5, column: 3) do
+            {:ok, quoted} -> quoted
+            quoted -> quoted
+          end
+
+        {:__block__, _, [literals]} = quoted
+
+        for {literal, line} <- Enum.zip(literals, lines) do
+          range = Sourceror.get_range(literal)
+          assert range.start[:line] == line
+          assert range.end == [line: line, column: range.start[:column] + String.length(code)]
+        end
+      end
+    end
+
     test "atoms with interpolations" do
       code = ~S/:"foo#{2}bar"/
       assert decorate(code, to_range(code)) == ~S/«:"foo#{2}bar"»/
@@ -983,6 +1026,34 @@ defmodule SourcerorTest.RangeTest do
       assert decorate(code, to_range(code)) == "«@   foo»"
     end
 
+    for delimiter <- [~S("""), "'''"] do
+      test "documentation #{delimiter} ends immediately after the closing delimiter" do
+        delimiter = unquote(delimiter)
+
+        for indentation <- ["", "  "] do
+          code = "@doc #{delimiter}\n#{indentation}This is a doc\n#{indentation}#{delimiter}"
+          end_column = String.length(indentation) + 4
+
+          assert %Sourceror.Range{
+                   start: [line: 1, column: 1],
+                   end: [line: 3, column: ^end_column]
+                 } =
+                   to_range(code)
+
+          assert decorate(code <> " # next", to_range(code)) == "«#{code}» # next"
+        end
+      end
+    end
+
+    test "multiline unary operators use the argument endpoint" do
+      for op <- ["!", "not", "-"] do
+        code = "#{op} foo(\n  bar\n)"
+
+        assert %Sourceror.Range{start: [line: 1, column: 1], end: [line: 3, column: 2]} =
+                 to_range(code)
+      end
+    end
+
     test "binary operators" do
       code = ~S/1 + 1/
       assert decorate(code, to_range(code)) == "«1 + 1»"
@@ -1081,6 +1152,29 @@ defmodule SourcerorTest.RangeTest do
                """»
                '''
                |> String.trim_trailing()
+    end
+
+    test "heredoc sigils use closing indentation and include modifiers" do
+      for delimiter <- [~S("""), "'''"],
+          {sigil, content} <- [{"S", "This is a doc"}, {"s", ~S(This is #{a} doc)}],
+          indentation <- ["", "  "],
+          modifiers <- ["", "ab"] do
+        text =
+          "~#{sigil}#{delimiter}\n#{indentation}#{content}\n#{indentation}#{delimiter}#{modifiers}"
+
+        code = "@doc " <> text
+        {:@, _, [{:doc, _, [quoted_sigil]}]} = quoted = Sourceror.parse_string!(code)
+        end_column = String.length(indentation) + 4 + String.length(modifiers)
+
+        assert %Sourceror.Range{start: [line: 1, column: 6], end: [line: 3, column: ^end_column]} =
+                 Sourceror.get_range(quoted_sigil)
+
+        assert %Sourceror.Range{start: [line: 1, column: 1], end: [line: 3, column: ^end_column]} =
+                 Sourceror.get_range(quoted)
+
+        assert decorate(code <> " # next", Sourceror.get_range(quoted_sigil)) ==
+                 "@doc «#{text}» # next"
+      end
     end
 
     test "sigils with interpolations" do

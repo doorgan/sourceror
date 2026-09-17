@@ -1,6 +1,8 @@
 defmodule Sourceror.Code.KeywordTest do
   use ExUnit.Case
 
+  alias Sourceror.Code.Function
+
   test "remove_keyword_key removes the key" do
     assert "[a: 1]" ==
              "[a: 1, b: 1]"
@@ -29,7 +31,7 @@ defmodule Sourceror.Code.KeywordTest do
              "foo bar, a: 1, b: 1"
              |> Sourceror.parse_string!()
              |> Sourceror.Zipper.zip()
-             |> Sourceror.Code.Function.move_to_nth_argument(1)
+             |> Function.move_to_nth_argument(1)
              |> elem(1)
              |> Sourceror.Code.Keyword.remove_keyword_key(:b)
              |> elem(1)

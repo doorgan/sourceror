@@ -2,6 +2,8 @@ defmodule Sourceror.Range do
   @moduledoc """
   Represents a start/end position in a source file as `:line` and `:column`
   keyword lists.
+
+  Lines and columns start at one. The end position is immediately after the selected text.
   """
   import Sourceror.Identifier, only: [is_unary_op: 1, is_binary_op: 1]
   import Sourceror.Utils.TypedStruct
@@ -165,6 +167,9 @@ defmodule Sourceror.Range do
         end_line == meta[:line] && meta[:delimiter] ->
           # Column and first delimiter
           end_column + 2
+
+        atom in [true, false, nil] && is_nil(meta[:format]) ->
+          end_column
 
         end_line == meta[:line] ->
           # Just the colon
@@ -355,16 +360,6 @@ defmodule Sourceror.Range do
   defp do_get_range({op, meta, [arg]}) when is_unary_op(op) do
     with %{end: end_pos} <- get_range(arg) do
       start_pos = Keyword.take(meta, [:line, :column])
-
-      end_column =
-        if end_pos[:line] == meta[:line] do
-          end_pos[:column]
-        else
-          end_pos[:column] + String.length(to_string(op))
-        end
-
-      end_pos = [line: end_pos[:line], column: end_column]
-
       new(start_pos, end_pos)
     end
   end
@@ -414,37 +409,35 @@ defmodule Sourceror.Range do
   end
 
   # Sigils
-  defp do_get_range({sigil, meta, [{:<<>>, _, segments}, modifiers]} = quoted)
+  defp do_get_range({sigil, meta, [{:<<>>, bitstring_meta, segments}, modifiers]} = quoted)
        when is_list(modifiers) do
     case Atom.to_string(sigil) do
       <<"sigil_", _name>> ->
         # Congratulations, it's a sigil!
         start_pos = Keyword.take(meta, [:line, :column])
 
-        end_pos =
-          get_end_pos_for_interpolation_segments(segments, meta[:delimiter], start_pos)
-          |> Keyword.update!(:column, &(&1 + length(modifiers)))
+        end_pos = get_end_pos_for_interpolation_segments(segments, meta[:delimiter], start_pos)
+        interpolated? = has_interpolations?(segments)
+        heredoc_line_offset = if interpolated?, do: 0, else: 1
 
         end_pos =
           cond do
-            multiline_delimiter?(meta[:delimiter]) and !has_interpolations?(segments) ->
-              # If it has no interpolations and is a multiline sigil, then the first
-              # line will be incorrectly reported because the first string in the
-              # segments(which is the only one) won't have a leading newline, so
-              # we're compensating for that here. The end column will be at the same
-              # indentation as the start column, plus the length of the multiline
-              # delimiter
-              [line: end_pos[:line] + 1, column: start_pos[:column] + 3]
+            multiline_delimiter?(meta[:delimiter]) ->
+              # Without interpolation metadata, account for the omitted initial newline.
+              end_column =
+                (bitstring_meta[:indentation] || 0) + String.length(meta[:delimiter]) + 1
 
-            multiline_delimiter?(meta[:delimiter]) or has_interpolations?(segments) ->
-              # If it's a multiline sigil or has interpolations, then the positions
-              # will already be correctly calculated
+              [line: end_pos[:line] + heredoc_line_offset, column: end_column]
+
+            interpolated? ->
               end_pos
 
             true ->
               # If it's a single line sigil, add the offset for the ~x
               Keyword.update!(end_pos, :column, &(&1 + 2))
           end
+
+        end_pos = Keyword.update!(end_pos, :column, &(&1 + length(modifiers)))
 
         new(start_pos, end_pos)
 
