@@ -475,7 +475,7 @@ defmodule Sourceror.Code.Function do
     function?(zipper, :any_named, arity) or function?(zipper, :anonymous, arity)
   end
 
-  def function(%Zipper{} = zipper, :any_named, arity) do
+  def function?(%Zipper{} = zipper, :any_named, arity) do
     node =
       zipper
       |> Common.maybe_move_to_single_child_block()
@@ -537,7 +537,7 @@ defmodule Sourceror.Code.Function do
              _,
              {{:., _, [{:__aliases__, _, _split}, name]}, _, args}
            ]}
-          when is_atom(name) or (arity == :any or length(args) == arity - 1) ->
+          when is_atom(name) and (arity == :any or length(args) == arity - 1) ->
             true
 
           {:|>, _,

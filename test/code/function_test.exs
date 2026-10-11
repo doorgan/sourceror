@@ -83,4 +83,48 @@ defmodule Sourceror.Code.FunctionTest do
     assert Function.argument_equals?(zipper, 1, :key) == false
     assert Function.argument_equals?(zipper, 1, Test) == true
   end
+
+  describe "function?/3 with :any_named" do
+    test "matches named function captures" do
+      assert Function.function?(zipper("&foo/1"), :any_named, 1)
+      assert Function.function?(zipper("&Foo.bar/2"), :any_named, 2)
+      assert Function.function?(zipper("&Foo.bar(&1, &2)"), :any_named, 2)
+
+      refute Function.function?(zipper("&Foo.bar/2"), :any_named, 1)
+    end
+
+    test "does not match anonymous functions" do
+      refute Function.function?(zipper("fn x -> x end"), :any_named, 1)
+    end
+  end
+
+  describe "function?/3 with :any" do
+    test "matches named function captures" do
+      assert Function.function?(zipper("&foo/1"), :any, 1)
+      assert Function.function?(zipper("&Foo.bar/2"), :any)
+    end
+
+    test "falls back to anonymous functions" do
+      assert Function.function?(zipper("fn x -> x end"), :any, 1)
+      assert Function.function?(zipper("&(&1 + &2)"), :any, 2)
+    end
+
+    test "does not match non functions" do
+      refute Function.function?(zipper("foo(1)"), :any)
+    end
+  end
+
+  describe "function?/3 with piped remote calls" do
+    test "only matches the expected arity" do
+      assert Function.function?(zipper("&(&1 |> Foo.bar(2))"), :any_named, 2)
+      refute Function.function?(zipper("&(&1 |> Foo.bar(2))"), :any_named, 3)
+      refute Function.function?(zipper("&(&1 |> Foo.bar(2))"), :any_named, 5)
+    end
+  end
+
+  defp zipper(code) do
+    code
+    |> Sourceror.parse_string!()
+    |> Sourceror.Zipper.zip()
+  end
 end
