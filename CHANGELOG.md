@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.4](https://github.com/doorgan/sourceror/compare/v1.12.3...v1.12.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* function?/3 missing clause ([#215](https://github.com/doorgan/sourceror/issues/215)) ([7c1736b](https://github.com/doorgan/sourceror/commit/7c1736b0e32b4a3c91008e9ddd539f461fc0574c))
+
 ## [1.12.3](https://github.com/doorgan/sourceror/compare/v1.12.2...v1.12.3) (2026-09-17)
 
 
