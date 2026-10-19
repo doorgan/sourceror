@@ -1057,7 +1057,7 @@ defmodule Sourceror.Zipper do
     do_find_all(zipper, move(direction), predicate, [])
   end
 
-  def find_all(nil, _direction, _predicate), do: nil
+  def find_all(nil, _direction, _predicate), do: []
 
   defp do_find_all(nil, _move, _predicate, buffer), do: Enum.reverse(buffer)
 
