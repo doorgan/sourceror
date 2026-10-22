@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0](https://github.com/doorgan/sourceror/compare/v1.12.4...v1.13.0) (2026-10-22)
+
+
+### Bug Fixes
+
+* return [] from find_all/3 when given nil ([#217](https://github.com/doorgan/sourceror/issues/217)) ([a8b334a](https://github.com/doorgan/sourceror/commit/a8b334a5e88af011f2186837cf410958ff41049d))
+
+
+### Performance Improvements
+
+* don't walk the children of closed nodes in get_end_position/2 ([#219](https://github.com/doorgan/sourceror/issues/219)) ([168ab54](https://github.com/doorgan/sourceror/commit/168ab546e0ed77b112782495e832f2e27d65955f))
+
+
+### Miscellaneous Chores
+
+* release 1.13.0 ([#220](https://github.com/doorgan/sourceror/issues/220)) ([220e877](https://github.com/doorgan/sourceror/commit/220e877f41bd73c34c06fb7d8e19587423627e89))
+
 ## [1.12.4](https://github.com/doorgan/sourceror/compare/v1.12.3...v1.12.4) (2026-10-11)
 
 
