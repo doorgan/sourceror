@@ -723,6 +723,19 @@ defmodule SourcerorTest do
       assert Sourceror.get_end_position(without_parens) == [line: 2, column: 5]
       assert Sourceror.get_end_position(nested) == [line: 3, column: 9]
     end
+
+    test "ends every node where a walk over all of its nodes does" do
+      sources = Path.wildcard("lib/**/*.ex") ++ Path.wildcard("test/corpus/**/*.ex")
+      defaults = [[line: 1, column: 1], [line: -1, column: -1], [line: 100_000, column: 1]]
+
+      for path <- sources,
+          {:ok, quoted} <- [path |> File.read!() |> Sourceror.parse_string()],
+          node <- nodes(quoted),
+          default <- defaults do
+        assert Sourceror.get_end_position(node, default) == walked_end_position(node, default),
+               "#{path}: #{inspect(node, limit: 8)}"
+      end
+    end
   end
 
   describe "compare_positions/2" do
@@ -1376,5 +1389,56 @@ defmodule SourcerorTest do
                [{:world, {}, nil}, [{{:__block__, {}, [:do]}, {:__block__, {}, [:ok]}}]]
              }
     end
+  end
+
+  defp nodes(quoted) do
+    {_, nodes} =
+      Macro.prewalk(quoted, [], fn
+        {_, _} = node, nodes -> {node, [node | nodes]}
+        {_, _, _} = node, nodes -> {node, [node | nodes]}
+        node, nodes -> {node, nodes}
+      end)
+
+    [quoted | nodes]
+  end
+
+  # The end position as found by visiting every node.
+  defp walked_end_position(quoted, default) do
+    {_, position} =
+      Macro.postwalk(quoted, default, fn
+        {_, meta, _} = quoted, end_position ->
+          node_end_position = walked_node_end_position(meta, default)
+
+          if Sourceror.compare_positions(end_position, node_end_position) == :gt,
+            do: {quoted, end_position},
+            else: {quoted, node_end_position}
+
+        terminal, end_position ->
+          {terminal, end_position}
+      end)
+
+    position
+  end
+
+  defp walked_node_end_position(meta, default) do
+    start_position = [
+      line: meta[:line] || default[:line],
+      column: meta[:column] || default[:column]
+    ]
+
+    meta
+    |> Keyword.take([:end, :closing, :end_of_expression])
+    |> Keyword.values()
+    |> Enum.map(&end_field_position/1)
+    |> Enum.concat([start_position])
+    |> Enum.max_by(& &1, &(Sourceror.compare_positions(&1, &2) == :gt), fn -> default end)
+  end
+
+  defp end_field_position(end_field) do
+    position = Keyword.take(end_field, [:line, :column])
+
+    if Keyword.has_key?(end_field, :newlines),
+      do: Keyword.update(position, :column, nil, &(&1 - 1)),
+      else: position
   end
 end

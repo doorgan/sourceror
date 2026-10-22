@@ -690,59 +690,73 @@ defmodule Sourceror do
   """
   @spec get_end_position(Macro.t(), position) :: position
   def get_end_position(quoted, default \\ [line: 1, column: 1]) do
-    {_, position} =
-      Macro.postwalk(quoted, default, fn
-        {_, _, _} = quoted, end_position ->
-          current_end_position = get_node_end_position(quoted, default)
-
-          end_position =
-            if compare_positions(end_position, current_end_position) == :gt do
-              end_position
-            else
-              current_end_position
-            end
-
-          {quoted, end_position}
-
-        terminal, end_position ->
-          {terminal, end_position}
-      end)
-
+    {_key, position} = end_position(quoted, {position_key(default), default}, default)
     position
   end
 
-  defp get_node_end_position(quoted, default) do
-    meta = get_meta(quoted)
+  # Finds the latest end of the nodes in post order, as `Macro.postwalk/3`
+  # would visit them, with ties going to the node found later. A node with an
+  # `end` or `closing` token ends after everything under it, so its children
+  # are only walked when they could end later: when the default, which nodes
+  # without a position end at, comes after the node's end.
+  defp end_position({form, meta, args}, acc, default) when is_list(meta) do
+    {key, _} = node_end = node_end_position(meta, default)
 
+    if closed?(meta) and position_key(default) <= key do
+      later_position(acc, node_end)
+    else
+      acc = if is_atom(form), do: acc, else: end_position(form, acc, default)
+      acc = if is_list(args), do: end_position(args, acc, default), else: acc
+      later_position(acc, node_end)
+    end
+  end
+
+  defp end_position({left, right}, acc, default) do
+    end_position(right, end_position(left, acc, default), default)
+  end
+
+  defp end_position(list, acc, default) when is_list(list) do
+    Enum.reduce(list, acc, &end_position(&1, &2, default))
+  end
+
+  defp end_position(_terminal, acc, _default), do: acc
+
+  defp closed?(meta), do: Keyword.has_key?(meta, :end) or Keyword.has_key?(meta, :closing)
+
+  defp node_end_position(meta, default) do
     start_position = [
       line: meta[:line] || default[:line],
       column: meta[:column] || default[:column]
     ]
 
-    get_meta(quoted)
-    |> Keyword.take(@end_fields)
-    |> Keyword.values()
-    |> Enum.map(fn end_field ->
-      position = Keyword.take(end_field, [:line, :column])
+    meta
+    |> Enum.reduce(nil, fn
+      {field, end_field}, latest when field in @end_fields ->
+        position = Keyword.take(end_field, [:line, :column])
 
-      # If the node contains newlines, a newline is included in the
-      # column count. We subtract it so that the column represents the
-      # last non-whitespace character.
-      if Keyword.has_key?(end_field, :newlines) do
-        Keyword.update(position, :column, nil, &(&1 - 1))
-      else
-        position
-      end
+        # If the node contains newlines, a newline is included in the
+        # column count. We subtract it so that the column represents the
+        # last non-whitespace character.
+        position =
+          if Keyword.has_key?(end_field, :newlines) do
+            Keyword.update(position, :column, nil, &(&1 - 1))
+          else
+            position
+          end
+
+        later_position(latest, {position_key(position), position})
+
+      _, latest ->
+        latest
     end)
-    |> Enum.concat([start_position])
-    |> Enum.max_by(
-      & &1,
-      fn prev, next ->
-        compare_positions(prev, next) == :gt
-      end,
-      fn -> default end
-    )
+    |> later_position({position_key(start_position), start_position})
   end
+
+  defp later_position(nil, candidate), do: candidate
+  defp later_position({key, _} = current, {other_key, _}) when key > other_key, do: current
+  defp later_position(_current, candidate), do: candidate
+
+  defp position_key(position), do: {position[:line] || 0, position[:column] || 0}
 
   @doc """
   Compares two positions.
